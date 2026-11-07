@@ -86,6 +86,38 @@ async def main():
     assert p["queued"]["status"] == "pending"
     print(f"propose_update: coffee fact back in the queue ({p['queued']['update_reason'][:30]}...)")
 
+    # ---- actions server (T2.6): propose -> gate -> approve -> run ----
+    actions = "http://127.0.0.1:8103/mcp"
+
+    plan = await call(actions, "plan_actions", {"resident": "marcus", "goal": "bowling Saturday"})
+    assert plan["status"] == "proposed" and plan["total_cost"] == 15.0
+    assert len(plan["online_steps"]) == 3 and len(plan["staff_tasks"]) == 1
+    print(f"plan_actions: {len(plan['online_steps'])} online + {len(plan['staff_tasks'])} staff, "
+          f"${plan['total_cost']} — status={plan['status']}")
+
+    gate = await call(actions, "book_activity",
+                      {"resident": "marcus", "activity": "sneaky", "time": "now",
+                       "plan_id": plan["plan_id"]})
+    assert gate.get("refused"), "unapproved plan must refuse to run"
+    print("approval gate: tool refused to run on an unapproved plan OK")
+
+    run = await call(actions, "approve_plan", {"resident": "marcus", "plan_id": plan["plan_id"]})
+    assert run["status"] == "done" and len(run["results"]) == 4
+    print("approved & ran:")
+    for r in run["results"]:
+        print(f"   - {r['step']}: {r['result']}")
+
+    act = await call(actions, "get_activity", {"resident": "marcus"})
+    assert any("Booked" in i["text"] for i in act["items"])
+    print(f"activity log: {len(act['items'])} items incl. the booking")
+
+    plan2 = await call(actions, "plan_actions", {"resident": "marcus", "goal": "movie night"})
+    cancelled = await call(actions, "cancel_plan", {"resident": "marcus", "plan_id": plan2["plan_id"]})
+    assert cancelled["status"] == "cancelled"
+    late = await call(actions, "cancel_plan", {"resident": "marcus", "plan_id": plan["plan_id"]})
+    assert late.get("refused"), "done plan can't be cancelled"
+    print("cancel window: proposed plan cancelled OK, already-run plan refused OK")
+
     print("\nALL MCP SMOKE TESTS PASSED")
 
 

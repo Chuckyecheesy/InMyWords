@@ -92,6 +92,25 @@ async def confirm_memory(resident, memory_id, confirmed):
                        {"resident": resident, "memory": memory_id, "confirmed": confirmed})
 
 
+# ---- actions server ----
+
+async def plan_actions(resident, goal):
+    return await _call("actions", "plan_actions", {"resident": resident, "goal": goal})
+
+async def approve_plan(resident, plan_id):
+    return await _call("actions", "approve_plan", {"resident": resident, "plan_id": plan_id})
+
+async def cancel_plan(resident, plan_id):
+    return await _call("actions", "cancel_plan", {"resident": resident, "plan_id": plan_id})
+
+async def create_staff_task(resident, task, time=""):
+    return await _call("actions", "create_staff_task",
+                       {"resident": resident, "task": task, "time": time})
+
+async def get_activity(resident):
+    return await _call("actions", "get_activity", {"resident": resident})
+
+
 # ---- emh server (mock) ----
 
 async def get_contact_notes(resident, since=""):

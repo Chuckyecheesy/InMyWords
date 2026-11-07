@@ -21,6 +21,9 @@ venv/
 .mypy_cache/
 *.egg-info/
 
+# Seed-mode shared runtime state (bookings etc. before the real DB exists)
+db/seed/.runtime.json
+
 # Generated audio cache (regenerate, don't commit)
 audio-cache/
 *.mp3

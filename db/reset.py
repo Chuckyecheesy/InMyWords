@@ -41,9 +41,14 @@ def read_json(name):
 
 def main():
     load_env()
+    runtime = HERE / "seed" / ".runtime.json"
+    if runtime.exists():
+        runtime.unlink()
+        print("Cleared seed-mode runtime state (bookings, plans, staff tasks).")
     url = os.environ.get("DATABASE_URL")
     if not url:
-        sys.exit("DATABASE_URL is not set (env var or .env at repo root).")
+        sys.exit("DATABASE_URL is not set (env var or .env at repo root). "
+                 "Seed-mode runtime was still cleared.")
 
     schema = (HERE / "schema.sql").read_text(encoding="utf-8")
     core = read_json("core.json")

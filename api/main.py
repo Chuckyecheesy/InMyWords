@@ -241,15 +241,24 @@ async def decide_choice(choice_id: int, body: DecideBody):
 # ---------- Actions ----------
 
 @app.post("/actions/plan")
-def plan_actions(body: ActionPlanBody):
-    return mocks.ACTION_PLAN
+async def plan_actions(body: ActionPlanBody):
+    result, live = await _mcp(mcp_client.plan_actions(body.resident_id, body.goal), None)
+    return result if live else mocks.ACTION_PLAN
 
 
 @app.post("/actions/{plan_id}/approve")
-def approve_actions(plan_id: int):
-    # Real version: refuses unless plan status is 'approved' by the resident,
-    # runs allowlisted tools only, logs to action_results.
-    return mocks.ACTION_RESULTS
+async def approve_actions(plan_id: int, resident_id: str = "marcus"):
+    # The gate lives in the actions server: only 'proposed' plans belonging
+    # to this resident can be approved; steps run from the allowlist only
+    # and every result is logged to action_results.
+    result, live = await _mcp(mcp_client.approve_plan(resident_id, plan_id), None)
+    return result if live else mocks.ACTION_RESULTS
+
+
+@app.post("/actions/{plan_id}/cancel")
+async def cancel_actions(plan_id: int, resident_id: str = "marcus"):
+    result, live = await _mcp(mcp_client.cancel_plan(resident_id, plan_id), None)
+    return result if live else {"plan_id": plan_id, "status": "cancelled"}
 
 
 # ---------- Memory ----------
@@ -279,7 +288,10 @@ def handoff(staff_id: str, resident_id: str):
 
 
 @app.get("/activity/{resident_id}")
-def activity(resident_id: str):
+async def activity(resident_id: str):
+    result, live = await _mcp(mcp_client.get_activity(resident_id), None)
+    if live:
+        return {"items": result["items"]}
     return mocks.ACTIVITY.get(resident_id, {"items": []})
 
 
