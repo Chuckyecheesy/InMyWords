@@ -4,6 +4,19 @@
 
 Four Python FastMCP servers over **streamable HTTP**, so both our backend and Claude Desktop (stretch demo) can connect to the same servers. All agent data access goes through these — never direct DB access from agents.
 
+## Status & running
+
+| Server | Status | Run |
+|---|---|---|
+| profile (`profile_server.py`, :8101) | ✅ built, 8 tools | `cd mcp && python profile_server.py` |
+| emh (`emh_server.py`, :8104) | ✅ built, 3 tools | `cd mcp && python emh_server.py` |
+| memory (:8102) | ⬜ T2.5 | — |
+| actions (:8103) | ⬜ T2.6 | — |
+
+`pip install -r requirements.txt` first. Smoke test (servers running): `python test_servers.py`.
+
+Data layer: `store.py` uses **Postgres when `DATABASE_URL` is set**, otherwise falls back to the **seed JSON in `db/seed/`** (writes are in-memory only in seed mode). The backend reaches these servers through `api/services/mcp_client.py` and falls back to mock JSON when a server is down — the frontend never breaks either way.
+
 | Server | Tools |
 |---|---|
 | `profile_server/` | get_profile, get_story, save_story_chapter, ask_about, suggest_sentence, log_sentence, log_choice, add_observation |

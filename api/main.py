@@ -1,10 +1,14 @@
 """In My Words — backend API (BUILD_PLAN §6, contracts in docs/CONTRACTS.md).
 
-T2.1 state: every endpoint returns hard-coded mock JSON from mocks.py so
-James, Ahmed and William are unblocked. Replace each mock with real logic
-(MCP calls via services/mcp_client.py) WITHOUT changing response shapes.
+T2.4 state: resident/story/sentence/observation/choice-decide/coach-ask
+routes call the MCP servers via services/mcp_client.py, and FALL BACK to
+mock JSON when a server isn't running — so the frontend never breaks.
+Everything else stays mocked until the owning agent lands.
 
-Run:  uvicorn main:app --reload --port 8000
+Run the stack:
+    python mcp/profile_server.py        # :8101
+    python mcp/emh_server.py            # :8104
+    uvicorn main:app --reload           # :8000  (works alone too, mocks-only)
 """
 
 from fastapi import FastAPI, HTTPException
@@ -12,6 +16,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import mocks
+from services import mcp_client
+
+
+async def _mcp(coro, fallback):
+    """Try the MCP path; fall back to mock JSON if the server is down."""
+    try:
+        return await coro, True
+    except Exception as exc:
+        print(f"[mcp fallback] {type(exc).__name__}: {exc}")
+        return fallback, False
 
 app = FastAPI(title="In My Words API", version="0.1.0-mocks")
 
@@ -89,7 +103,22 @@ class ObservationBody(BaseModel):
 # ---------- residents ----------
 
 @app.get("/residents/{resident_id}")
-def get_resident(resident_id: str):
+async def get_resident(resident_id: str):
+    profile, live = await _mcp(mcp_client.get_profile(resident_id), None)
+    if live:
+        if profile.get("error"):
+            raise HTTPException(404, profile["error"])
+        return {
+            "id": resident_id,
+            "name": profile["name"],
+            "voice_id": profile["voice_id"],
+            "communication_style": profile["communication_style"],
+            "tiles": profile["tiles"],
+            # extra context beyond the frozen contract — additive, safe
+            "preferences": profile["preferences"],
+            "routines": profile["routines"],
+            "pending_patterns": profile["pending_patterns"],
+        }
     resident = mocks.RESIDENTS.get(resident_id)
     if not resident:
         raise HTTPException(404, f"No resident '{resident_id}'")
@@ -104,9 +133,14 @@ def set_voice(resident_id: str, body: VoiceBody):
 # ---------- Speak For Me ----------
 
 @app.post("/suggest")
-def suggest(body: SuggestBody):
-    options = mocks.SUGGESTIONS.get(body.resident_id, mocks.SUGGESTIONS["marcus"])
-    return {"options": options}
+async def suggest(body: SuggestBody):
+    # MCP placeholder templates until Ahmed's Voice agent (T3.2) plugs in;
+    # mock personalised lines if the server is down.
+    result, live = await _mcp(
+        mcp_client.suggest_sentence(body.resident_id, body.tiles, body.time or ""), None)
+    if live:
+        return {"options": result["options"]}
+    return {"options": mocks.SUGGESTIONS.get(body.resident_id, mocks.SUGGESTIONS["marcus"])}
 
 
 @app.post("/speak")
@@ -116,8 +150,10 @@ def speak(body: SpeakBody):
 
 
 @app.post("/sentences")
-def log_sentence(body: SentenceBody):
-    return {"id": 9001}
+async def log_sentence(body: SentenceBody):
+    result, live = await _mcp(
+        mcp_client.log_sentence(body.resident_id, body.chosen_text, body.approved, body.tiles), None)
+    return {"id": result["id"]} if live else {"id": 9001}
 
 
 # ---------- My Story ----------
@@ -138,7 +174,10 @@ def story_approve(body: StoryApproveBody):
 
 
 @app.get("/story/{resident_id}")
-def get_story(resident_id: str):
+async def get_story(resident_id: str):
+    result, live = await _mcp(mcp_client.get_story(resident_id), None)
+    if live:
+        return {"chapters": result["chapters"]}
     story = mocks.STORY.get(resident_id)
     if not story:
         raise HTTPException(404, f"No story for '{resident_id}'")
@@ -148,9 +187,20 @@ def get_story(resident_id: str):
 # ---------- Onboarding Coach ----------
 
 @app.post("/coach/ask")
-def coach_ask(body: CoachAskBody):
-    # Mock behaviour: unknown-style questions get the honest "ask Marcus" shape
-    # so William can build both UI states from hour 1.
+async def coach_ask(body: CoachAskBody):
+    # Real retrieval via ask_about; William's Coach agent (T4.4) replaces the
+    # naive wording below. Facts already carry correct source labels.
+    result, live = await _mcp(mcp_client.ask_about(body.resident_id, body.question), None)
+    if live:
+        facts = result["facts"]
+        if result["unknown"] or not facts:
+            name = body.resident_id.capitalize()
+            return {"answer": f"I don't know — it's best to ask {name}.", "sources": []}
+        top = facts[0]
+        return {
+            "answer": top["content"],
+            "sources": [{"type": f["source"], "date": f["date"], "label": f["label"]} for f in facts[:3]],
+        }
     if "favourite colour" in body.question.lower():
         return mocks.COACH_ANSWERS["unknown"]
     return mocks.COACH_ANSWERS["default"]
@@ -164,8 +214,13 @@ def create_choice(body: ChoicesBody):
 
 
 @app.post("/choices/{choice_id}/decide")
-def decide_choice(choice_id: int, body: DecideBody):
-    return {"ok": True}
+async def decide_choice(choice_id: int, body: DecideBody):
+    chosen = None if body.chosen == "not_yet_decided" else body.chosen
+    result, live = await _mcp(
+        mcp_client.log_choice("marcus", options=[], chosen=chosen), None)
+    # TODO(T2.5): look up the choice's resident + options by choice_id once
+    # choices are persisted at creation time (they're created by Ahmed's agent).
+    return {"ok": True, "status": result["status"] if live else ("chosen" if chosen else "not_yet_decided")}
 
 
 # ---------- Actions ----------
@@ -207,8 +262,10 @@ def activity(resident_id: str):
 
 
 @app.post("/observations")
-def add_observation(body: ObservationBody):
-    return {"ok": True}
+async def add_observation(body: ObservationBody):
+    result, live = await _mcp(
+        mcp_client.add_observation(body.resident_id, body.staff_id, body.note), None)
+    return {"ok": True, "id": result["id"]} if live else {"ok": True}
 
 
 @app.get("/")
