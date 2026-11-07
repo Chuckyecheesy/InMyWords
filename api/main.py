@@ -11,12 +11,21 @@ Run the stack:
     uvicorn main:app --reload           # :8000  (works alone too, mocks-only)
 """
 
+import os
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import mocks
 from services import mcp_client
+from services.cloudinary import (
+    CloudinaryConfigError,
+    PublicIdError,
+    photo_record,
+    save_photo_record,
+    unsigned_upload_params,
+)
 
 
 async def _mcp(coro, fallback):
@@ -99,6 +108,11 @@ class ObservationBody(BaseModel):
     resident_id: str
     staff_id: str
     note: str
+
+class PhotoBody(BaseModel):
+    resident_id: str
+    public_id: str
+    label: str | None = None
 
 
 # ---------- residents ----------
@@ -274,6 +288,34 @@ async def add_observation(body: ObservationBody):
     result, live = await _mcp(
         mcp_client.add_observation(body.resident_id, body.staff_id, body.note), None)
     return {"ok": True, "id": result["id"]} if live else {"ok": True}
+
+
+# ---------- Photos (T4.2) ----------
+# Not in the hour-1 contract table. Tell T2 before relying on these shapes.
+# The id is held in memory until the tile row is saved through T2's API.
+
+_photos: list[dict] = []
+
+
+@app.get("/media/upload")
+def media_upload():
+    try:
+        return unsigned_upload_params(os.environ)
+    except CloudinaryConfigError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+@app.post("/media/photos")
+def save_photo(body: PhotoBody):
+    try:
+        record = photo_record(
+            resident_id=body.resident_id,
+            public_id=body.public_id,
+            label=body.label,
+        )
+    except PublicIdError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return save_photo_record(record, _photos)
 
 
 @app.get("/")

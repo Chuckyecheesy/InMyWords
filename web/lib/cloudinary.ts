@@ -21,6 +21,25 @@ export const TILE_RECIPE = {
   contrast: `c_fill,g_auto,w_640,h_640/e_background_removal/e_contrast:50,e_sharpen:80/c_pad,w_720,h_720,b_rgb:${TILE_PAD.contrast}/r_48`,
 } as const;
 
+/**
+ * Fields the browser may send to Cloudinary's unsigned upload.
+ * The API secret and API key are accepted here so a caller cannot
+ * accidentally spread a credentials object into the request.
+ */
+export function unsignedUploadFields(input: {
+  cloudName: string;
+  uploadPreset: string;
+  apiSecret?: string;
+  apiKey?: string;
+}): { cloud_name: string; upload_preset: string } {
+  const cloud_name = input.cloudName.trim();
+  const upload_preset = input.uploadPreset.trim();
+  if (!cloud_name || !upload_preset) {
+    throw new Error("Unsigned upload needs a cloud name and an upload preset.");
+  }
+  return { cloud_name, upload_preset };
+}
+
 export function tileImageUrl(
   publicId: string,
   mode: "calm" | "contrast",

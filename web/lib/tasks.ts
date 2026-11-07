@@ -192,13 +192,13 @@ export const OWNERS: Owner[] = [
         title: "App setup, design system, task board",
         hours: "Hour 0–1",
         doneWhen: "The app runs and shows mock data.",
-        now: true,
       },
       {
         id: "T4.2",
         title: "Cloudinary pipeline and binder prompt",
         hours: "Hours 1–3",
         doneWhen: "Messy phone photos come out as matching tiles. Binder facts land as From records.",
+        now: true,
       },
       {
         id: "T4.3",

@@ -7,6 +7,7 @@ export function StaffNav({ id }: { id: string }) {
   const pathname = usePathname();
   const links = [
     { href: `/staff/${id}/onboarding`, label: "Onboarding" },
+    { href: `/staff/${id}/photos`, label: "Photos" },
     { href: `/staff/${id}/coach`, label: "Coach" },
     { href: `/staff/handoff?resident=${id}`, label: "Since last shift" },
     { href: `/staff/activity?resident=${id}`, label: "Activity" },

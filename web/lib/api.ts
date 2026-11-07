@@ -345,3 +345,66 @@ export function addObservation(input: {
 }) {
   return sendJson<{ ok: boolean }>("/observations", input);
 }
+
+export type UploadConfig = {
+  cloud_name: string;
+  upload_preset: string;
+};
+
+export async function getUploadConfig(): Promise<MutationResult<UploadConfig>> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/media/upload`, { cache: "no-store" });
+    const raw = await response.text();
+    const data = (raw ? JSON.parse(raw) : {}) as {
+      cloud_name?: unknown;
+      upload_preset?: unknown;
+      detail?: unknown;
+    };
+    if (!response.ok) {
+      const detail = typeof data.detail === "string" ? data.detail : null;
+      return { ok: false, error: detail ?? `The API returned ${response.status}.` };
+    }
+    if (typeof data.cloud_name !== "string" || typeof data.upload_preset !== "string") {
+      return { ok: false, error: "The API did not return an upload preset." };
+    }
+    return {
+      ok: true,
+      data: { cloud_name: data.cloud_name, upload_preset: data.upload_preset },
+    };
+  } catch {
+    return { ok: false, error: "The API is not reachable." };
+  }
+}
+
+export type SavedPhoto = {
+  resident_id: string;
+  cloudinary_id: string;
+  label: string | null;
+};
+
+export async function savePhoto(input: {
+  resident_id: string;
+  public_id: string;
+  label: string;
+}): Promise<MutationResult<SavedPhoto>> {
+  try {
+    const response = await fetch(`${apiBaseUrl()}/media/photos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    });
+    const raw = await response.text();
+    const data = (raw ? JSON.parse(raw) : {}) as SavedPhoto & { detail?: unknown };
+    if (!response.ok) {
+      const detail = typeof data.detail === "string" ? data.detail : null;
+      return { ok: false, error: detail ?? `The API returned ${response.status}.` };
+    }
+    if (typeof data.cloudinary_id !== "string") {
+      return { ok: false, error: "The API did not return a photo id." };
+    }
+    return { ok: true, data };
+  } catch {
+    return { ok: false, error: "The API is not reachable." };
+  }
+}
