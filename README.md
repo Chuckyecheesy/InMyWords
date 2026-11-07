@@ -35,14 +35,25 @@ docs/          Project plan, build plan, contracts, demo script
 3. **Find your tasks**: [docs/BUILD_PLAN.md](docs/BUILD_PLAN.md) §7 lists every task by person (T1.x–T4.x) with hours and done-criteria. [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) has the feature specs, agent table, and data model.
 4. **Respect the contracts**: API endpoints are frozen at hour 1 (BUILD_PLAN §6). Mock responses exist for everything so nobody waits on anybody.
 
-### Per-area setup
+### Run the full stack
 
-| Area | First steps |
-|---|---|
-| `web/` | `cd web && npm install && npm run dev` (once scaffolded, T4.1) |
-| `api/` | `cd api && pip install -r requirements.txt && uvicorn main:app --reload` (T2.1) |
-| `mcp/` | Each server runs standalone via FastMCP over HTTP (T2.3+) |
-| `db/` | Run `schema.sql` against Tiger Data, then the seed/reset script (T2.1–T2.2) |
+```bash
+pip install -r api/requirements.txt -r mcp/requirements.txt
+
+# four MCP servers (each in its own terminal, from mcp/)
+cd mcp && python profile_server.py     # :8101
+cd mcp && python memory_server.py      # :8102
+cd mcp && python actions_server.py     # :8103
+cd mcp && python emh_server.py         # :8104
+
+cd api && uvicorn main:app --reload    # :8000  backend (works alone too — mock fallback)
+cd mock-booking && python app.py       # :8200  demo booking page
+cd web && npm install && npm run dev   # :3000  the app
+```
+
+Everything works **without** `DATABASE_URL` (seed-JSON fallback) and switches to Tiger Data automatically when it's set. Verify the whole contract: start the stack, then `python api/tests/smoke_api.py` — all 19 endpoints must pass. Reset demo data: `python db/reset.py`.
+
+Architecture diagram: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Working agreements
 
