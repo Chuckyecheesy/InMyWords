@@ -5,8 +5,11 @@ uvicorn[standard]
 # Database + seed/reset (T2.2+)
 psycopg[binary]
 
+# Gemini wrapper (Ahmed, T3.1) — structured JSON + 768-d embeddings
+google-genai
+jsonschema
+
 # Added as real logic lands (uncomment when needed):
 # fastmcp            # MCP servers (T2.3+)
-# google-genai       # Gemini wrapper (Ahmed, T3.1)
 # elevenlabs         # TTS service (James, T1.2)
 # cloudinary         # photo pipeline (William, T4.2)
