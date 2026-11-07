@@ -4,17 +4,21 @@
 
 Tiger Data = Postgres with vector search. Enable the vector extension at setup and **fix the embedding vector size once — never change it**.
 
-## Planned contents
+## Contents
 
 ```
-schema.sql        all tables (BUILD_PLAN §5)
+schema.sql           all tables (BUILD_PLAN §5) — embedding size FIXED at 768
+reset.py             wipes and reloads everything: python db/reset.py (needs DATABASE_URL)
 seed/
-  marcus.json     12 tiles, 2 draft chapters, preferences (double-double, quiet, bowling)
-  dana.json       12 tiles, 2 draft chapters, weekly budget $60
-  emh_notes.json  2 weeks of notes, checklist entries with reasons, significant events
-  memories.json   2 weeks of memory history incl. the tea-vs-coffee pattern for Marcus
-reset script      wipes and reloads everything — must run in under a minute
+  core.json          2 homes, 3 staff (Jordan has no prior shifts), 1 manager
+  marcus.json        12 tiles, 2 draft chapters
+  dana.json          12 tiles, 2 draft chapters, weekly budget $60
+  emh_notes.json     2 weeks of notes, checklist entries with reasons, significant events
+  memories.json      memory history incl. the PENDING tea-vs-coffee pattern for Marcus
+  marcus_binder.md   fictional 2021 binder — input for William's document-import extraction
 ```
+
+Embeddings are seeded NULL and backfilled via Ahmed's embedding function (T3.1); `recall` uses keyword match until then.
 
 Key design: the resident "profile" is a **view over memories where status = confirmed**, grouped by section.
 

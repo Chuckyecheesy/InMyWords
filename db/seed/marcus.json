@@ -1,0 +1,38 @@
+{
+  "resident": {
+    "id": "marcus",
+    "home_id": "maple_house",
+    "first_name": "Marcus",
+    "voice_id": null,
+    "communication_style": "Single words and gestures. Picture tiles. Needs quiet to focus.",
+    "weekly_budget": 40.0
+  },
+  "tiles": [
+    {"label": "coffee", "category": "food & drink", "cloudinary_id": "tiles/marcus_coffee", "times_used": 48},
+    {"label": "tea", "category": "food & drink", "cloudinary_id": "tiles/marcus_tea", "times_used": 9},
+    {"label": "bowling", "category": "activities", "cloudinary_id": "tiles/marcus_bowling", "times_used": 22},
+    {"label": "Raptors", "category": "activities", "cloudinary_id": "tiles/marcus_raptors", "times_used": 17},
+    {"label": "park", "category": "places", "cloudinary_id": "tiles/marcus_park", "times_used": 11},
+    {"label": "music", "category": "activities", "cloudinary_id": "tiles/marcus_music", "times_used": 8},
+    {"label": "bus", "category": "places", "cloudinary_id": "tiles/marcus_bus", "times_used": 13},
+    {"label": "quiet", "category": "feelings", "cloudinary_id": "tiles/marcus_quiet", "times_used": 15},
+    {"label": "Lisa", "category": "people", "cloudinary_id": "tiles/marcus_lisa", "times_used": 19},
+    {"label": "help", "category": "feelings", "cloudinary_id": "tiles/marcus_help", "times_used": 7},
+    {"label": "yes", "category": "answers", "cloudinary_id": "tiles/marcus_yes", "times_used": 120},
+    {"label": "no", "category": "answers", "cloudinary_id": "tiles/marcus_no", "times_used": 95}
+  ],
+  "story_chapters": [
+    {
+      "chapter_key": "about_me",
+      "text": "I'm Marcus. I'm 34. I love the Raptors and bowling on Saturdays. My coffee order is a double-double from Tim's. Loud rooms are hard for me — quiet helps.",
+      "photo_ids": ["story/marcus_portrait", "story/marcus_bowling"],
+      "status": "draft"
+    },
+    {
+      "chapter_key": "people_who_matter",
+      "text": "My sister Lisa calls me every week. She takes me to Raptors games on TV nights. I want her to come bowling with me.",
+      "photo_ids": ["story/marcus_lisa"],
+      "status": "draft"
+    }
+  ]
+}

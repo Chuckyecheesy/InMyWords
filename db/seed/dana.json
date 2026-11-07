@@ -1,0 +1,38 @@
+{
+  "resident": {
+    "id": "dana",
+    "home_id": "birch_house",
+    "first_name": "Dana",
+    "voice_id": null,
+    "communication_style": "Picture tiles and some short phrases. Manages a weekly budget with support.",
+    "weekly_budget": 60.0
+  },
+  "tiles": [
+    {"label": "garden", "category": "activities", "cloudinary_id": "tiles/dana_garden", "times_used": 35},
+    {"label": "sister", "category": "people", "cloudinary_id": "tiles/dana_sister", "times_used": 28},
+    {"label": "groceries", "category": "places", "cloudinary_id": "tiles/dana_groceries", "times_used": 16},
+    {"label": "tea", "category": "food & drink", "cloudinary_id": "tiles/dana_tea", "times_used": 41},
+    {"label": "walk", "category": "activities", "cloudinary_id": "tiles/dana_walk", "times_used": 23},
+    {"label": "money", "category": "things", "cloudinary_id": "tiles/dana_money", "times_used": 12},
+    {"label": "TV", "category": "activities", "cloudinary_id": "tiles/dana_tv", "times_used": 18},
+    {"label": "herbs", "category": "things", "cloudinary_id": "tiles/dana_herbs", "times_used": 6},
+    {"label": "bus", "category": "places", "cloudinary_id": "tiles/dana_bus", "times_used": 10},
+    {"label": "help", "category": "feelings", "cloudinary_id": "tiles/dana_help", "times_used": 5},
+    {"label": "yes", "category": "answers", "cloudinary_id": "tiles/dana_yes", "times_used": 98},
+    {"label": "no", "category": "answers", "cloudinary_id": "tiles/dana_no", "times_used": 74}
+  ],
+  "story_chapters": [
+    {
+      "chapter_key": "about_me",
+      "text": "I'm Dana. I grow things — tomatoes last summer, and I want a balcony herb garden next. My sister visits every Sunday and we drink tea.",
+      "photo_ids": ["story/dana_garden"],
+      "status": "draft"
+    },
+    {
+      "chapter_key": "my_day",
+      "text": "I do my budget on Mondays with staff. I shop for groceries on Thursdays. I like a walk after dinner when it's nice out.",
+      "photo_ids": ["story/dana_walk"],
+      "status": "draft"
+    }
+  ]
+}

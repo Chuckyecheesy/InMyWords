@@ -1,0 +1,11 @@
+{
+  "homes": [
+    {"id": "maple_house", "name": "Maple House", "manager_id": "priya"},
+    {"id": "birch_house", "name": "Birch House", "manager_id": "priya"}
+  ],
+  "staff": [
+    {"id": "priya", "name": "Priya", "role": "manager", "last_shift_end": "2026-11-05T22:00:00"},
+    {"id": "sam", "name": "Sam", "role": "staff", "last_shift_end": "2026-11-06T22:00:00"},
+    {"id": "jordan", "name": "Jordan", "role": "staff", "last_shift_end": null}
+  ]
+}
