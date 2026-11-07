@@ -93,6 +93,7 @@ class ActionPlanBody(BaseModel):
 
 class ConfirmBody(BaseModel):
     confirmed: bool  # yes/no
+    resident_id: str = "marcus"  # additive; scopes the memory lookup
 
 class ObservationBody(BaseModel):
     resident_id: str
@@ -240,12 +241,19 @@ def approve_actions(plan_id: int):
 # ---------- Memory ----------
 
 @app.get("/memories/pending/{resident_id}")
-def pending_memories(resident_id: str):
+async def pending_memories(resident_id: str):
+    result, live = await _mcp(mcp_client.get_pending_memories(resident_id), None)
+    if live:
+        return {"memories": result["memories"]}
     return {"memories": mocks.PENDING_MEMORIES.get(resident_id, [])}
 
 
 @app.post("/memories/{memory_id}/confirm")
-def confirm_memory(memory_id: int, body: ConfirmBody):
+async def confirm_memory(memory_id: int, body: ConfirmBody):
+    result, live = await _mcp(
+        mcp_client.confirm_memory(body.resident_id, memory_id, body.confirmed), None)
+    if live and not result.get("error"):
+        return {"ok": True, "memory": result["memory"], "now": result["now"]}
     return {"ok": True}
 
 

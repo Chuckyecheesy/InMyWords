@@ -154,6 +154,76 @@ class SeedStore:
                                    "question": question, "answer": answer, "created_at": _now()})
         return True
 
+    # ---- memory layer (T2.5) ----
+
+    def remember(self, rid, mem_type, content, source):
+        """Save a candidate memory. Near-duplicates bump times_seen instead."""
+        new_words = set(content.lower().split())
+        for m in self.memories:
+            if m["resident_id"] != rid or m["type"] != mem_type:
+                continue
+            old_words = set(m["content"].lower().split())
+            overlap = len(new_words & old_words) / max(len(new_words | old_words), 1)
+            if overlap >= 0.6:
+                m["times_seen"] += 1
+                m["last_seen"] = _now()
+                return {"id": m["id"], "merged": True, "times_seen": m["times_seen"], "status": m["status"]}
+        mem = {"id": max((m["id"] for m in self.memories), default=0) + 1, "resident_id": rid,
+               "type": mem_type, "content": content, "source": source, "source_date": None,
+               "times_seen": 1, "first_seen": _now(), "last_seen": _now(), "status": "pending"}
+        self.memories.append(mem)
+        return {"id": mem["id"], "merged": False, "times_seen": 1, "status": "pending"}
+
+    def recall(self, rid, query, mem_type=None, limit=6):
+        """Keyword + recency ranking. TODO(after T3.1): add vector similarity —
+        same output shape, so callers won't change."""
+        words = [w for w in query.lower().split() if len(w) > 2] or [query.lower()]
+        scored = []
+        pool = [m for m in self.memories
+                if m["resident_id"] == rid and m["status"] in ("confirmed", "pending")
+                and (mem_type is None or m["type"] == mem_type)]
+        pool.sort(key=lambda m: str(m["last_seen"]), reverse=True)
+        for rank, m in enumerate(pool):
+            keyword = sum(w in m["content"].lower() for w in words)
+            recency = 1.0 / (rank + 1)
+            score = keyword * 2 + recency
+            if keyword > 0 or not words:
+                scored.append((score, m))
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+        return [m for _, m in scored[:limit]]
+
+    def get_pending(self, rid):
+        return [m for m in self.memories if m["resident_id"] == rid and m["status"] == "pending"]
+
+    def get_routines(self, rid):
+        routines = [m for m in self.memories if m["resident_id"] == rid and m["type"] == "routine"]
+        return ([r for r in routines if r["status"] == "confirmed"],
+                [r for r in routines if r["status"] == "pending"])
+
+    def _find_memory(self, memory_id):
+        return next((m for m in self.memories if m["id"] == memory_id), None)
+
+    def propose_update(self, rid, memory_id, reason):
+        m = self._find_memory(memory_id)
+        if not m or m["resident_id"] != rid:
+            return None
+        m["status"] = "pending"
+        m["update_reason"] = reason
+        m["last_seen"] = _now()
+        return m
+
+    def confirm_memory(self, rid, memory_id, confirmed):
+        m = self._find_memory(memory_id)
+        if not m or m["resident_id"] != rid:
+            return None
+        if confirmed:
+            m["status"] = "confirmed"
+            m["source"] = "resident"  # now in the resident's words
+        else:
+            m["status"] = "dismissed"
+        m["last_seen"] = _now()
+        return m
+
 
 class PostgresStore:
     """Tiger Data backend. Same method signatures/shapes as SeedStore."""
@@ -261,6 +331,67 @@ class PostgresStore:
             "INSERT INTO story_answers (resident_id, chapter_key, question, answer) VALUES (%s,%s,%s,%s)",
             (rid, chapter_key, question, answer))
         return True
+
+    # ---- memory layer (T2.5) ----
+
+    def remember(self, rid, mem_type, content, source):
+        # Near-duplicate check: word-overlap in SQL is clumsy; fetch same-type
+        # memories and reuse the SeedStore overlap rule in Python.
+        new_words = set(content.lower().split())
+        for m in self._all("SELECT id, content, status FROM memories WHERE resident_id = %s AND type = %s",
+                           (rid, mem_type)):
+            old_words = set(m["content"].lower().split())
+            overlap = len(new_words & old_words) / max(len(new_words | old_words), 1)
+            if overlap >= 0.6:
+                row = self._one(
+                    "UPDATE memories SET times_seen = times_seen + 1, last_seen = now() "
+                    "WHERE id = %s RETURNING id, times_seen, status", (m["id"],))
+                return {"id": row["id"], "merged": True, "times_seen": row["times_seen"], "status": row["status"]}
+        new_id = self._insert(
+            "INSERT INTO memories (resident_id, type, content, source, status) VALUES (%s,%s,%s,%s,'pending')",
+            (rid, mem_type, content, source))
+        return {"id": new_id, "merged": False, "times_seen": 1, "status": "pending"}
+
+    def recall(self, rid, query, mem_type=None, limit=6):
+        # Keyword + recency. TODO(after T3.1): add `embedding <=> %s` cosine
+        # term once embeddings are backfilled — same output shape.
+        words = [w for w in query.lower().split() if len(w) > 2] or [query.lower()]
+        pattern = "(" + "|".join(words) + ")"
+        type_clause = "AND type = %s" if mem_type else ""
+        return self._all(
+            f"""SELECT *, (SELECT count(*) FROM regexp_matches(lower(content), %s, 'g')) AS kw
+                FROM memories
+                WHERE resident_id = %s AND status IN ('confirmed','pending') {type_clause}
+                  AND content ~* %s
+                ORDER BY kw DESC, last_seen DESC LIMIT %s""",
+            tuple([pattern, rid] + ([mem_type] if mem_type else []) + [pattern, limit]))
+
+    def get_pending(self, rid):
+        return self._all(
+            "SELECT * FROM memories WHERE resident_id = %s AND status = 'pending' ORDER BY last_seen DESC",
+            (rid,))
+
+    def get_routines(self, rid):
+        rows = self._all("SELECT * FROM memories WHERE resident_id = %s AND type = 'routine'", (rid,))
+        return ([r for r in rows if r["status"] == "confirmed"],
+                [r for r in rows if r["status"] == "pending"])
+
+    def propose_update(self, rid, memory_id, reason):
+        row = self._one(
+            "UPDATE memories SET status = 'pending', last_seen = now() "
+            "WHERE id = %s AND resident_id = %s RETURNING *", (memory_id, rid))
+        if row:
+            row["update_reason"] = reason
+        return row
+
+    def confirm_memory(self, rid, memory_id, confirmed):
+        if confirmed:
+            sql = ("UPDATE memories SET status = 'confirmed', source = 'resident', last_seen = now() "
+                   "WHERE id = %s AND resident_id = %s RETURNING *")
+        else:
+            sql = ("UPDATE memories SET status = 'dismissed', last_seen = now() "
+                   "WHERE id = %s AND resident_id = %s RETURNING *")
+        return self._one(sql, (memory_id, rid))
 
 
 _store = None

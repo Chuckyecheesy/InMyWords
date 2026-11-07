@@ -53,6 +53,39 @@ async def main():
     missed = [i for i in k["items"] if not i["happened"]]
     print(f"emh: {len(n['notes'])} notes; checklist misses: {[m['reason'] for m in missed]}")
 
+    # ---- memory server (T2.5): the full demo arc ----
+    memory = "http://127.0.0.1:8102/mcp"
+
+    r = await call(memory, "recall", {"resident": "marcus", "query": "drinks coffee tea"})
+    contents = [m["content"][:40] for m in r["memories"]]
+    assert any("coffee" in c for c in contents) and any("tea" in c.lower() for c in contents), contents
+    print(f"recall('drinks'): {len(r['memories'])} memories incl. coffee AND tea — done-when met")
+
+    q = await call(memory, "get_pending", {"resident": "marcus"})
+    tea = next(m for m in q["memories"] if "tea" in m["content"].lower())
+    assert tea["label"] == "Pattern noticed"
+    print(f"confirm? queue: '{tea['content'][:45]}...' [{tea['label']}]")
+
+    c1 = await call(memory, "confirm_memory", {"resident": "marcus", "memory": tea["id"], "confirmed": True})
+    assert c1["memory"]["status"] == "confirmed" and c1["memory"]["source"] == "resident"
+    assert c1["memory"]["label"] == "In Marcus's words"
+    print(f"confirmed: now [{c1['memory']['label']}] — the demo beat works")
+
+    m1 = await call(memory, "remember",
+                    {"resident": "marcus", "event": "Asked to go bowling again", "source": "inferred"})
+    m2 = await call(memory, "remember",
+                    {"resident": "marcus", "event": "Asked to go bowling again today", "source": "inferred"})
+    assert m2["merged"] and m2["times_seen"] == 2
+    print(f"remember dedup: near-duplicate merged, times_seen={m2['times_seen']}")
+
+    rt = await call(memory, "get_routines", {"resident": "marcus"})
+    print(f"routines: {len(rt['confirmed'])} confirmed, {len(rt['suggested'])} suggested")
+
+    p = await call(memory, "propose_update",
+                   {"resident": "marcus", "memory": 1, "reason": "Recent pattern contradicts: tea 5x this week"})
+    assert p["queued"]["status"] == "pending"
+    print(f"propose_update: coffee fact back in the queue ({p['queued']['update_reason'][:30]}...)")
+
     print("\nALL MCP SMOKE TESTS PASSED")
 
 

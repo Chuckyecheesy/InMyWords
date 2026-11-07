@@ -68,6 +68,30 @@ async def add_observation(resident, staff, note):
                        {"resident": resident, "staff": staff, "note": note})
 
 
+# ---- memory server ----
+
+async def remember(resident, event, source="inferred", mem_type="event"):
+    return await _call("memory", "remember",
+                       {"resident": resident, "event": event, "source": source, "type": mem_type})
+
+async def recall(resident, query, mem_type=""):
+    return await _call("memory", "recall", {"resident": resident, "query": query, "type": mem_type})
+
+async def get_routines(resident):
+    return await _call("memory", "get_routines", {"resident": resident})
+
+async def get_pending_memories(resident):
+    return await _call("memory", "get_pending", {"resident": resident})
+
+async def propose_update(resident, memory_id, reason):
+    return await _call("memory", "propose_update",
+                       {"resident": resident, "memory": memory_id, "reason": reason})
+
+async def confirm_memory(resident, memory_id, confirmed):
+    return await _call("memory", "confirm_memory",
+                       {"resident": resident, "memory": memory_id, "confirmed": confirmed})
+
+
 # ---- emh server (mock) ----
 
 async def get_contact_notes(resident, since=""):
