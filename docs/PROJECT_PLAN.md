@@ -189,8 +189,8 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 |---|---|---|
 | Teammate 1 | Voice lead | ElevenLabs voices, narration, Story interview agent, Coach voice mode, spoken approval cards and memory confirmations, all demo audio |
 | Teammate 2 | Data and MCP lead | Tiger Data, seed data, all four MCP servers (incl. memory store and mock action services), backend API, Handoff agent |
-| Teammate 3 | AI lead | Voice agent, Coach agent, Choice agent, Action agent planning, memory subagents, story chapter writing, prompt quality |
-| Teammate 4 | Frontend, media and pitch lead | All screens incl. approval cards, activity log and "confirm?" queue, Cloudinary pipeline, accessibility pass, deck, demo video, Devpost |
+| Teammate 3 | Resident experience lead (AI + screens) | Gemini wrapper; Voice agent + Speak For Me screen; Story chapter writer, interview questions, story screens + PhotoChoiceGrid; Choice agent + choice screen; approval card, "confirm?" screen, voice picker; accessibility |
+| Teammate 4 | Staff experience & pitch lead (AI + screens) | App shell, design system, Cloudinary pipeline; Coach agent + Coach chat + onboarding path; memory subagents + binder importer; Action agent; Handoff screen, observations, activity log; deck, demo video, Devpost, domain |
 
 ## 5. Work split by person
 
@@ -218,7 +218,7 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 | 18–20 | Help with stretch if stable, otherwise bug fixes. |
 | 20–24 | Pre-generate all demo audio. Lead demo rehearsals. Record voice-over for backup video. Present the demo. |
 
-**Needs from others**: T2 — save_story_chapter, ask_about, get_profile working (or mocked) by hour 6. T3 — suggestion output format by hour 2; chapter summary prompt by hour 8. T4 — photo-choice UI component; voice picker screen.
+**Needs from others**: T2 — save_story_chapter, ask_about, get_profile working (or mocked) by hour 6. T3 — suggestion output format by hour 2; chapter questions by hour 7; PhotoChoiceGrid by hour 7; voice picker screen. T4 — Coach answer format by hour 8; Coach chat embed.
 
 **Hands off**: audio URLs (to T4 for playback); voice IDs per resident (to T2 for the residents table).
 
@@ -245,68 +245,73 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 | 18–20 | Stretch: Claude Desktop demo, manager view queries. |
 | 20–24 | Reset seed data to a clean demo state. Write README setup and architecture diagram. |
 
-**Needs from others**: T3 — prompts for suggest_sentence and ask_about by hours 4 and 8. T1 — voice IDs. T4 — Cloudinary photo IDs for tiles and story photos.
+**Needs from others**: T3 — suggest_sentence prompt by hour 4; embedding function by hour 10. T4 — Coach wording for ask_about by hour 8; binder extraction prompt by hour 2; memory and Action agent functions by hours 12–17; Cloudinary photo IDs by hour 3. T1 — voice IDs.
 
 **Hands off**: working API endpoints and mock responses (to everyone, hour 1). Seed data the demo depends on.
 
 **Done when**: every MCP tool returns correct data for Marcus and Dana. Every Coach answer includes a source label. Handoff summary matches the seeded EMH data. recall returns relevant memories with source and confirmation status. Approved actions run; staff tasks appear in Handoff. One command resets the demo data.
 
-### Teammate 3: AI lead
+### Teammate 3: Resident experience lead (AI + screens)
 
-**Owns**: how the AI thinks — every prompt and agent behaviour. Guardrails: faithful suggestions, source labels, no "staff decided". Quality of suggestions and answers.
+**Owns**: everything the resident directly uses — both the prompts and the screens. Speak For Me, My Story, Supported Choice, approvals and confirmations. Accessibility lead. Shared Gemini wrapper for the whole team.
 
 **Deliverables**
-- Voice agent: profile-based sentence suggestions (2–3 short options).
-- Coach agent: answers from profile, story, observations and EMH with source labels.
-- Choice agent: options with consequences, no recommendations.
-- Story chapter writing: turns interview answers into short first-person chapters.
-- Memory subagents: Observer, Consolidator (simple), Retriever. Routine finder on seeded data.
-- Action agent: splits a goal into online actions vs. staff tasks, builds the approval card.
-- Test set: 15 tile combinations, 15 staff questions, 5 action goals.
+- Gemini wrapper: structured JSON output + embeddings (used by T4 and T2 too).
+- Voice agent: profile-based sentence suggestions (2–3 short options), tested on 15 tile combinations.
+- Speak For Me screen: tile grid, sentence strip, suggestions with approve/reject, audio playback.
+- Story: 7 chapter templates + 3–5 picture-answerable questions each, chapter writer, story pages, PhotoChoiceGrid the Story agent triggers.
+- Choice agent (consequences, never recommends) + choice screen.
+- Action approval card, "pattern noticed, confirm?" screen, voice picker.
+- Accessibility pass on all resident screens (§9).
 
 | Hours | Tasks |
 |---|---|
-| 0–1 | Set up Gemini. Agree output formats with T2 and T1. |
-| 1–6 | Voice agent prompt and logic. Test with 15 tile combinations for both residents. **Milestone 1.** |
-| 6–12 | Coach agent with source labels and "I don't know" behaviour. Story chapter writing prompt. **Milestone 2.** |
-| 12–16 | Choice agent. Memory subagents wired into Voice and Coach. Action agent planning. |
-| 16–18 | Run full test set. Tighten prompts. Make sure no answer lacks a source. |
-| 18–20 | Stretch: scenario questions for the Coach; camera mode with Gemini. |
-| 20–24 | Bug fixes. Prepare answers for judge AI-safety questions. Support rehearsal. |
+| 0–1 | Set up Gemini, build the wrapper. Agree output formats and contracts. |
+| 1–5 | Voice agent prompt and logic. Test with 15 tile combinations for both residents. |
+| 4–6 | Speak For Me screen on T4's design system. **Milestone 1.** |
+| 6–7 | PhotoChoiceGrid (to T1) + chapter questions (with T1). |
+| 7–9 | Story chapter writer (`/story/draft` by hour 9). Story pages. |
+| 9–12 | Sleep. Up for **Milestone 2**. |
+| 12–16 | Choice agent + choice screen. Approval card, "confirm?" screen, voice picker. |
+| 16–18 | Accessibility pass across resident screens. Tablet testing. Freeze. |
+| 18–24 | Bug fixes, stretch (camera mode with Gemini), rehearsals, resident-flow support. |
 
-**Needs from others**: T2 — profile and EMH data available (or mocked) by hour 2. T1 — interview answer format from the Story agent by hour 8.
+**Needs from others**: T2 — mock endpoints hour 1, profile/EMH data by hour 2. T4 — design system + shared components by hour 3. T1 — audio URLs (hour 4), interview answer format (hour 7).
 
-**Hands off**: sentence suggestion format (to T1 and T4). Prompts for suggest_sentence and ask_about (to T2). Chapter text (to T1 for narration).
+**Hands off**: Gemini wrapper (to T4, T2 — hour 1). Suggestion format (to T1, T2). Chapter questions and text, PhotoChoiceGrid (to T1). Embedding function (to T2, hour 10).
 
-**Done when**: suggestions sound like Marcus and Dana, not generic. 15/15 test questions answered with correct source labels. Choice agent never recommends and always offers "not decided yet". Inferred memories are always labelled "pattern noticed" until confirmed. Action agent correctly separates online actions from staff tasks on all 5 test goals.
+**Done when**: Milestone 1 flow works end to end with suggestions that sound like Marcus and Dana on 15/15 tests. One chapter can be interviewed by taps only and read back. Choice agent never recommends and always offers "not decided yet". All resident screens usable on a tablet with no explanation.
 
-### Teammate 4: Frontend, media and pitch lead
+### Teammate 4: Staff experience & pitch lead (AI + screens)
 
-**Owns**: everything the user sees. Cloudinary photo pipeline. Accessibility. Pitch deck, demo video and submission.
+**Owns**: everything staff use — both the prompts and the screens. The shared frontend foundation (app shell, design system, Cloudinary). The memory intelligence. The pitch.
 
 **Deliverables**
-- Resident screens: home tile grid, sentence strip, suggestions with approve/reject, voice picker, story pages, choice screen.
-- Staff screens: onboarding path, Coach chat, Handoff, add observation, activity log.
-- Action approval card (pictures, cost, approve/cancel) and "pattern noticed, confirm?" screen.
-- Photo-choice component the Story agent can trigger.
-- Cloudinary: upload, crop to faces, background removal, one consistent tile style, high-contrast version.
-- Accessibility pass (§9). Pitch deck (5–6 slides), backup demo video, Devpost write-up. Stretch: manager view.
+- Next.js app shell, design tokens, one Cloudinary tile recipe + pipeline.
+- Coach agent (source labels, "I don't know, ask Marcus") + Coach chat + onboarding path.
+- Memory subagents: Observer, Consolidator (simple), Retriever; Routine finder on seeded data. Binder importer extraction prompt.
+- Action agent (online steps vs. staff tasks) + activity log.
+- Staff screens: pick-a-resident, Handoff list, add-observation form.
+- Test sets: 15 staff questions, 5 action goals.
+- Pitch deck (5–6 slides), backup demo video, Devpost write-up, GoDaddy domain, task board. Stretch: manager view.
 
 | Hours | Tasks |
 |---|---|
-| 0–1 | Set up Next.js app and Cloudinary. Agree contracts. Pick one tile style recipe. |
-| 1–6 | Resident home screen: tile grid, sentence strip, suggestions, approve/reject, audio playback. **Milestone 1.** |
-| 6–12 | Story pages and photo-choice component. Staff onboarding path and Coach chat. Cloudinary upload. **Milestone 2.** |
-| 12–16 | Handoff screen, choice screen, observation form, voice picker. Approval card, activity log, "confirm?" screen. |
-| 16–18 | Feature freeze. Accessibility pass. Tablet testing. |
-| 18–20 | Pitch deck draft. Stretch: manager view. |
-| 20–24 | Record and edit backup video. Final deck. Devpost write-up. Register GoDaddy domain and point it at the app. |
+| 0–1 | Set up Next.js app, design tokens, Cloudinary, tile recipe, task board. Agree contracts. |
+| 1–3 | Cloudinary pipeline; process seed photos → IDs to T2. Binder extraction prompt (with T2's seed). |
+| 3–6 | Shared components (tiles, big buttons) for T3's Speak screen. Pick-a-resident + staff shell. Milestone 1 support. |
+| 6–10 | Coach agent with source labels and "I don't know" behaviour. Coach chat + onboarding path. |
+| 10–12 | Handoff screen + observation form. **Milestone 2.** |
+| 12–13 | Memory subagents core (Observer + Retriever) against mocks. |
+| 13–16 | Sleep. |
+| 16–18 | Action agent + wire memory and actions end to end with T2. Activity log. Consolidator + Routine finder. Freeze. |
+| 18–24 | Deck, backup video (hour 20), Devpost, domain. Judge AI-safety answers (memory + actions). |
 
-**Needs from others**: T2 — API endpoints and mock responses at hour 1. T1 — audio URLs. T3 — suggestion and answer formats.
+**Needs from others**: T2 — mock endpoints hour 1, memory + actions servers hours 12–16. T3 — Gemini wrapper hour 1, suggestion format for screens. T1 — audio URLs, Coach voice agent wiring (hour 12).
 
-**Hands off**: Cloudinary photo IDs (to T2 for seed data). Photo-choice component (to T1 for the Story agent).
+**Hands off**: Cloudinary photo IDs (to T2, hour 3). Design system + shared components (to T3, hour 3). Coach wording for ask_about (to T2, hour 8). Action plan format → approval card data (to T3, hour 13). Memory agent functions (to T2).
 
-**Done when**: all core screens work on a tablet with no explanation needed. Every tile uses the same style; high-contrast mode works. Deck, video and Devpost ready by hour 23.
+**Done when**: 15/15 Coach test questions answered with correct source labels incl. "From records"; unknowns handled. The tea pattern reaches Marcus's "confirm?" queue (subagents, or seeded fallback). Action agent splits 5/5 goals correctly. A new staff member can complete Essentials and Handoff. Every tile uses the same style; deck, video, Devpost and live URL ready by hour 23.
 
 ## 6. Shared timeline
 
@@ -323,7 +328,7 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 
 **Check-ins**: 5-minute stand-up at hours 3, 6, 9, 12, 15, 18, 21. Each person says: done, next, blocked. Integration test at every milestone: run the demo flow end to end.
 
-**Sleep shifts**: Pair A (T1 + T4) sleeps hours 10–13. Pair B (T2 + T3) sleeps hours 13–16. Nobody sleeps through a milestone.
+**Sleep shifts** (staggered so at least three people are always up): T2 hours 7–10, T1 + T3 hours 9–12 (up for Milestone 2), T4 hours 13–16. Nobody sleeps through a milestone or the freeze.
 
 ## 7. Interface contracts
 
@@ -335,10 +340,10 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Teammate 2 publishes mock
 |---|---|---|---|
 | 0:00 | Hook | "Imagine learning about someone from a binder written years ago, by someone else." | T1 |
 | 0:20 | Story | Marcus's About me page plays in his voice. "Told once, heard by everyone." | T1 |
-| 0:45 | Speak | coffee + now → "Can I get a double-double from Tim's?" → approve → spoken. | T4 |
+| 0:45 | Speak | coffee + now → "Can I get a double-double from Tim's?" → approve → spoken. | T3 |
 | 1:10 | Choice + Action | Marcus picks bowling. One approval card: book lane, add to calendar, text Lisa. He approves. Staff task for the ride appears. | T3 |
-| 1:40 | Memory | Coach: "Marcus has been choosing tea lately (pattern noticed)." Marcus taps yes; now "in Marcus's words." | T3 |
-| 2:05 | Coach | Judge plays new staff, asks "What upsets Marcus?" Answer labelled "In Marcus's words." | T3 |
+| 1:40 | Memory | Coach: "Marcus has been choosing tea lately (pattern noticed)." Marcus taps yes; now "in Marcus's words." | T4 |
+| 2:05 | Coach | Judge plays new staff, asks "What upsets Marcus?" Answer labelled "In Marcus's words." | T4 |
 | 2:25 | Handoff | "Since your last shift: bowling booked for Saturday, ride needed 1:30. Grocery shopping didn't happen, bus cancelled." | T2 |
 | 2:45 | Close | Architecture slide: four MCP servers, swap mocks for real services. | T2 |
 
@@ -361,7 +366,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Teammate 2 publishes mock
 | Overall 1st/2nd/3rd | AAC, stories and onboarding: the partner's priorities | Everyone |
 | Cloudinary Community Impact | Residents' real photos become accessible tiles and story pages | T4 |
 | ElevenLabs | Chosen voices, narration, Story and Coach agents | T1 |
-| Gemini | All agents incl. memory subagents and Action agent; Computer Use (stretch) | T3 |
+| Gemini | All agents incl. memory subagents and Action agent; Computer Use (stretch) | T3 + T4 |
 | Tiger Data | Memory layer: vector search + timestamps in one database; EMH history; action log | T2 |
 | Entire | Team coding sessions through Entire | Everyone |
 | GoDaddy | Project domain (e.g. inmywords.xyz) | T4 |
@@ -389,7 +394,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Teammate 2 publishes mock
 | ElevenLabs agent setup slow | Fall back to TTS + on-screen questions | T1 |
 | Inconsistent tile style | One Cloudinary recipe, chosen at hour 1 | T4 |
 | Integration breaks late | Mock responses at hour 1; test at every milestone | T2 |
-| Memory layer too big | Build Observer, simple Consolidator, Retriever only; Routine finder runs on seeded data | T3 |
+| Memory layer too big | Build Observer, simple Consolidator, Retriever only; Routine finder runs on seeded data | T4 |
 | Real message sending fails at venue | Pre-test; fall back to showing the sent message in the log | T2 |
 
 **Cut order**: manager view → camera mode → Computer Use → scenario questions → extra actions beyond the first → Supported Choice → Handoff.

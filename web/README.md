@@ -1,6 +1,6 @@
 # web/ — Next.js app
 
-**Owner: Teammate 4** (Frontend, media & pitch lead)
+**Owners: Teammate 4** (app shell, design system, shared components, staff routes) **· Teammate 3** (resident routes: Speak For Me, story, choice, confirm, voice picker)
 
 Tablet-first. Large type (≥22px body), 64px+ tap targets, calm colours, high-contrast theme.
 

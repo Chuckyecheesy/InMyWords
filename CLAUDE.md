@@ -22,14 +22,14 @@ These are guardrails, not preferences. Never write code that violates them:
 
 | Path | Owner | What it is |
 |---|---|---|
-| `web/` | Teammate 4 | Next.js + React + TypeScript app, tablet-first. All backend calls go through `web/lib/api.ts`. |
-| `api/` | Teammate 2 (routes), Teammate 3 (`api/agents/`) | FastAPI backend. Routes in `main.py`; agents in `agents/`; `services/` has `gemini.py`, `elevenlabs.py` (Teammate 1), `cloudinary.py`, `mcp_client.py`. |
+| `web/` | Teammate 4 (shell, design system, staff routes), Teammate 3 (resident routes) | Next.js + React + TypeScript app, tablet-first. All backend calls go through `web/lib/api.ts`. |
+| `api/` | Teammate 2 (routes); `agents/` split: Teammate 3 (voice, story, choice), Teammate 4 (coach, action, memory) | FastAPI backend. Routes in `main.py`; agents in `agents/`; `services/` has `gemini.py` (Teammate 3), `elevenlabs.py` (Teammate 1), `cloudinary.py`, `mcp_client.py`. |
 | `mcp/` | Teammate 2 | Four FastMCP servers over streamable HTTP: `profile_server`, `memory_server`, `actions_server`, `emh_server` (mock). |
 | `db/` | Teammate 2 | Tiger Data (Postgres + vector) `schema.sql`, `seed/`, reset script. |
 | `mock-booking/` | Teammate 2 | Tiny page listing bookings so the demo can show a booking landed. |
 | `docs/` | Everyone | Plans, contracts, architecture diagram, demo script. |
 
-Team roles: **T1 = Voice lead** (ElevenLabs, everything heard), **T2 = Data/MCP lead** (DB, MCP servers, backend routes, Handoff), **T3 = AI lead** (all prompts/agents, memory subagents, quality), **T4 = Frontend/media/pitch lead** (all screens, Cloudinary, accessibility, deck/video/Devpost).
+Team roles: **T1 = Voice lead** (ElevenLabs, everything heard), **T2 = Data/MCP lead** (DB, MCP servers, backend routes, Handoff), **T3 = Resident experience lead** (prompts + screens for Speak For Me, My Story, Choice; approval card, voice picker, accessibility; Gemini wrapper), **T4 = Staff experience & pitch lead** (prompts + screens for Coach, memory + binder import, actions, Handoff; app shell, design system, Cloudinary; deck/video/Devpost/domain).
 
 ## Tech stack
 

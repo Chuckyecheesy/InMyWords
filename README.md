@@ -58,8 +58,8 @@ docs/          Project plan, build plan, contracts, demo script
 |---|---|---|
 | Teammate 1 | Voice lead | ElevenLabs voices, TTS, Story interview agent, Coach voice mode, demo audio |
 | Teammate 2 | Data & MCP lead | Tiger Data, seed data, all 4 MCP servers, backend API, Handoff agent |
-| Teammate 3 | AI lead | All prompts/agents, memory subagents, guardrails, AI quality |
-| Teammate 4 | Frontend, media & pitch | All screens, Cloudinary, accessibility, deck, video, Devpost |
+| Teammate 3 | Resident experience lead | Prompts + screens for Speak For Me, My Story, Supported Choice; approval card, voice picker; accessibility; Gemini wrapper |
+| Teammate 4 | Staff experience & pitch lead | Prompts + screens for Coach, memory + binder import, actions, Handoff; app shell, design system, Cloudinary; deck, video, Devpost |
 
 ## Demo personas (fictional)
 

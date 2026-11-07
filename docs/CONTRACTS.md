@@ -16,10 +16,10 @@ Teammate 2 publishes hard-coded mock responses for everything at hour 1 so nobod
 | `POST /story/draft` | resident_id, chapter | chapter text | T3 |
 | `POST /story/approve` | chapter_id | audio_url | T1 |
 | `GET /story/{resident_id}` | — | chapters with photos, text, audio | T2 |
-| `POST /coach/ask` | resident_id, question | answer, sources (type, date) | T3 |
+| `POST /coach/ask` | resident_id, question | answer, sources (type, date) | T4 |
 | `POST /choices` | resident_id, question, options | options with consequences | T3 |
 | `POST /choices/{id}/decide` | chosen \| not_yet_decided | ok | T2 |
-| `POST /actions/plan` | resident_id, goal | online steps, staff tasks, total cost | T3 |
+| `POST /actions/plan` | resident_id, goal | online steps, staff tasks, total cost | T4 |
 | `POST /actions/{id}/approve` | — | results per step | T2 |
 | `GET /memories/pending/{resident_id}` | — | memories waiting for confirmation | T2 |
 | `POST /memories/{id}/confirm` | yes \| no | ok | T2 |
