@@ -1,6 +1,6 @@
 # mcp/ — MCP servers
 
-**Owner: Teammate 2** (Data & MCP lead)
+**Owner: Tiffany (T2)** (Data & MCP lead)
 
 Four Python FastMCP servers over **streamable HTTP**, so both our backend and Claude Desktop (stretch demo) can connect to the same servers. All agent data access goes through these — never direct DB access from agents.
 

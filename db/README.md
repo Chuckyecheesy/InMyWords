@@ -1,6 +1,6 @@
 # db/ — Tiger Data schema & seed data
 
-**Owner: Teammate 2** (Data & MCP lead)
+**Owner: Tiffany (T2)** (Data & MCP lead)
 
 Tiger Data = Postgres with vector search. Enable the vector extension at setup and **fix the embedding vector size once — never change it**.
 

@@ -1,6 +1,6 @@
 # api/ — FastAPI backend
 
-**Owners: Teammate 2 (routes, services) · Teammate 3 (`agents/` voice, story, choice + `services/gemini.py`) · Teammate 4 (`agents/` coach, action, memory incl. binder importer) · Teammate 1 (`services/elevenlabs.py`)**
+**Owners: Tiffany, T2 (routes, services) · Ahmed, T3 (`agents/` voice, story, choice + `services/gemini.py`) · William, T4 (`agents/` coach, action, memory incl. binder importer) · James, T1 (`services/elevenlabs.py`)**
 
 The single place for auth and logging. The web app and ElevenLabs agent webhooks call these routes; routes call the MCP servers via `services/mcp_client.py`. **Agents never touch the database directly.**
 

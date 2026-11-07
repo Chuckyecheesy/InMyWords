@@ -15,11 +15,11 @@ An AAC (augmentative and alternative communication) + life-story + staff-onboard
 ## Repo layout
 
 ```
-web/           Next.js app (Teammate 4)
-api/           FastAPI backend + agents (Teammate 2 routes, Teammate 3 agents)
-mcp/           4 MCP servers: profile, memory, actions, emh-mock (Teammate 2)
-db/            Tiger Data schema, seed data, reset script (Teammate 2)
-mock-booking/  Mock booking page for the demo (Teammate 2)
+web/           Next.js app (William: shell, design system, staff routes · Ahmed: resident routes)
+api/           FastAPI backend + agents (Tiffany: routes · Ahmed: voice/story/choice agents · William: coach/action/memory agents)
+mcp/           4 MCP servers: profile, memory, actions, emh-mock (Tiffany)
+db/            Tiger Data schema, seed data, reset script (Tiffany)
+mock-booking/  Mock booking page for the demo (Tiffany)
 docs/          Project plan, build plan, contracts, demo script
 ```
 
@@ -56,10 +56,10 @@ docs/          Project plan, build plan, contracts, demo script
 
 | | Role | Owns |
 |---|---|---|
-| James | Voice lead | ElevenLabs voices, TTS, Story interview agent, Coach voice mode, demo audio |
-| Tiffany | Data & MCP lead | Tiger Data, seed data, all 4 MCP servers, backend API, Handoff agent |
-| Ahmed | Resident experience lead & pitch lead | Prompts + screens for Speak For Me, My Story, Supported Choice; approval card, voice picker; accessibility; Gemini wrapper |
-| William | Staff experience | Prompts + screens for Coach, memory + binder import, actions, Handoff; app shell, design system, Cloudinary; deck, video, Devpost |
+| James (T1) | Voice lead | ElevenLabs voices, TTS, Story interview agent, Coach voice mode, demo audio |
+| Tiffany (T2) | Data & MCP lead | Tiger Data, seed data, all 4 MCP servers, backend API, Handoff agent |
+| Ahmed (T3) | Resident experience lead & pitch lead | Prompts + screens for Speak For Me, My Story, Supported Choice; approval card, voice picker; accessibility; Gemini wrapper; deck, demo video, Devpost, domain |
+| William (T4) | Staff experience lead | Prompts + screens for Coach, memory + binder import, actions, Handoff; app shell, design system, Cloudinary; judge AI-safety answers |
 
 ## Demo personas (fictional)
 

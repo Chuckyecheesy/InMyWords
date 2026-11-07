@@ -187,16 +187,16 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 
 | Person | Role | Owns |
 |---|---|---|
-| Teammate 1 | Voice lead | ElevenLabs voices, narration, Story interview agent, Coach voice mode, spoken approval cards and memory confirmations, all demo audio |
-| Teammate 2 | Data and MCP lead | Tiger Data, seed data, all four MCP servers (incl. memory store and mock action services), backend API, Handoff agent |
-| Teammate 3 | Resident experience lead (AI + screens) | Gemini wrapper; Voice agent + Speak For Me screen; Story chapter writer, interview questions, story screens + PhotoChoiceGrid; Choice agent + choice screen; approval card, "confirm?" screen, voice picker; accessibility |
-| Teammate 4 | Staff experience & pitch lead (AI + screens) | App shell, design system, Cloudinary pipeline; Coach agent + Coach chat + onboarding path; memory subagents + binder importer; Action agent; Handoff screen, observations, activity log; deck, demo video, Devpost, domain |
+| James (T1) | Voice lead | ElevenLabs voices, narration, Story interview agent, Coach voice mode, spoken approval cards and memory confirmations, all demo audio |
+| Tiffany (T2) | Data and MCP lead | Tiger Data, seed data, all four MCP servers (incl. memory store and mock action services), backend API, Handoff agent |
+| Ahmed (T3) | Resident experience & pitch lead (AI + screens) | Gemini wrapper; Voice agent + Speak For Me screen; Story chapter writer, interview questions, story screens + PhotoChoiceGrid; Choice agent + choice screen; approval card, "confirm?" screen, voice picker; accessibility; deck, demo video, Devpost, domain |
+| William (T4) | Staff experience lead (AI + screens) | App shell, design system, Cloudinary pipeline; Coach agent + Coach chat + onboarding path; memory subagents + binder importer; Action agent; Handoff screen, observations, activity log; judge AI-safety answers |
 
 ## 5. Work split by person
 
-### Teammate 1: Voice lead
+### James (T1): Voice lead
 
-**Owns**: everything the user hears. ElevenLabs account, credits, voices, agents. Story interview experience end to end (with Teammate 3 on chapter text). Demo audio quality and backup audio.
+**Owns**: everything the user hears. ElevenLabs account, credits, voices, agents. Story interview experience end to end (with Ahmed (T3) on chapter text). Demo audio quality and backup audio.
 
 **Deliverables**
 - 3 voice options each for Marcus and Dana (Voice Design).
@@ -224,7 +224,7 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 
 **Done when**: a resident can pick a voice, approve a sentence and hear it in under 5 seconds. One full chapter can be interviewed, approved and narrated. Staff can ask the Coach a question out loud and hear a sourced answer. Every approval card and memory confirmation is spoken.
 
-### Teammate 2: Data and MCP lead
+### Tiffany (T2): Data and MCP lead
 
 **Owns**: Tiger Data database and schema. Seed data for both residents, homes, staff and 2 weeks of EMH mock data. All four MCP servers. Memory store (vectors + timestamps). Mock action services. Backend API. Handoff agent.
 
@@ -251,9 +251,9 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 
 **Done when**: every MCP tool returns correct data for Marcus and Dana. Every Coach answer includes a source label. Handoff summary matches the seeded EMH data. recall returns relevant memories with source and confirmation status. Approved actions run; staff tasks appear in Handoff. One command resets the demo data.
 
-### Teammate 3: Resident experience lead (AI + screens)
+### Ahmed (T3): Resident experience & pitch lead (AI + screens)
 
-**Owns**: everything the resident directly uses — both the prompts and the screens. Speak For Me, My Story, Supported Choice, approvals and confirmations. Accessibility lead. Shared Gemini wrapper for the whole team.
+**Owns**: everything the resident directly uses — both the prompts and the screens. Speak For Me, My Story, Supported Choice, approvals and confirmations. Accessibility lead. Shared Gemini wrapper. The pitch: deck, demo video, Devpost, domain.
 
 **Deliverables**
 - Gemini wrapper: structured JSON output + embeddings (used by T4 and T2 too).
@@ -263,6 +263,7 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 - Choice agent (consequences, never recommends) + choice screen.
 - Action approval card, "pattern noticed, confirm?" screen, voice picker.
 - Accessibility pass on all resident screens (§9).
+- Pitch deck (5–6 slides), backup demo video, Devpost write-up, GoDaddy domain.
 
 | Hours | Tasks |
 |---|---|
@@ -274,17 +275,18 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 | 9–12 | Sleep. Up for **Milestone 2**. |
 | 12–16 | Choice agent + choice screen. Approval card, "confirm?" screen, voice picker. |
 | 16–18 | Accessibility pass across resident screens. Tablet testing. Freeze. |
-| 18–24 | Bug fixes, stretch (camera mode with Gemini), rehearsals, resident-flow support. |
+| 18–20 | Pitch deck draft. Bug fixes. |
+| 20–24 | Record and edit backup video (hour 20, with James's voice-over). Final deck. Devpost write-up. Point the GoDaddy domain at the app. |
 
 **Needs from others**: T2 — mock endpoints hour 1, profile/EMH data by hour 2. T4 — design system + shared components by hour 3. T1 — audio URLs (hour 4), interview answer format (hour 7).
 
 **Hands off**: Gemini wrapper (to T4, T2 — hour 1). Suggestion format (to T1, T2). Chapter questions and text, PhotoChoiceGrid (to T1). Embedding function (to T2, hour 10).
 
-**Done when**: Milestone 1 flow works end to end with suggestions that sound like Marcus and Dana on 15/15 tests. One chapter can be interviewed by taps only and read back. Choice agent never recommends and always offers "not decided yet". All resident screens usable on a tablet with no explanation.
+**Done when**: Milestone 1 flow works end to end with suggestions that sound like Marcus and Dana on 15/15 tests. One chapter can be interviewed by taps only and read back. Choice agent never recommends and always offers "not decided yet". All resident screens usable on a tablet with no explanation. Deck, video, Devpost and live URL ready by hour 23.
 
-### Teammate 4: Staff experience & pitch lead (AI + screens)
+### William (T4): Staff experience lead (AI + screens)
 
-**Owns**: everything staff use — both the prompts and the screens. The shared frontend foundation (app shell, design system, Cloudinary). The memory intelligence. The pitch.
+**Owns**: everything staff use — both the prompts and the screens. The shared frontend foundation (app shell, design system, Cloudinary). The memory intelligence. Judge AI-safety answers.
 
 **Deliverables**
 - Next.js app shell, design tokens, one Cloudinary tile recipe + pipeline.
@@ -293,7 +295,7 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 - Action agent (online steps vs. staff tasks) + activity log.
 - Staff screens: pick-a-resident, Handoff list, add-observation form.
 - Test sets: 15 staff questions, 5 action goals.
-- Pitch deck (5–6 slides), backup demo video, Devpost write-up, GoDaddy domain, task board. Stretch: manager view.
+- Task board. Judge AI-safety answers (memory + actions). Stretch: manager view.
 
 | Hours | Tasks |
 |---|---|
@@ -305,13 +307,13 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 | 12–13 | Memory subagents core (Observer + Retriever) against mocks. |
 | 13–16 | Sleep. |
 | 16–18 | Action agent + wire memory and actions end to end with T2. Activity log. Consolidator + Routine finder. Freeze. |
-| 18–24 | Deck, backup video (hour 20), Devpost, domain. Judge AI-safety answers (memory + actions). |
+| 18–24 | Judge AI-safety answers (memory + actions). Bug fixes. Support Ahmed on the demo video. Stretch: manager view. |
 
 **Needs from others**: T2 — mock endpoints hour 1, memory + actions servers hours 12–16. T3 — Gemini wrapper hour 1, suggestion format for screens. T1 — audio URLs, Coach voice agent wiring (hour 12).
 
 **Hands off**: Cloudinary photo IDs (to T2, hour 3). Design system + shared components (to T3, hour 3). Coach wording for ask_about (to T2, hour 8). Action plan format → approval card data (to T3, hour 13). Memory agent functions (to T2).
 
-**Done when**: 15/15 Coach test questions answered with correct source labels incl. "From records"; unknowns handled. The tea pattern reaches Marcus's "confirm?" queue (subagents, or seeded fallback). Action agent splits 5/5 goals correctly. A new staff member can complete Essentials and Handoff. Every tile uses the same style; deck, video, Devpost and live URL ready by hour 23.
+**Done when**: 15/15 Coach test questions answered with correct source labels incl. "From records"; unknowns handled. The tea pattern reaches Marcus's "confirm?" queue (subagents, or seeded fallback). Action agent splits 5/5 goals correctly. A new staff member can complete Essentials and Handoff. Every tile uses the same style. Judge AI-safety answers written.
 
 ## 6. Shared timeline
 
@@ -332,7 +334,7 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 
 ## 7. Interface contracts
 
-See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Teammate 2 publishes mock responses for all of them at hour 1 so nobody waits.
+See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Tiffany (T2) publishes mock responses for all of them at hour 1 so nobody waits.
 
 ## 8. Demo script (3 minutes)
 
@@ -369,7 +371,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Teammate 2 publishes mock
 | Gemini | All agents incl. memory subagents and Action agent; Computer Use (stretch) | T3 + T4 |
 | Tiger Data | Memory layer: vector search + timestamps in one database; EMH history; action log | T2 |
 | Entire | Team coding sessions through Entire | Everyone |
-| GoDaddy | Project domain (e.g. inmywords.xyz) | T4 |
+| GoDaddy | Project domain (e.g. inmywords.xyz) | T3 |
 
 ## 11. Judge Q&A prep
 
@@ -405,10 +407,10 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Teammate 2 publishes mock
 
 | Item | Owner | Due |
 |---|---|---|
-| Demo video under 3 minutes | T4 | Hour 21 |
-| Pitch deck | T4 | Hour 22 |
+| Demo video under 3 minutes | T3 | Hour 21 |
+| Pitch deck | T3 | Hour 22 |
 | README with setup and architecture diagram | T2 | Hour 22 |
-| Devpost write-up | T4 | Hour 23 |
+| Devpost write-up | T3 | Hour 23 |
 | Sponsor categories selected | T1 | Hour 23 |
-| Live URL on GoDaddy domain | T4 | Hour 23 |
+| Live URL on GoDaddy domain | T3 | Hour 23 |
 | Demo data reset to clean state | T2 | Before judging |

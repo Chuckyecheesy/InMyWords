@@ -1,7 +1,9 @@
 # Interface contracts — FROZEN AT HOUR 1
 
 Changing any input or output after hour 1 requires a heads-up in team chat first.
-Teammate 2 publishes hard-coded mock responses for everything at hour 1 so nobody waits.
+Tiffany (T2) publishes hard-coded mock responses for everything at hour 1 so nobody waits.
+
+Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** (Resident experience & pitch) · **T4 = William** (Staff experience)
 
 ## Backend API
 

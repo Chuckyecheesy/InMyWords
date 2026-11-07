@@ -27,7 +27,7 @@ Companion to the [Project Plan](PROJECT_PLAN.md). This doc is the step-by-step b
 | Cloudinary account | T4 | Create an upload preset for staff photos. |
 | Hosting | T2 (backend), T4 (web) | Web on Vercel. Backend on Render, Railway or a Vultr VM. |
 | Entire | Everyone | Run coding agent sessions through Entire for the Entire track. |
-| GoDaddy Registry domain | T4 | Register early (e.g. inmywords.xyz). Point it at the web app later. |
+| GoDaddy Registry domain | T3 | Register early (e.g. inmywords.xyz). Point it at the web app later. |
 | Shared environment variables | T2 | `.env.example` in the repo, real values shared privately (§2.1). |
 
 ### 2.1 Environment variables
@@ -119,7 +119,7 @@ See [CONTRACTS.md](CONTRACTS.md) for the full endpoint table with inputs, output
 
 Task IDs match cards on the task board. Do them in order unless marked parallel.
 
-### Teammate 1: Voice lead
+### James (T1): Voice lead
 
 You own everything the user hears: resident voices, narration, the Story interview agent, the Coach voice mode, spoken approvals, and demo audio.
 
@@ -176,7 +176,7 @@ You own everything the user hears: resident voices, narration, the Story intervi
 
 **Dependencies**: from T2 — /story/answer and /coach/ask (mock by hour 1). From T3 — chapter questions and PhotoChoiceGrid (hour 7), /story/draft (hour 9), voice picker screen (hour 16). From T4 — Coach answer format (hour 8), Coach chat embed.
 
-### Teammate 2: Data and MCP lead
+### Tiffany (T2): Data and MCP lead
 
 You own the database, seed data, all four MCP servers, the backend routes, mock services and the Handoff agent.
 
@@ -241,9 +241,9 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 
 **Dependencies**: from T1 — voice IDs (hour 1). From T3 — Voice and Choice agent functions (hours 4–14), embedding function (hour 10). From T4 — binder extraction prompt (hour 2), Cloudinary IDs for tiles and photos (hour 3), Coach, memory and Action agent functions (hours 8–17).
 
-### Teammate 3: Resident experience lead (AI + screens)
+### Ahmed (T3): Resident experience & pitch lead (AI + screens)
 
-You own everything the resident directly uses — the prompts AND the screens: Speak For Me, My Story, Supported Choice, approvals and confirmations. You are also accessibility lead and own the shared Gemini wrapper.
+You own everything the resident directly uses — the prompts AND the screens: Speak For Me, My Story, Supported Choice, approvals and confirmations. You are also accessibility lead, own the shared Gemini wrapper, and own the pitch: deck, demo video, Devpost, domain.
 
 **T3.1 — Gemini wrapper (hour 0–1)**
 - `services/gemini.py`: one function for structured JSON output (pass a schema, get validated JSON back), one for embeddings.
@@ -287,16 +287,18 @@ You own everything the resident directly uses — the prompts AND the screens: S
 - Voice picker: play 3 previews, choose one.
 - ✅ Done when: full resident demo flow clickable end to end.
 
-**T3.8 — Accessibility pass + polish (hours 16–24)**
-- Check every resident screen: tap targets, contrast, no time limits, consistent layout, undo, labels spoken on long press. Test on a real tablet. Freeze at 18.
-- 18–24: bug fixes, rehearsal support. Stretch: camera mode with Gemini.
-- ✅ Done when: someone outside the team can use the resident screens with no explanation.
+**T3.8 — Accessibility pass + pitch materials (hours 16–24)**
+- Hours 16–18: check every resident screen: tap targets, contrast, no time limits, consistent layout, undo, labels spoken on long press. Test on a real tablet. Freeze at 18.
+- Hours 18–20: pitch deck draft (6 slides): hook, what KW Habilitation told us, live demo, how it works, guardrails, what's next.
+- Hour 20: record and edit the backup demo video (under 3 minutes) with James's voice-over; William supports on staff screens.
+- Hours 20–24: final deck. Devpost write-up with sponsor categories. Point the GoDaddy domain at the web app.
+- ✅ Done when: someone outside the team can use the resident screens with no explanation; deck, video, Devpost and live URL done by hour 23.
 
 **Dependencies**: from T2 — mock endpoints (hour 1), profile/EMH data (hour 2). From T4 — design system + shared components (hour 3), action plan format for the approval card (hour 13). From T1 — /speak (hour 4), interview answer format (hour 7).
 
-### Teammate 4: Staff experience & pitch lead (AI + screens)
+### William (T4): Staff experience lead (AI + screens)
 
-You own everything staff use — the prompts AND the screens: Coach, memory intelligence, actions, Handoff. Plus the shared frontend foundation (app shell, design system, Cloudinary) and the pitch materials.
+You own everything staff use — the prompts AND the screens: Coach, memory intelligence, actions, Handoff. Plus the shared frontend foundation (app shell, design system, Cloudinary) and the judge AI-safety answers.
 
 **T4.1 — App setup, design system, task board (hour 0–1)**
 - Next.js app with routes from §3. `lib/api.ts` calls the mock backend. Task board with one card per task ID.
@@ -342,16 +344,15 @@ You own everything staff use — the prompts AND the screens: Coach, memory inte
 - Wire memory + actions end to end with T2. Freeze at 18.
 - ✅ Done when: 5/5 goals split correctly into online actions and staff tasks; full demo flow clickable.
 
-**T4.8 — Pitch materials + judge answers (hours 18–24)**
-- Deck (6 slides): hook, what KW Habilitation told us, live demo, how it works, guardrails, what's next.
-- Record and edit the backup demo video (under 3 minutes) at hour 20.
-- Devpost write-up with sponsor categories. Point the GoDaddy domain at the web app.
-- Write short answers for judge questions about AI safety (memory + actions). Stretch: manager view.
-- ✅ Done when: deck, video, Devpost and live URL done by hour 23.
+**T4.8 — Judge answers, polish and stretch (hours 18–24)**
+- Write short answers for judge questions about AI safety (memory + actions), incl. the binder-import and Google Calendar questions.
+- Support Ahmed's backup video recording at hour 20 (drive the staff screens).
+- Bug fixes across staff screens. Stretch: manager view.
+- ✅ Done when: judge AI-safety answers are written and rehearsed; staff screens stable through both rehearsals.
 
 **Dependencies**: from T2 — mock endpoints (hour 1), memory + actions servers (hours 12–16). From T3 — Gemini wrapper (hour 1), suggestion format. From T1 — audio URLs, Coach voice agent wiring (hour 12).
 
-### Teammate 4: Frontend, media and pitch lead
+### William (T4): Frontend, media and pitch lead
 
 You own every screen, the Cloudinary photo pipeline, accessibility, and the pitch materials.
 
@@ -423,9 +424,9 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 | 14–16 | T1.7 spoken approvals | T2.6 actions MCP | T3.7 approval card, confirm, voice picker | (sleep) |
 | 16–18 | T1.8 latency | T2.7 Handoff, freeze | T3.8 accessibility pass | T4.6 finish + T4.7 Action agent, wiring |
 | **18** | **FEATURE FREEZE** | **FEATURE FREEZE** | **FEATURE FREEZE** | **FEATURE FREEZE** |
-| 18–20 | Demo audio | Stretch: Claude Desktop | Bug fixes, stretch: camera mode | T4.8 deck draft |
-| 20–22 | Rehearsals, voice-over | README, reset data | Rehearsal support | Backup video, judge Q&A answers |
-| 22–24 | Final run-through | Final deploy | Bug fixes | Devpost, domain |
+| 18–20 | Demo audio | Stretch: Claude Desktop | T3.8 deck draft | T4.8 judge Q&A answers |
+| 20–22 | Rehearsals, voice-over | README, reset data | Backup video, final deck | Video support, bug fixes |
+| 22–24 | Final run-through | Final deploy | Devpost, domain | Stretch: manager view |
 
 **Sleep shifts** (staggered so at least three people are always up): T2 hours 7–10 (right after Milestone 1 is solid). T1 + T3 hours 9–12, up for Milestone 2. T4 hours 13–16 (memory core built against mocks first; T2 builds the real memory/actions servers meanwhile). Nobody sleeps through a milestone or the freeze.
 
@@ -461,13 +462,13 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 | Google Calendar API at venue | DB-only calendar entries — `calendar_events` is the source of truth and the UI reads from our DB either way | T2 |
 | Memory subagents unfinished | Seeded "pattern noticed" item in the queue | T4 |
 | Hosting down | Run everything locally on one laptop | T2 |
-| Live demo breaks | Backup video (recorded at hour 20) | T4 |
+| Live demo breaks | Backup video (recorded at hour 20) | T3 |
 
 ## 11. Demo day checklist
 
 - [ ] Demo data reset (T2).
 - [ ] All demo audio pre-generated and cached (T1).
-- [ ] Tablet charged, brightness up, notifications off (T4).
-- [ ] Backup video downloaded locally (T4).
+- [ ] Tablet charged, brightness up, notifications off (T3).
+- [ ] Backup video downloaded locally (T3).
 - [ ] Email inbox open on a second screen for the action moment (T2).
 - [ ] Everyone knows their demo beat and one Q&A topic: T1 voice, T2 MCP and data, T3 resident experience and accessibility, T4 AI safety (memory + actions) and design.
