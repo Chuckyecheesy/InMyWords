@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import mocks
+from agents.voice import load_seed_memories, suggest as suggest_sentences
 from services import mcp_client
 from services.cloudinary import (
     CloudinaryConfigError,
@@ -149,11 +150,30 @@ def set_voice(resident_id: str, body: VoiceBody):
 
 @app.post("/suggest")
 async def suggest(body: SuggestBody):
-    # MCP placeholder templates until Ahmed's Voice agent (T3.2) plugs in;
-    # mock personalised lines if the server is down.
-    result, live = await _mcp(
+    """Tile tap → 2–3 written sentences. Audio is POST /speak, after approval."""
+    recalled, live = await _mcp(
+        mcp_client.recall(body.resident_id, " ".join(body.tiles)), None)
+    memories = recalled.get("memories", []) if live and isinstance(recalled, dict) else []
+    if not memories:
+        memories = load_seed_memories(body.resident_id)
+    profile, profile_live = await _mcp(mcp_client.get_profile(body.resident_id), None)
+    if profile_live and isinstance(profile, dict) and profile.get("name"):
+        name = profile["name"]
+    else:
+        name = body.resident_id[:1].upper() + body.resident_id[1:]
+    try:
+        return suggest_sentences(
+            resident_id=body.resident_id,
+            name=name,
+            tiles=body.tiles,
+            time_of_day=body.time or "",
+            memories=memories,
+        )
+    except Exception as exc:
+        print(f"[suggest fallback] {type(exc).__name__}: {exc}")
+    result, tool_live = await _mcp(
         mcp_client.suggest_sentence(body.resident_id, body.tiles, body.time or ""), None)
-    if live:
+    if tool_live:
         return {"options": result["options"]}
     return {"options": mocks.SUGGESTIONS.get(body.resident_id, mocks.SUGGESTIONS["marcus"])}
 

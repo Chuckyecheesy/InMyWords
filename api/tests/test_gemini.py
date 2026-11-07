@@ -112,7 +112,8 @@ class GenerateJsonTests(unittest.TestCase):
         self.assertEqual(len(client.models.calls), 2)
 
     def test_missing_key_raises(self):
-        os.environ.pop("GEMINI_API_KEY", None)
+        # An empty value must win over a .env file loaded inside the client.
+        os.environ["GEMINI_API_KEY"] = ""
         with self.assertRaises(GeminiError):
             generate_json("hello", SCHEMAS["memory"]["routine"])
 
