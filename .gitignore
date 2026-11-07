@@ -1,0 +1,35 @@
+# Environment & secrets — real values are shared privately, never committed
+.env
+.env.local
+.env*.local
+*.pem
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+
+# Generated audio cache (regenerate, don't commit)
+audio-cache/
+*.mp3
+!docs/**/*.mp3
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Build plan source docs are kept as .docx intentionally — see docs/ for markdown versions
