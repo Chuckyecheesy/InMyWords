@@ -26,6 +26,9 @@ audio-cache/
 *.mp3
 !docs/**/*.mp3
 
+# Generated messy seed photos — recreate with api/scripts/process_seed_photos.py
+db/seed/photos/
+
 # OS / editor
 .DS_Store
 Thumbs.db
