@@ -137,13 +137,13 @@ export const OWNERS: Owner[] = [
         title: "Gemini wrapper",
         hours: "Hour 0–1",
         doneWhen: "The wrapper returns valid JSON for a test schema.",
-        now: true,
       },
       {
         id: "T3.2",
         title: "Voice agent",
         hours: "Hours 1–5",
         doneWhen: "Suggestions are personal and faithful on 15 of 15 tests.",
+        now: true,
       },
       {
         id: "T3.3",

@@ -2,9 +2,8 @@
 
 Run:  python mcp/profile_server.py          (streamable HTTP on :8101)
 
-Every returned fact includes source and date. suggest_sentence returns
-neutral placeholders until Ahmed's Voice agent prompt lands (T3.2) —
-same output shape, so nothing downstream changes.
+Every returned fact includes source and date. suggest_sentence calls the
+sentence writer in api/agents/voice.py (text only, same output shape).
 """
 
 from fastmcp import FastMCP
@@ -87,16 +86,43 @@ def ask_about(resident: str, question: str) -> dict:
             "unknown": len(hits) == 0, "store_mode": store.mode}
 
 
+def _suggest_with_voice(resident: str, tiles: list[str], time_of_day: str) -> dict:
+    import sys
+    from pathlib import Path
+
+    api = str(Path(__file__).resolve().parents[1] / "api")
+    if api not in sys.path:
+        sys.path.insert(0, api)
+    from agents.voice import suggest
+
+    store = get_store()
+    resident_row = store.get_resident(resident)
+    name = resident_row["first_name"] if resident_row else resident
+    memories = store.recall(resident, " ".join(tiles))
+    return suggest(
+        resident_id=resident,
+        name=name,
+        tiles=tiles,
+        time_of_day=time_of_day,
+        memories=memories,
+        generate=None,
+    )
+
+
 @mcp.tool
 def suggest_sentence(resident: str, tiles: list[str], time_of_day: str = "") -> dict:
-    """2-3 sentence options for the tapped tiles.
-    PLACEHOLDER until Ahmed's Voice agent (T3.2) plugs in — neutral,
-    faithful-to-tiles templates only. Output shape is final."""
-    phrase = " ".join(tiles)
-    options = [f"I want {phrase}.", f"Can I have {phrase}, please?"]
-    if len(tiles) > 1:
-        options.append(f"{tiles[0].capitalize()} first, then {' '.join(tiles[1:])}?")
-    return {"options": options[:3], "agent": "placeholder-until-T3.2"}
+    """2-3 written sentences for the tapped tiles. No audio.
+    The API route calls Gemini; this tool uses the same faithful fallback
+    so a direct tool call still personalizes from confirmed memories."""
+    try:
+        return _suggest_with_voice(resident, tiles, time_of_day)
+    except Exception as exc:
+        print(f"[suggest_sentence fallback] {type(exc).__name__}: {exc}")
+        phrase = " ".join(tiles)
+        options = [f"I want {phrase}.", f"Can I have {phrase}, please?"]
+        if len(tiles) > 1:
+            options.append(f"{tiles[0].capitalize()} first, then {' '.join(tiles[1:])}?")
+        return {"options": options[:3]}
 
 
 @mcp.tool

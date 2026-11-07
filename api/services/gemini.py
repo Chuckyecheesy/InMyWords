@@ -459,6 +459,7 @@ def generate_json(
     model: str | None = None,
     temperature: float = 0.2,
     client=None,
+    attempts: int = 2,
 ) -> dict:
     """Return JSON that validates against `schema`.
 
@@ -473,13 +474,16 @@ def generate_json(
         "temperature": temperature,
         "response_mime_type": "application/json",
         "response_json_schema": _gemini_schema(schema),
+        # One attempt, at least 10s. Shorter deadlines are rejected, and
+        # the default retry loop holds a tile tap open for a minute.
+        "http_options": {"timeout": 20000, "retry_options": {"attempts": 1}},
     }
     if system:
         config["system_instruction"] = system
 
     last_error = "no response"
     contents = prompt
-    for _attempt in range(2):
+    for _attempt in range(max(1, attempts)):
         response = gen.models.generate_content(
             model=model or os.environ.get("GEMINI_MODEL", FLASH_MODEL),
             contents=contents,

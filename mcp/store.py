@@ -34,6 +34,19 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def recall_terms(query: str, limit: int = 8) -> list[str]:
+    """Plain words for memory search. Letters and digits only, so a tile
+    cannot become a regular expression."""
+    words: list[str] = []
+    for raw in (query or "")[:500].lower().split():
+        word = "".join(ch for ch in raw if ch.isalnum() or ch in "-'")
+        if len(word) > 2:
+            words.append(word[:40])
+        if len(words) == limit:
+            break
+    return words
+
+
 def source_label(source: str, name: str, date: str | None) -> str:
     """The product's source-label rule, in one place (CLAUDE.md guardrail #2)."""
     if source == "resident":
@@ -114,7 +127,7 @@ class SeedStore:
         return [m for m in self.memories if m["resident_id"] == rid and m["status"] in statuses]
 
     def search_facts(self, rid, query, limit=8):
-        words = [w for w in query.lower().split() if len(w) > 2]
+        words = recall_terms(query)
         hits = []
         for m in self.get_memories(rid, ("confirmed", "pending")):
             text = m["content"].lower()
@@ -226,7 +239,7 @@ class SeedStore:
     def recall(self, rid, query, mem_type=None, limit=6):
         """Keyword + recency ranking. TODO(after T3.1): add vector similarity —
         same output shape, so callers won't change."""
-        words = [w for w in query.lower().split() if len(w) > 2] or [query.lower()]
+        words = recall_terms(query)
         scored = []
         pool = [m for m in self.memories
                 if m["resident_id"] == rid and m["status"] in ("confirmed", "pending")
@@ -236,7 +249,7 @@ class SeedStore:
             keyword = sum(w in m["content"].lower() for w in words)
             recency = 1.0 / (rank + 1)
             score = keyword * 2 + recency
-            if keyword > 0 or not words:
+            if keyword > 0:
                 scored.append((score, m))
         scored.sort(key=lambda pair: pair[0], reverse=True)
         return [m for _, m in scored[:limit]]
@@ -399,22 +412,24 @@ class PostgresStore:
             (rid, list(statuses)))
 
     def search_facts(self, rid, query, limit=8):
-        words = [w for w in query.lower().split() if len(w) > 2] or [query.lower()]
-        pattern = "%(" + "|".join(words) + ")%"
-        rows = self._all(
-            """SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
+        words = recall_terms(query)
+        if not words:
+            return []
+        memory_match = " OR ".join(["strpos(lower(content), %s) > 0"] * len(words))
+        note_match = " OR ".join(["strpos(lower(note), %s) > 0"] * len(words))
+        return self._all(
+            f"""SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
                       status, 'memory' AS kind
                FROM memories WHERE resident_id = %s AND status IN ('confirmed','pending')
-                 AND content ~* %s
+                 AND ({memory_match})
                UNION ALL
                SELECT note, 'staff', created_at::date::text, 'confirmed', 'observation'
-               FROM observations WHERE resident_id = %s AND note ~* %s
+               FROM observations WHERE resident_id = %s AND ({note_match})
                UNION ALL
                SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note'
-               FROM emh_notes WHERE resident_id = %s AND note ~* %s
+               FROM emh_notes WHERE resident_id = %s AND ({note_match})
                LIMIT %s""",
-            (rid, pattern, rid, pattern, rid, pattern, limit))
-        return rows
+            tuple([rid, *words, rid, *words, rid, *words, limit]))
 
     def get_emh_notes(self, rid, since=None):
         if since:
@@ -491,18 +506,22 @@ class PostgresStore:
                 "source": source, "source_date": source_date}
 
     def recall(self, rid, query, mem_type=None, limit=6):
-        # Keyword + recency. TODO(after T3.1): add `embedding <=> %s` cosine
-        # term once embeddings are backfilled — same output shape.
-        words = [w for w in query.lower().split() if len(w) > 2] or [query.lower()]
-        pattern = "(" + "|".join(words) + ")"
+        # Literal substrings + recency. TODO(after T3.1): add `embedding <=> %s`
+        # cosine once embeddings are backfilled — same output shape.
+        words = recall_terms(query)
+        if not words:
+            return []
+        score = " + ".join(["(strpos(lower(content), %s) > 0)::int"] * len(words))
+        match = " OR ".join(["strpos(lower(content), %s) > 0"] * len(words))
         type_clause = "AND type = %s" if mem_type else ""
+        params = tuple(words + [rid] + ([mem_type] if mem_type else []) + words + [limit])
         return self._all(
-            f"""SELECT *, (SELECT count(*) FROM regexp_matches(lower(content), %s, 'g')) AS kw
+            f"""SELECT *, ({score}) AS kw
                 FROM memories
                 WHERE resident_id = %s AND status IN ('confirmed','pending') {type_clause}
-                  AND content ~* %s
+                  AND ({match})
                 ORDER BY kw DESC, last_seen DESC LIMIT %s""",
-            tuple([pattern, rid] + ([mem_type] if mem_type else []) + [pattern, limit]))
+            params)
 
     def get_pending(self, rid):
         return self._all(

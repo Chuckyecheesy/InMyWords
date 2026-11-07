@@ -13,12 +13,14 @@ Run the stack:
 
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import mocks
+from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
 from services import mcp_client
+from services.limits import allow
 from services.cloudinary import (
     CloudinaryConfigError,
     PublicIdError,
@@ -148,14 +150,38 @@ def set_voice(resident_id: str, body: VoiceBody):
 # ---------- Speak For Me ----------
 
 @app.post("/suggest")
-async def suggest(body: SuggestBody):
-    # MCP placeholder templates until Ahmed's Voice agent (T3.2) plugs in;
-    # mock personalised lines if the server is down.
-    result, live = await _mcp(
-        mcp_client.suggest_sentence(body.resident_id, body.tiles, body.time or ""), None)
-    if live:
+async def suggest(body: SuggestBody, request: Request):
+    """Tile tap → 2–3 written sentences. Audio is POST /speak, after approval."""
+    host = request.client.host if request.client else "local"
+    if not allow(f"suggest:{host}"):
+        raise HTTPException(429, "Too many suggestions. Wait a moment.")
+    tiles = clean_tiles(body.tiles)
+    resident_id = "".join(ch for ch in body.resident_id if ch.isalnum() or ch in "_-")[:40]
+    recalled, live = await _mcp(
+        mcp_client.recall(resident_id, " ".join(tiles)), None)
+    memories = recalled.get("memories", []) if live and isinstance(recalled, dict) else []
+    if not memories:
+        memories = load_seed_memories(resident_id)
+    profile, profile_live = await _mcp(mcp_client.get_profile(resident_id), None)
+    if profile_live and isinstance(profile, dict) and profile.get("name"):
+        name = profile["name"]
+    else:
+        name = resident_id[:1].upper() + resident_id[1:] if resident_id else "Resident"
+    try:
+        return suggest_sentences(
+            resident_id=resident_id,
+            name=name,
+            tiles=tiles,
+            time_of_day=body.time or "",
+            memories=memories,
+        )
+    except Exception as exc:
+        print(f"[suggest fallback] {type(exc).__name__}: {exc}")
+    result, tool_live = await _mcp(
+        mcp_client.suggest_sentence(resident_id, tiles, body.time or ""), None)
+    if tool_live:
         return {"options": result["options"]}
-    return {"options": mocks.SUGGESTIONS.get(body.resident_id, mocks.SUGGESTIONS["marcus"])}
+    return {"options": mocks.SUGGESTIONS.get(resident_id, mocks.SUGGESTIONS["marcus"])}
 
 
 @app.post("/speak")

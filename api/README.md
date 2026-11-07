@@ -10,7 +10,7 @@ The single place for auth and logging. The web app and ElevenLabs agent webhooks
 main.py                FastAPI app and routes (T2) — every endpoint in BUILD_PLAN §6,
                        all returning hard-coded mock JSON by hour 1
 agents/
-  voice.py             tile → 2-3 sentence suggestions (T3)
+  voice.py             tile tap → 2–3 written sentences (T3.2, wired to POST /suggest)
   coach.py             sourced answers, "I don't know, ask Marcus" (T4)
   story.py             chapter writing from interview answers (T3)
   choice.py            consequences, never recommends (T3)
