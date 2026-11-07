@@ -19,7 +19,7 @@ agents/
   memory/              observer.py, consolidator.py, routines.py, retriever.py,
                        binder importer (T4)
 services/
-  gemini.py            structured JSON output + embeddings (T3)
+  gemini.py            structured JSON output + embeddings (T3.1, done)
   elevenlabs.py        TTS with cache by voice_id + text (T1)
   cloudinary.py        photo pipeline helpers
   mcp_client.py        one function per MCP tool (T2)
@@ -27,3 +27,27 @@ tests/                 test sets: 15 tile combos, 15 staff questions, 5 action g
 ```
 
 API contracts are frozen at hour 1 — see [docs/CONTRACTS.md](../docs/CONTRACTS.md).
+
+## Gemini wrapper (T3.1)
+
+`services/gemini.py` is the only Gemini client. Agents pass a prompt and a schema; they do not call the SDK themselves.
+
+```python
+from services.gemini import SCHEMAS, embed, generate_json
+
+suggestions = generate_json(prompt, SCHEMAS["suggest"], system=rules)
+vector = embed(memory_text)                       # store with RETRIEVAL_DOCUMENT
+query = embed(question, task_type="RETRIEVAL_QUERY")
+```
+
+`SCHEMAS` keys: `suggest`, `story_draft`, `choice_consequences`, `coach_answer`, `binder_facts`, `observer_memories`, `routine_phrase`, `contradiction`, `action_plan`, `handoff_bullets`. Samples that already validate are in `EXAMPLES`.
+
+`embed` always returns 768 floats, L2-normalized, matching `memories.embedding VECTOR(768)`. Do not change that size.
+
+Choice lines and action steps do not include a money total. Code sums cost and money left, then phrases the number it computed.
+
+`GEMINI_API_KEY` is required for a live call. Optional overrides: `GEMINI_MODEL` (default `gemini-3.8-flash`), `GEMINI_EMBED_MODEL` (default `gemini-embedding-001`).
+
+```bash
+python -m unittest tests.test_gemini
+```
