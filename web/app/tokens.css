@@ -1,0 +1,124 @@
+/*
+  Design tokens — T4.1 / PROJECT_PLAN §9
+
+  Calm residential palette (not clinical white). High-contrast and
+  large-text modes flip via data-theme / data-text on <html>.
+  Body ≥22px, tap targets ≥64px. Source colours match CONTRACTS labels.
+*/
+
+:root,
+[data-theme="calm"] {
+  /* Colour — surfaces */
+  --paper: #e4efea;
+  --ink: #1a2e28;
+  --card: #f7fbfa;
+  --line: #c5d6cf;
+  --on-ink: #f7fbfa;
+  --focus: #0b5cab;
+
+  /* Colour — source labels (CONTRACTS.md) */
+  --voice: #084536;
+  --voice-bg: #d5ede4;
+  --staff: #1e4d92;
+  --staff-bg: #e3ebf8;
+  --record: #5c3a16;
+  --record-bg: #f3e6d4;
+  --emh: #243b53;
+  --emh-bg: #e4eef4;
+  --pattern: #6b3a00;
+  --pattern-bg: #f8e7cc;
+  --task: #1a2e28;
+  --task-bg: #f7fbfa;
+
+  /* Type scale — body never below 22px */
+  --text-body: 22px;
+  --text-h1: clamp(40px, 6vw, 60px);
+  --text-h2: 32px;
+  --text-h3: 26px;
+  --text-wordmark: 28px;
+  --text-tile-letter: 28px;
+  --leading-body: 1.45;
+  --leading-display: 1.12;
+  --tracking-display: -0.03em;
+
+  /* Touch — AAC tablet floor */
+  --tap-min: 64px;
+
+  /* Space */
+  --space-1: 8px;
+  --space-2: 12px;
+  --space-3: 16px;
+  --space-4: 28px;
+  --space-5: 32px;
+  --space-6: 80px;
+
+  /* Radius & stroke */
+  --radius-chip: 12px;
+  --radius-control: 16px;
+  --stroke: 2px;
+  --focus-ring: 3px;
+
+  /* Layout */
+  --content-max: 1040px;
+  --measure: 40ch;
+  --tile-min: 148px;
+
+  color-scheme: light;
+}
+
+[data-theme="contrast"] {
+  --paper: #ffffff;
+  --ink: #000000;
+  --card: #ffffff;
+  --line: #000000;
+  --on-ink: #ffffff;
+  --focus: #0000ee;
+  --voice: #000000;
+  --voice-bg: #ffffff;
+  --staff: #000000;
+  --staff-bg: #ffffff;
+  --record: #000000;
+  --record-bg: #ffffff;
+  --emh: #000000;
+  --emh-bg: #ffffff;
+  --pattern: #000000;
+  --pattern-bg: #ffffff;
+  --task: #000000;
+  --task-bg: #ffffff;
+  color-scheme: light;
+}
+
+/* Large-text mode — PROJECT_PLAN §9 */
+[data-text="large"] {
+  --text-body: 26px;
+  --text-h1: clamp(44px, 7vw, 68px);
+  --text-h2: 36px;
+  --text-h3: 30px;
+  --text-wordmark: 32px;
+  --text-tile-letter: 32px;
+  --leading-body: 1.5;
+  --tap-min: 72px;
+}
+
+@media (prefers-contrast: more) {
+  :root:not([data-theme="calm"]) {
+    --paper: #ffffff;
+    --ink: #000000;
+    --card: #ffffff;
+    --line: #000000;
+    --on-ink: #ffffff;
+    --focus: #0000ee;
+    --voice: #000000;
+    --voice-bg: #ffffff;
+    --staff: #000000;
+    --staff-bg: #ffffff;
+    --record: #000000;
+    --record-bg: #ffffff;
+    --emh: #000000;
+    --emh-bg: #ffffff;
+    --pattern: #000000;
+    --pattern-bg: #ffffff;
+    --task: #000000;
+    --task-bg: #ffffff;
+  }
+}
