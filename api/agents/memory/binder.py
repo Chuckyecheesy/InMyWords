@@ -59,6 +59,7 @@ def _flat(text: str) -> str:
         .replace("\u2019", "'")
         .replace("\u2013", "-")
         .replace("\u2014", "-")
+        .replace("**", "")
     )
     return _WHITESPACE.sub(" ", text).strip().casefold()
 

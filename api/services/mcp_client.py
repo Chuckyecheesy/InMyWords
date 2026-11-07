@@ -70,9 +70,11 @@ async def add_observation(resident, staff, note):
 
 # ---- memory server ----
 
-async def remember(resident, event, source="inferred", mem_type="event"):
-    return await _call("memory", "remember",
-                       {"resident": resident, "event": event, "source": source, "type": mem_type})
+async def remember(resident, event, source="inferred", mem_type="event", source_date=None):
+    payload = {"resident": resident, "event": event, "source": source, "type": mem_type}
+    if source_date:
+        payload["source_date"] = source_date
+    return await _call("memory", "remember", payload)
 
 async def recall(resident, query, mem_type=""):
     return await _call("memory", "recall", {"resident": resident, "query": query, "type": mem_type})

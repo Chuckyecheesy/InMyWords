@@ -112,7 +112,7 @@ const chapters: Record<string, StoryChapter[]> = {
 const essentials: Record<string, Highlight[]> = {
   marcus: [
     { text: "I like bowling on Saturdays.", source: "resident", date: null },
-    { text: "Drinks coffee.", source: "document", date: "2019-06-01" },
+    { text: "Drinks coffee.", source: "document", date: "2021-03-15" },
   ],
   dana: [
     { text: "I love gardening.", source: "resident", date: null },

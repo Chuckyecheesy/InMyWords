@@ -9,10 +9,10 @@ Usage:
     python db/reset.py
 
 Embeddings are left NULL — backfill them with Ahmed's embedding function
-once T3.1 lands (recall uses keyword match until then). The binder import
-(William's extraction over marcus_binder.md) re-runs after reset as part
-of the seed step; until that prompt exists, the binder-derived facts are
-already included in memories.json with source = 'document'.
+once T3.1 lands (recall uses keyword match until then). After the JSON
+seed, William's binder import (api/scripts/import_marcus_binder.py) can
+re-run over marcus_binder.md. memories.json already includes the core
+document facts so the demo works even before that script runs.
 """
 
 import json

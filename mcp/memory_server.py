@@ -16,9 +16,16 @@ from store import get_store, source_label
 mcp = FastMCP("memory")
 
 
+def _label_source(m):
+    """Pending inferred facts read as 'Pattern noticed'.
+    Binder/document facts keep 'From records' even while pending confirmation."""
+    if m["status"] == "pending" and m["source"] in ("inferred", "pattern"):
+        return "inferred"
+    return m["source"]
+
+
 def _fact(m, name):
     date = m.get("source_date") or str(m["last_seen"])[:10]
-    source = m["source"] if m["status"] != "pending" else "inferred"
     return {
         "id": m["id"],
         "type": m["type"],
@@ -27,7 +34,7 @@ def _fact(m, name):
         "date": str(date),
         "times_seen": m["times_seen"],
         "status": m["status"],
-        "label": source_label(source, name, str(date)),
+        "label": source_label(_label_source(m), name, str(date)),
         "update_reason": m.get("update_reason"),
     }
 
@@ -39,16 +46,20 @@ def _name(store, resident):
 
 @mcp.tool
 def remember(resident: str, event: str, source: str = "inferred",
-             type: str = "event") -> dict:
+             type: str = "event", source_date: str = "") -> dict:
     """Save a candidate memory (type: preference | event | routine).
     Near-duplicates bump times_seen instead of creating a copy. New
-    memories start PENDING — only the resident can confirm them."""
+    memories start PENDING — only the resident can confirm them.
+    source_date is required for document facts (the binder's own date)."""
     if source not in ("resident", "staff", "emh", "document", "inferred"):
         return {"error": f"invalid source '{source}'"}
     if type not in ("preference", "event", "routine"):
         return {"error": f"invalid type '{type}'"}
+    if source == "document" and not source_date:
+        return {"error": "document facts need source_date (the binder's date)"}
     store = get_store()
-    result = store.remember(resident, type, event, source)
+    result = store.remember(
+        resident, type, event, source, source_date=source_date or None)
     return dict(result, store_mode=store.mode)
 
 

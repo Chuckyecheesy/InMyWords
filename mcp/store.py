@@ -177,7 +177,7 @@ class SeedStore:
 
     # ---- memory layer (T2.5) ----
 
-    def remember(self, rid, mem_type, content, source):
+    def remember(self, rid, mem_type, content, source, source_date=None):
         """Save a candidate memory. Near-duplicates bump times_seen instead."""
         new_words = set(content.lower().split())
         for m in self.memories:
@@ -188,12 +188,15 @@ class SeedStore:
             if overlap >= 0.6:
                 m["times_seen"] += 1
                 m["last_seen"] = _now()
+                if source_date and not m.get("source_date"):
+                    m["source_date"] = source_date
                 return {"id": m["id"], "merged": True, "times_seen": m["times_seen"], "status": m["status"]}
         mem = {"id": max((m["id"] for m in self.memories), default=0) + 1, "resident_id": rid,
-               "type": mem_type, "content": content, "source": source, "source_date": None,
+               "type": mem_type, "content": content, "source": source, "source_date": source_date,
                "times_seen": 1, "first_seen": _now(), "last_seen": _now(), "status": "pending"}
         self.memories.append(mem)
-        return {"id": mem["id"], "merged": False, "times_seen": 1, "status": "pending"}
+        return {"id": mem["id"], "merged": False, "times_seen": 1, "status": "pending",
+                "source": source, "source_date": source_date}
 
     def recall(self, rid, query, mem_type=None, limit=6):
         """Keyword + recency ranking. TODO(after T3.1): add vector similarity —
@@ -436,23 +439,31 @@ class PostgresStore:
 
     # ---- memory layer (T2.5) ----
 
-    def remember(self, rid, mem_type, content, source):
+    def remember(self, rid, mem_type, content, source, source_date=None):
         # Near-duplicate check: word-overlap in SQL is clumsy; fetch same-type
         # memories and reuse the SeedStore overlap rule in Python.
         new_words = set(content.lower().split())
-        for m in self._all("SELECT id, content, status FROM memories WHERE resident_id = %s AND type = %s",
+        for m in self._all("SELECT id, content, status, source_date FROM memories WHERE resident_id = %s AND type = %s",
                            (rid, mem_type)):
             old_words = set(m["content"].lower().split())
             overlap = len(new_words & old_words) / max(len(new_words | old_words), 1)
             if overlap >= 0.6:
-                row = self._one(
-                    "UPDATE memories SET times_seen = times_seen + 1, last_seen = now() "
-                    "WHERE id = %s RETURNING id, times_seen, status", (m["id"],))
+                if source_date and not m.get("source_date"):
+                    row = self._one(
+                        "UPDATE memories SET times_seen = times_seen + 1, last_seen = now(), "
+                        "source_date = %s WHERE id = %s RETURNING id, times_seen, status",
+                        (source_date, m["id"]))
+                else:
+                    row = self._one(
+                        "UPDATE memories SET times_seen = times_seen + 1, last_seen = now() "
+                        "WHERE id = %s RETURNING id, times_seen, status", (m["id"],))
                 return {"id": row["id"], "merged": True, "times_seen": row["times_seen"], "status": row["status"]}
         new_id = self._insert(
-            "INSERT INTO memories (resident_id, type, content, source, status) VALUES (%s,%s,%s,%s,'pending')",
-            (rid, mem_type, content, source))
-        return {"id": new_id, "merged": False, "times_seen": 1, "status": "pending"}
+            "INSERT INTO memories (resident_id, type, content, source, source_date, status) "
+            "VALUES (%s,%s,%s,%s,%s,'pending')",
+            (rid, mem_type, content, source, source_date))
+        return {"id": new_id, "merged": False, "times_seen": 1, "status": "pending",
+                "source": source, "source_date": source_date}
 
     def recall(self, rid, query, mem_type=None, limit=6):
         # Keyword + recency. TODO(after T3.1): add `embedding <=> %s` cosine
