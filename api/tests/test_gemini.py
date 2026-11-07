@@ -72,20 +72,35 @@ class _EmbedClient:
         self.models = _EmbedModels(dimensions)
 
 
+def _schema_leaves(schemas, examples, prefix=""):
+    """Yield (path, schema, example) for each agent schema, not the group dicts."""
+    if set(schemas) != set(examples):
+        raise AssertionError(f"{prefix or 'root'} keys {set(schemas)} != {set(examples)}")
+    for key in schemas:
+        path = f"{prefix}.{key}" if prefix else key
+        schema = schemas[key]
+        example = examples[key]
+        if schema.get("type") == "object" and "properties" in schema:
+            yield path, schema, example
+        else:
+            yield from _schema_leaves(schema, example, path)
+
+
 class GenerateJsonTests(unittest.TestCase):
     def test_every_agreed_schema_returns_valid_json(self):
-        self.assertEqual(set(EXAMPLES), set(SCHEMAS))
-        for name, schema in SCHEMAS.items():
-            client = _Client([json.dumps(EXAMPLES[name])])
+        leaves = list(_schema_leaves(SCHEMAS, EXAMPLES))
+        self.assertGreaterEqual(len(leaves), 10)
+        for name, schema, example in leaves:
+            client = _Client([json.dumps(example)])
             got = generate_json(f"test {name}", schema, client=client)
-            self.assertEqual(got, EXAMPLES[name], name)
+            self.assertEqual(got, example, name)
             _no_additional(client.models.calls[0]["config"]["response_json_schema"])
             self.assertIn("additionalProperties", json.dumps(schema))
 
     def test_retries_once_then_returns_valid_json(self):
         good = {"options": ["I want coffee.", "Coffee, please."]}
         client = _Client(["{\"options\": []}", json.dumps(good)])
-        got = generate_json("tiles: coffee", SCHEMAS["suggest"], client=client)
+        got = generate_json("tiles: coffee", SCHEMAS["voice"]["suggestions"], client=client)
         self.assertEqual(got, good)
         self.assertEqual(len(client.models.calls), 2)
         self.assertIn("failed validation", client.models.calls[1]["contents"])
@@ -93,13 +108,13 @@ class GenerateJsonTests(unittest.TestCase):
     def test_raises_when_both_attempts_fail(self):
         client = _Client(["not-json", "{\"options\": [\"only one\"]}"])
         with self.assertRaises(GeminiSchemaError):
-            generate_json("tiles: coffee", SCHEMAS["suggest"], client=client)
+            generate_json("tiles: coffee", SCHEMAS["voice"]["suggestions"], client=client)
         self.assertEqual(len(client.models.calls), 2)
 
     def test_missing_key_raises(self):
         os.environ.pop("GEMINI_API_KEY", None)
         with self.assertRaises(GeminiError):
-            generate_json("hello", SCHEMAS["routine_phrase"])
+            generate_json("hello", SCHEMAS["memory"]["routine"])
 
 
 class EmbedTests(unittest.TestCase):

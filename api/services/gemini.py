@@ -6,8 +6,13 @@ Two functions, used by every agent. Prompts stay in the agents.
     embed(text) -> list[float]                768-d vector, size fixed
 
 `schema` is a JSON Schema object (`type: object`). The shapes the team
-agreed on are in `SCHEMAS` — pass `SCHEMAS["suggest"]` and so on. A sample
-that already validates is in `EXAMPLES`.
+agreed on are in `SCHEMAS`, grouped by agent: `SCHEMAS["voice"]["suggestions"]`.
+A sample that already validates is in `EXAMPLES`, with the same keys.
+
+Lookup names (`voice`, `suggestions`, …) are internal. They are not API fields.
+Property names inside a schema follow the frozen contract where one exists
+(`options`, `text`, `answer`, `sources`, `online_steps`, `staff_tasks`, `items`).
+Those strings stay as written in docs/CONTRACTS.md.
 
 Embedding length is `EMBEDDING_DIM` (768). That matches
 `db/schema.sql` (`memories.embedding VECTOR(768)`). Do not change it.
@@ -44,12 +49,14 @@ TASK_TYPES = (
     "CLUSTERING",
 )
 
+# Value strings below are frozen in docs/CONTRACTS.md and the web types.
+# `emh` is the EMHware case record (contact notes, checklist, events), not a label we can rename.
 _MEMORY_TYPES = ["preference", "event", "routine"]
 _COACH_SOURCES = ["resident", "staff", "emh", "document", "pattern"]
 _MEMORY_SOURCES = ["resident", "staff", "emh", "document", "inferred", "pattern"]
 _OBSERVER_SOURCES = ["inferred", "staff"]
 _ONLINE_STEPS = ["send_message", "add_to_calendar", "book_activity", "next_bus"]
-# Names the staff handoff screen keeps (web/lib/api.ts normalizeHandoff).
+# Item kinds the staff handoff screen keeps (web/lib/api.ts normalizeHandoff).
 _HANDOFF_TYPES = ["emh", "checklist", "observation", "choice", "task", "memory"]
 _DATE = {"type": "string", "format": "date", "pattern": r"^\d{4}-\d{2}-\d{2}$"}
 
@@ -72,278 +79,307 @@ def _object(description: str, properties: dict, required: list[str]) -> dict:
     }
 
 
+# Grouped by agent. Pass SCHEMAS["voice"]["suggestions"], not a flat key.
 SCHEMAS: dict[str, dict] = {
-    "suggest": _object(
-        "Speak For Me. 2 or 3 first-person sentences the resident can approve. "
-        "Each sentence is under 12 words and only means what the tapped tiles mean. "
-        "Never add a new want. If the tiles are unclear, one option is a short "
-        'neutral sentence such as "I want coffee."',
-        {
-            "options": {
-                "type": "array",
-                "minItems": 2,
-                "maxItems": 3,
-                "items": {"type": "string"},
-            }
-        },
-        ["options"],
-    ),
-    "story_draft": _object(
-        "My Story chapter draft. 3 to 5 first-person sentences. "
-        "Use only the interview answers. Do not add facts.",
-        {"text": {"type": "string"}},
-        ["text"],
-    ),
-    "choice_consequences": _object(
-        "Supported Choice. One short neutral line per option, including "
-        '"not decided yet". Do not recommend. Do not write prices or money '
-        "left — code calculates those and appends them.",
-        {
-            "lines": {
-                "type": "array",
-                "minItems": 1,
-                "items": _object(
-                    "One option, in the same order as the prompt.",
-                    {
-                        "label": {"type": "string"},
-                        "consequence": {"type": "string"},
-                    },
-                    ["label", "consequence"],
-                ),
-            }
-        },
-        ["lines"],
-    ),
-    "coach_answer": _object(
-        "Onboarding Coach. 1 to 3 plain sentences grounded in the supplied facts. "
-        "Set unknown to true when none of the facts answer the question, and "
-        "then leave sources empty. Source type pattern means a noticed pattern, "
-        "not the resident's words.",
-        {
-            "unknown": {"type": "boolean"},
-            "answer": {"type": "string"},
-            "sources": {
-                "type": "array",
-                "items": _object(
-                    "One fact the answer used.",
-                    {
-                        "type": {"type": "string", "enum": _COACH_SOURCES},
-                        "date": _DATE,
-                    },
-                    ["type", "date"],
-                ),
+    "voice": {
+        "suggestions": _object(
+            "Speak For Me. 2 or 3 first-person sentences the resident can approve. "
+            "Each sentence is under 12 words and only means what the tapped tiles mean. "
+            "Never add a new want. If the tiles are unclear, one option is a short "
+            'neutral sentence such as "I want coffee."',
+            {
+                "options": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 3,
+                    "items": {"type": "string"},
+                }
             },
-        },
-        ["unknown", "answer", "sources"],
-    ),
-    "binder_facts": _object(
-        "Binder import. Facts the document states, and only those. "
-        "Keep the document's date. Never invent a date. "
-        "Callers save these with source document and status pending.",
-        {
-            "facts": {
-                "type": "array",
-                "items": _object(
-                    "One fact copied from the document.",
-                    {
-                        "type": {"type": "string", "enum": _MEMORY_TYPES},
-                        "content": {"type": "string"},
-                        "date": _DATE,
-                    },
-                    ["type", "content", "date"],
-                ),
-            }
-        },
-        ["facts"],
-    ),
-    "observer_memories": _object(
-        "Memory observer. Candidate memories from one interaction. "
-        "source is inferred, or staff when the input is a staff note. "
-        "Never resident and never document. evidence is the phrase it came from.",
-        {
-            "memories": {
-                "type": "array",
-                "items": _object(
-                    "One candidate memory.",
-                    {
-                        "type": {"type": "string", "enum": _MEMORY_TYPES},
-                        "content": {"type": "string"},
-                        "evidence": {"type": "string"},
-                        "source": {"type": "string", "enum": _OBSERVER_SOURCES},
-                    },
-                    ["type", "content", "evidence", "source"],
-                ),
-            }
-        },
-        ["memories"],
-    ),
-    "routine_phrase": _object(
-        "Routine finder. One plain sentence for a pattern code already counted. "
-        "Use only the weekday, hour, and count in the prompt. Do not guess a cause.",
-        {"content": {"type": "string"}},
-        ["content"],
-    ),
-    "contradiction": _object(
-        "Consolidator. Does the candidate contradict the confirmed memory? "
-        "reason is one sentence the resident can hear, or empty when contradicts is false. "
-        "Callers file propose_update; this schema does not change stored words.",
-        {
-            "contradicts": {"type": "boolean"},
-            "reason": {"type": "string"},
-        },
-        ["contradicts", "reason"],
-    ),
-    "action_plan": _object(
-        "Action agent. Steps from the allowlist only. "
-        "create_staff_task is staff_tasks, not an online step. "
-        "cost is the price the prompt supplied for that step, copied, not calculated. "
-        "Do not include a total — code sums cost.",
-        {
-            "online_steps": {
-                "type": "array",
-                "items": _object(
-                    "One online step.",
-                    {
-                        "step": {"type": "string", "enum": _ONLINE_STEPS},
-                        "detail": {"type": "string"},
-                        "cost": {"type": "number", "minimum": 0},
-                    },
-                    ["step", "detail", "cost"],
-                ),
+            ["options"],
+        ),
+    },
+    "story": {
+        "draft": _object(
+            "My Story chapter draft. 3 to 5 first-person sentences. "
+            "Use only the interview answers. Do not add facts.",
+            {"text": {"type": "string"}},
+            ["text"],
+        ),
+    },
+    "choice": {
+        "consequences": _object(
+            "Supported Choice. One short neutral line per option, including "
+            '"not decided yet". Do not recommend. Do not write prices or money '
+            "left — code calculates those and appends them onto each option.",
+            {
+                "options": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": _object(
+                        "One option, in the same order as the prompt.",
+                        {
+                            "label": {"type": "string"},
+                            "consequence": {"type": "string"},
+                        },
+                        ["label", "consequence"],
+                    ),
+                }
             },
-            "staff_tasks": {
-                "type": "array",
-                "items": _object(
-                    "Physical help for staff.",
-                    {
-                        "task": {"type": "string"},
-                        "due": {"type": "string"},
-                    },
-                    ["task", "due"],
-                ),
+            ["options"],
+        ),
+    },
+    "coach": {
+        "answer": _object(
+            "Onboarding Coach. 1 to 3 plain sentences grounded in the supplied facts. "
+            "If none of the facts answer the question, say so in answer and leave sources empty. "
+            "Source type pattern means a noticed pattern, not the resident's words.",
+            {
+                "answer": {"type": "string"},
+                "sources": {
+                    "type": "array",
+                    "items": _object(
+                        "One fact the answer used.",
+                        {
+                            "type": {"type": "string", "enum": _COACH_SOURCES},
+                            "date": _DATE,
+                        },
+                        ["type", "date"],
+                    ),
+                },
             },
-        },
-        ["online_steps", "staff_tasks"],
-    ),
-    "handoff_bullets": _object(
-        "Handoff. One short factual bullet per input item. Keep the date. "
-        "Do not guess why something happened. type names are the ones the "
-        "staff screen renders.",
-        {
-            "items": {
-                "type": "array",
-                "items": _object(
-                    "One handoff bullet.",
-                    {
-                        "type": {"type": "string", "enum": _HANDOFF_TYPES},
-                        "date": _DATE,
-                        "text": {"type": "string"},
-                        "source": {"type": "string", "enum": _MEMORY_SOURCES},
-                    },
-                    ["type", "date", "text"],
-                ),
-            }
-        },
-        ["items"],
-    ),
+            ["answer", "sources"],
+        ),
+    },
+    "memory": {
+        "document_facts": _object(
+            "Binder import. Facts the document states, and only those. "
+            "Keep the document's date. Never invent a date. "
+            "Callers save these with source document and status pending.",
+            {
+                "facts": {
+                    "type": "array",
+                    "items": _object(
+                        "One fact copied from the document.",
+                        {
+                            "type": {"type": "string", "enum": _MEMORY_TYPES},
+                            "content": {"type": "string"},
+                            "date": _DATE,
+                        },
+                        ["type", "content", "date"],
+                    ),
+                }
+            },
+            ["facts"],
+        ),
+        "candidates": _object(
+            "Memory observer. Candidate memories from one interaction. "
+            "source is inferred, or staff when the input is a staff note. "
+            "Never resident and never document. evidence is the phrase it came from.",
+            {
+                "candidates": {
+                    "type": "array",
+                    "items": _object(
+                        "One candidate memory.",
+                        {
+                            "type": {"type": "string", "enum": _MEMORY_TYPES},
+                            "content": {"type": "string"},
+                            "evidence": {"type": "string"},
+                            "source": {"type": "string", "enum": _OBSERVER_SOURCES},
+                        },
+                        ["type", "content", "evidence", "source"],
+                    ),
+                }
+            },
+            ["candidates"],
+        ),
+        "routine": _object(
+            "Routine finder. One plain sentence for a pattern code already counted. "
+            "Use only the weekday, hour, and count in the prompt. Do not guess a cause. "
+            "content is the memories.content column this phrase is stored in.",
+            {"content": {"type": "string"}},
+            ["content"],
+        ),
+        "contradiction": _object(
+            "Consolidator. Does the candidate contradict the confirmed memory? "
+            "reason is the propose_update argument: one sentence the resident can hear, "
+            "or empty when contradicts is false. This schema does not change stored words.",
+            {
+                "contradicts": {"type": "boolean"},
+                "reason": {"type": "string"},
+            },
+            ["contradicts", "reason"],
+        ),
+    },
+    "action": {
+        "plan": _object(
+            "Action agent. Steps from the allowlist only. "
+            "create_staff_task is staff_tasks, not an online step. "
+            "cost is the price the prompt supplied for that step, copied, not calculated. "
+            "Do not include a total — code sums cost.",
+            {
+                "online_steps": {
+                    "type": "array",
+                    "items": _object(
+                        "One online step.",
+                        {
+                            "step": {"type": "string", "enum": _ONLINE_STEPS},
+                            "detail": {"type": "string"},
+                            "cost": {"type": "number", "minimum": 0},
+                        },
+                        ["step", "detail", "cost"],
+                    ),
+                },
+                "staff_tasks": {
+                    "type": "array",
+                    "items": _object(
+                        "Physical help for staff.",
+                        {
+                            "task": {"type": "string"},
+                            "due": {"type": "string"},
+                        },
+                        ["task", "due"],
+                    ),
+                },
+            },
+            ["online_steps", "staff_tasks"],
+        ),
+    },
+    "handoff": {
+        "items": _object(
+            "Handoff. One short factual bullet per input item. Keep the date. "
+            "Do not guess why something happened. type names are the ones the "
+            "staff screen renders.",
+            {
+                "items": {
+                    "type": "array",
+                    "items": _object(
+                        "One handoff bullet.",
+                        {
+                            "type": {"type": "string", "enum": _HANDOFF_TYPES},
+                            "date": _DATE,
+                            "text": {"type": "string"},
+                            "source": {"type": "string", "enum": _MEMORY_SOURCES},
+                        },
+                        ["type", "date", "text"],
+                    ),
+                }
+            },
+            ["items"],
+        ),
+    },
 }
 
 EXAMPLES: dict[str, dict] = {
-    "suggest": {
-        "options": [
-            "I want a coffee, please.",
-            "Can I get a double-double from Tim's?",
-        ]
+    "voice": {
+        "suggestions": {
+            "options": [
+                "I want a coffee, please.",
+                "Can I get a double-double from Tim's?",
+            ]
+        },
     },
-    "story_draft": {
-        "text": (
-            "I'm Marcus. Saturdays are for bowling. "
-            "I get a double-double on the way. Quiet rooms are easier for me."
-        )
+    "story": {
+        "draft": {
+            "text": (
+                "I'm Marcus. Saturdays are for bowling. "
+                "I get a double-double on the way. Quiet rooms are easier for me."
+            )
+        },
     },
-    "choice_consequences": {
-        "lines": [
-            {"label": "bowling", "consequence": "You would go bowling on Saturday."},
-            {"label": "movie", "consequence": "You would go to a movie."},
-            {
-                "label": "not decided yet",
-                "consequence": "That's okay. We can come back to this.",
-            },
-        ]
+    "choice": {
+        "consequences": {
+            "options": [
+                {"label": "bowling", "consequence": "You would go bowling on Saturday."},
+                {"label": "movie", "consequence": "You would go to a movie."},
+                {
+                    "label": "not decided yet",
+                    "consequence": "That's okay. We can come back to this.",
+                },
+            ]
+        },
     },
-    "coach_answer": {
-        "unknown": False,
-        "answer": "Loud rooms upset Marcus. A quiet space helps him settle.",
-        "sources": [
-            {"type": "resident", "date": "2026-11-02"},
-            {"type": "document", "date": "2021-03-15"},
-        ],
+    "coach": {
+        "answer": {
+            "answer": "Loud rooms upset Marcus. A quiet space helps him settle.",
+            "sources": [
+                {"type": "resident", "date": "2026-11-02"},
+                {"type": "document", "date": "2021-03-15"},
+            ],
+        },
     },
-    "binder_facts": {
-        "facts": [
-            {
-                "type": "preference",
-                "content": "Coffee order is a double-double from Tim's.",
-                "date": "2019-04-12",
-            }
-        ]
+    "memory": {
+        "document_facts": {
+            "facts": [
+                {
+                    "type": "preference",
+                    "content": "Coffee order is a double-double from Tim's.",
+                    "date": "2019-04-12",
+                }
+            ]
+        },
+        "candidates": {
+            "candidates": [
+                {
+                    "type": "preference",
+                    "content": "Has been choosing tea.",
+                    "evidence": "Picked the tea tile five times this week.",
+                    "source": "inferred",
+                }
+            ]
+        },
+        "routine": {
+            "content": "Marcus asks for coffee around 7:30 on weekday mornings."
+        },
+        "contradiction": {
+            "contradicts": True,
+            "reason": "The record says coffee, and this week he keeps choosing tea.",
+        },
     },
-    "observer_memories": {
-        "memories": [
-            {
-                "type": "preference",
-                "content": "Has been choosing tea.",
-                "evidence": "Picked the tea tile five times this week.",
-                "source": "inferred",
-            }
-        ]
+    "action": {
+        "plan": {
+            "online_steps": [
+                {
+                    "step": "book_activity",
+                    "detail": "Lane at KW Bowl, Saturday 2:00pm",
+                    "cost": 15,
+                },
+                {
+                    "step": "add_to_calendar",
+                    "detail": "Bowling — Saturday 2:00pm",
+                    "cost": 0,
+                },
+                {
+                    "step": "send_message",
+                    "detail": "Email Lisa about Saturday bowling.",
+                    "cost": 0,
+                },
+            ],
+            "staff_tasks": [
+                {"task": "Drive Marcus to KW Bowl", "due": "Saturday 1:30pm"}
+            ],
+        },
     },
-    "routine_phrase": {
-        "content": "Marcus asks for coffee around 7:30 on weekday mornings."
-    },
-    "contradiction": {
-        "contradicts": True,
-        "reason": "The record says coffee, and this week he keeps choosing tea.",
-    },
-    "action_plan": {
-        "online_steps": [
-            {
-                "step": "book_activity",
-                "detail": "Lane at KW Bowl, Saturday 2:00pm",
-                "cost": 15,
-            },
-            {
-                "step": "add_to_calendar",
-                "detail": "Bowling — Saturday 2:00pm",
-                "cost": 0,
-            },
-            {
-                "step": "send_message",
-                "detail": "Email Lisa about Saturday bowling.",
-                "cost": 0,
-            },
-        ],
-        "staff_tasks": [{"task": "Drive Marcus to KW Bowl", "due": "Saturday 1:30pm"}],
-    },
-    "handoff_bullets": {
-        "items": [
-            {
-                "type": "choice",
-                "date": "2026-11-06",
-                "text": "Marcus chose bowling for Saturday.",
-            },
-            {
-                "type": "task",
-                "date": "2026-11-07",
-                "text": "Ride needed: drive Marcus to KW Bowl, Saturday 1:30pm.",
-            },
-            {
-                "type": "memory",
-                "date": "2026-11-06",
-                "text": "Pattern noticed: Marcus picked tea 5 times this week.",
-                "source": "pattern",
-            },
-        ]
+    "handoff": {
+        "items": {
+            "items": [
+                {
+                    "type": "choice",
+                    "date": "2026-11-06",
+                    "text": "Marcus chose bowling for Saturday.",
+                },
+                {
+                    "type": "task",
+                    "date": "2026-11-07",
+                    "text": "Ride needed: drive Marcus to KW Bowl, Saturday 1:30pm.",
+                },
+                {
+                    "type": "memory",
+                    "date": "2026-11-06",
+                    "text": "Pattern noticed: Marcus picked tea 5 times this week.",
+                    "source": "pattern",
+                },
+            ]
+        },
     },
 }
 
