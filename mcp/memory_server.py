@@ -99,6 +99,16 @@ def get_pending(resident: str) -> dict:
 
 
 @mcp.tool
+def get_recent_changes(resident: str, since: str = "") -> dict:
+    """Memories the resident confirmed (now 'in their words'), optionally
+    since an ISO timestamp. (Additive — Handoff mentions these changes.)"""
+    store = get_store()
+    name = _name(store, resident)
+    rows = store.get_recent_confirmed(resident, since or None)
+    return {"resident": resident, "memories": [_fact(m, name) for m in rows]}
+
+
+@mcp.tool
 def propose_update(resident: str, memory: int, reason: str) -> dict:
     """Flag an existing memory for the resident's 'confirm?' queue (e.g. the
     Consolidator noticed current behaviour contradicts it). Never overwrites —

@@ -119,6 +119,27 @@ def log_choice(resident: str, options: list[dict], chosen: str | None = None, qu
 
 
 @mcp.tool
+def get_observations(resident: str, since: str = "") -> dict:
+    """Staff observations for a resident, optionally since an ISO timestamp.
+    (Additive read tool — the Handoff agent needs it.)"""
+    store = get_store()
+    rows = store.get_observations(resident, since or None)
+    return {"observations": [{"staff": o["staff_id"], "note": o["note"],
+                              "date": str(o["created_at"])[:10]} for o in rows]}
+
+
+@mcp.tool
+def get_choices(resident: str, since: str = "") -> dict:
+    """Choices with status, optionally since an ISO timestamp.
+    (Additive read tool — the Handoff agent needs it.)"""
+    store = get_store()
+    rows = store.get_choices(resident, since or None)
+    return {"choices": [{"chosen": c["chosen"], "status": c["status"],
+                         "question": c.get("question"), "date": str(c["created_at"])[:10]}
+                        for c in rows]}
+
+
+@mcp.tool
 def add_observation(resident: str, staff: str, note: str) -> dict:
     """Save a staff observation — stored separately from the resident's words,
     never overwrites them."""

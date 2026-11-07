@@ -283,8 +283,10 @@ async def confirm_memory(memory_id: int, body: ConfirmBody):
 # ---------- Staff ----------
 
 @app.get("/handoff")
-def handoff(staff_id: str, resident_id: str):
-    return mocks.HANDOFF
+async def handoff(staff_id: str, resident_id: str):
+    from agents.handoff import build_handoff
+    result, live = await _mcp(build_handoff(staff_id, resident_id), None)
+    return result if live else mocks.HANDOFF
 
 
 @app.get("/activity/{resident_id}")

@@ -67,6 +67,12 @@ async def add_observation(resident, staff, note):
     return await _call("profile", "add_observation",
                        {"resident": resident, "staff": staff, "note": note})
 
+async def get_observations(resident, since=""):
+    return await _call("profile", "get_observations", {"resident": resident, "since": since})
+
+async def get_choices(resident, since=""):
+    return await _call("profile", "get_choices", {"resident": resident, "since": since})
+
 
 # ---- memory server ----
 
@@ -111,6 +117,15 @@ async def create_staff_task(resident, task, time=""):
 
 async def get_activity(resident):
     return await _call("actions", "get_activity", {"resident": resident})
+
+async def get_staff_tasks(resident=""):
+    return await _call("actions", "get_staff_tasks", {"resident": resident})
+
+async def get_recent_changes(resident, since=""):
+    return await _call("memory", "get_recent_changes", {"resident": resident, "since": since})
+
+async def get_staff(staff):
+    return await _call("emh", "get_staff", {"staff": staff})
 
 
 # ---- emh server (mock) ----

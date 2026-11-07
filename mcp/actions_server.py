@@ -212,6 +212,16 @@ def create_staff_task(resident: str, task: str, time: str = "", plan_id: int = 0
 
 
 @mcp.tool
+def get_staff_tasks(resident: str = "") -> dict:
+    """Open and done staff tasks, optionally filtered to one resident.
+    (Additive read tool — Handoff shows these.)"""
+    store = get_store()
+    tasks = store.get_staff_tasks(resident or None)
+    return {"tasks": [{"resident": t["resident_id"], "task": t["task"],
+                       "due": t.get("due_at"), "status": t["status"]} for t in tasks]}
+
+
+@mcp.tool
 def get_activity(resident: str) -> dict:
     """Activity log: sentences, choices, plans and executed steps, newest first."""
     store = get_store()

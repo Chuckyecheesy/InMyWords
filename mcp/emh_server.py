@@ -35,6 +35,18 @@ def get_checklist(home: str, date: str = "") -> dict:
 
 
 @mcp.tool
+def get_staff(staff: str) -> dict:
+    """Staff record incl. last_shift_end (EMH is the staffing system of
+    record today — additive tool, Handoff needs the shift boundary).
+    last_shift_end = null means new staff: Handoff shows everything."""
+    row = get_store().get_staff(staff)
+    if not row:
+        return {"error": f"no staff '{staff}'"}
+    return {"id": row["id"], "name": row["name"], "role": row["role"],
+            "last_shift_end": str(row["last_shift_end"]) if row["last_shift_end"] else None}
+
+
+@mcp.tool
 def get_significant_events(resident: str) -> dict:
     """Significant events with dates."""
     store = get_store()

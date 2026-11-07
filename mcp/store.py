@@ -175,6 +175,31 @@ class SeedStore:
                                    "question": question, "answer": answer, "created_at": _now()})
         return True
 
+    # ---- handoff reads (T2.7) ----
+
+    def get_staff(self, staff_id):
+        return self.staff.get(staff_id)
+
+    def get_observations(self, rid, since=None):
+        rows = [o for o in self.observations if o["resident_id"] == rid]
+        if since:
+            rows = [o for o in rows if str(o["created_at"]) >= since]
+        return rows
+
+    def get_choices(self, rid, since=None):
+        rows = [c for c in self.choices if c["resident_id"] == rid]
+        if since:
+            rows = [c for c in rows if str(c["created_at"]) >= since]
+        return rows
+
+    def get_recent_confirmed(self, rid, since=None):
+        rows = [m for m in self.memories
+                if m["resident_id"] == rid and m["status"] == "confirmed"
+                and m["source"] == "resident"]
+        if since:
+            rows = [m for m in rows if str(m["last_seen"]) >= since]
+        return rows
+
     # ---- memory layer (T2.5) ----
 
     def remember(self, rid, mem_type, content, source, source_date=None):
@@ -505,6 +530,30 @@ class PostgresStore:
             sql = ("UPDATE memories SET status = 'dismissed', last_seen = now() "
                    "WHERE id = %s AND resident_id = %s RETURNING *")
         return self._one(sql, (memory_id, rid))
+
+    # ---- handoff reads (T2.7) ----
+
+    def get_staff(self, staff_id):
+        return self._one("SELECT * FROM staff WHERE id = %s", (staff_id,))
+
+    def get_observations(self, rid, since=None):
+        if since:
+            return self._all("SELECT * FROM observations WHERE resident_id = %s AND created_at >= %s "
+                             "ORDER BY created_at DESC", (rid, since))
+        return self._all("SELECT * FROM observations WHERE resident_id = %s ORDER BY created_at DESC", (rid,))
+
+    def get_choices(self, rid, since=None):
+        if since:
+            return self._all("SELECT * FROM choices WHERE resident_id = %s AND created_at >= %s "
+                             "ORDER BY created_at DESC", (rid, since))
+        return self._all("SELECT * FROM choices WHERE resident_id = %s ORDER BY created_at DESC", (rid,))
+
+    def get_recent_confirmed(self, rid, since=None):
+        sql = ("SELECT * FROM memories WHERE resident_id = %s AND status = 'confirmed' "
+               "AND source = 'resident'")
+        if since:
+            return self._all(sql + " AND last_seen >= %s ORDER BY last_seen DESC", (rid, since))
+        return self._all(sql + " ORDER BY last_seen DESC", (rid,))
 
     # ---- actions layer (T2.6) ----
 
