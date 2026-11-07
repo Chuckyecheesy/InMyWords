@@ -10,14 +10,22 @@ from __future__ import annotations
 import concurrent.futures
 import json
 import re
+import threading
 from pathlib import Path
 
 from services.gemini import SCHEMAS, GeminiError
 
 _WORD = re.compile(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*")
 _MAX_WORDS = 12
+_MAX_TILES = 6
+_MAX_TILE_CHARS = 40
 # Tiles have to become sentences in under 3 seconds. Leave the rest for the route.
 _MODEL_WAIT_SECONDS = 2.5
+# At most two Gemini calls at once. A third tap gets the written fallback
+# immediately and does not spend another request.
+_MODEL_SLOTS = 2
+_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=_MODEL_SLOTS, thread_name_prefix="suggest")
+_slots = threading.BoundedSemaphore(_MODEL_SLOTS)
 
 # Words that carry no extra want. A content word has to be a tile or a memory.
 _FUNCTION = {
@@ -36,6 +44,21 @@ _SYSTEM = (
     "Never add a new want. If the tiles are unclear, one option is a short "
     "neutral sentence such as 'I want coffee.'"
 )
+
+
+def clean_tiles(tiles: list[str] | None) -> list[str]:
+    """Keep short tile labels. Punctuation that could change a search is removed."""
+    cleaned: list[str] = []
+    for tile in tiles or []:
+        if not isinstance(tile, str):
+            continue
+        text = "".join(ch for ch in tile if ch.isalnum() or ch in " '-")
+        text = " ".join(text.split())[:_MAX_TILE_CHARS]
+        if text:
+            cleaned.append(text)
+        if len(cleaned) == _MAX_TILES:
+            break
+    return cleaned
 
 
 def word_count(sentence: str) -> int:
@@ -212,6 +235,36 @@ def _accept(raw: object, tiles, memories, time_of_day) -> list[str]:
     return kept
 
 
+def _ask_model(caller, prompt: str):
+    """One shared pool, two calls at a time. A full pool skips the model."""
+    if not _slots.acquire(blocking=False):
+        print("[suggest] model busy")
+        return None
+
+    def run():
+        try:
+            return caller(
+                prompt,
+                SCHEMAS["voice"]["suggestions"],
+                system=_SYSTEM,
+                attempts=1,
+            )
+        finally:
+            _slots.release()
+
+    future = _POOL.submit(run)
+    try:
+        return future.result(timeout=_MODEL_WAIT_SECONDS)
+    except concurrent.futures.TimeoutError:
+        print("[suggest] model exceeded 2.5s")
+        return None
+    except (GeminiError, ValueError, TypeError, OSError):
+        return None
+    except Exception as exc:
+        print(f"[suggest] {type(exc).__name__}: model skipped")
+        return None
+
+
 def suggest(
     *,
     resident_id: str,
@@ -226,6 +279,8 @@ def suggest(
     generate="auto" calls Gemini. generate=None uses the faithful fallback.
     Tests pass a fake generate(prompt, schema, **kwargs).
     """
+    tiles = clean_tiles(tiles)
+    time_of_day = " ".join((time_of_day or "").split())[:20]
     remembered = list(memories or [])
     if not remembered:
         remembered = load_seed_memories(resident_id)
@@ -237,27 +292,9 @@ def suggest(
             from services.gemini import generate_json
 
             caller = generate_json
-        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        fut = pool.submit(
-            caller,
-            _prompt(name, tiles, time_of_day, remembered),
-            SCHEMAS["voice"]["suggestions"],
-            system=_SYSTEM,
-        )
-        try:
-            raw = fut.result(timeout=_MODEL_WAIT_SECONDS)
+        raw = _ask_model(caller, _prompt(name, tiles, time_of_day, remembered))
+        if raw is not None:
             options = _accept(raw, tiles, remembered, time_of_day)
-        except concurrent.futures.TimeoutError:
-            print("[suggest] model exceeded 2.5s")
-            options = []
-        except (GeminiError, ValueError, TypeError, OSError):
-            options = []
-        except Exception as exc:
-            # A live model can be down (rate limit, 503). The tap still gets text.
-            print(f"[suggest] {type(exc).__name__}: model skipped")
-            options = []
-        finally:
-            pool.shutdown(wait=False, cancel_futures=True)
     seen = {line.lower() for line in options}
     for line in fallback:
         if line.lower() not in seen:

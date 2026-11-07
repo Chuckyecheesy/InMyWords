@@ -459,6 +459,7 @@ def generate_json(
     model: str | None = None,
     temperature: float = 0.2,
     client=None,
+    attempts: int = 2,
 ) -> dict:
     """Return JSON that validates against `schema`.
 
@@ -482,7 +483,7 @@ def generate_json(
 
     last_error = "no response"
     contents = prompt
-    for _attempt in range(2):
+    for _attempt in range(max(1, attempts)):
         response = gen.models.generate_content(
             model=model or os.environ.get("GEMINI_MODEL", FLASH_MODEL),
             contents=contents,

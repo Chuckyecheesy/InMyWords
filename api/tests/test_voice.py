@@ -14,7 +14,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from agents.voice import is_faithful, load_seed_memories, suggest, word_count  # noqa: E402
+from agents.voice import (  # noqa: E402
+    clean_tiles,
+    is_faithful,
+    load_seed_memories,
+    suggest,
+    word_count,
+)
+from services.limits import allow  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 SEED = json.loads((ROOT / "db" / "seed" / "memories.json").read_text(encoding="utf-8"))
@@ -117,6 +124,57 @@ class TileSuggestionTests(unittest.TestCase):
         )
         self.assertGreaterEqual(len(result["options"]), 2)
         self.assertTrue(any("double-double" in line for line in result["options"]))
+
+    def test_tiles_lose_regex_characters_and_extra_length(self):
+        cleaned = clean_tiles(["(a+)+b", "coffee", "x" * 80, "tea", "park", "bus", "help", "music"])
+        self.assertNotIn("(a+)+b", cleaned)
+        self.assertIn("coffee", cleaned)
+        self.assertEqual(len(cleaned), 6)
+        self.assertTrue(all(len(tile) <= 40 for tile in cleaned))
+
+    def test_full_model_pool_does_not_start_another_call(self):
+        from agents import voice
+
+        held = voice._MODEL_SLOTS
+        for _ in range(held):
+            self.assertTrue(voice._slots.acquire(blocking=False))
+
+        def generate(*args, **kwargs):
+            raise AssertionError("model should not start while both slots are busy")
+
+        try:
+            result = suggest(
+                resident_id="marcus",
+                name="Marcus",
+                tiles=["coffee"],
+                time_of_day="morning",
+                memories=memories_for("marcus"),
+                generate=generate,
+            )
+        finally:
+            for _ in range(held):
+                voice._slots.release()
+        self.assertTrue(any("double-double" in line for line in result["options"]))
+
+    def test_suggest_rate_limit(self):
+        key = "suggest-test-key"
+        self.assertTrue(allow(key, now=1000, limit=2))
+        self.assertTrue(allow(key, now=1001, limit=2))
+        self.assertFalse(allow(key, now=1002, limit=2))
+        self.assertTrue(allow(key, now=1061, limit=2))
+
+    def test_recall_terms_are_literal_words(self):
+        import sys
+        from pathlib import Path
+
+        mcp = str(Path(__file__).resolve().parents[2] / "mcp")
+        if mcp not in sys.path:
+            sys.path.insert(0, mcp)
+        from store import recall_terms
+
+        self.assertEqual(recall_terms("(a+)+ coffee"), ["coffee"])
+        self.assertEqual(recall_terms("a"), [])
+        self.assertLessEqual(len(recall_terms(" ".join(["word"] * 20))), 8)
 
     def test_seed_fallback_matches_the_file(self):
         loaded = load_seed_memories("dana")
