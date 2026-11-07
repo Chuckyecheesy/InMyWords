@@ -4,7 +4,7 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 
 Companion to the [Project Plan](PROJECT_PLAN.md). This doc is the step-by-step build: setup, structure, specs, and every task for each teammate.
 
-*(Markdown version of `In_My_Words_Build_Plan.docx` — the docx is the original; keep both in sync if either changes.)*
+*(Markdown version of* `In_My_Words_Build_Plan.docx` *— the docx is the original; keep both in sync if either changes.)*
 
 ## 1. Build principles
 
@@ -124,6 +124,7 @@ Task IDs match cards on the task board. Do them in order unless marked parallel.
 You own everything the user hears: resident voices, narration, the Story interview agent, the Coach voice mode, spoken approvals, and demo audio.
 
 **T1.1 — ElevenLabs setup and resident voices (hour 0–1)**
+
 - Create the account, claim participant credits, create an API key.
 - Voice Design: 3 voices for Marcus (warm, calm, mid-30s, Canadian) and 3 for Dana (friendly, gentle, early 50s).
 - One short preview line per voice ("Hi, I'm Marcus. I like bowling on Saturdays.").
@@ -131,6 +132,7 @@ You own everything the user hears: resident voices, narration, the Story intervi
 - ✅ Done when: 6 voices exist with preview clips.
 
 **T1.2 — Speak service (hours 1–4)**
+
 - Build `POST /speak`: look up the resident's voice_id, generate audio with the low-latency TTS model, return a URL.
 - Cache by voice_id + text — same request returns the cached file instantly.
 - Store audio in Cloudinary (raw/video resource) or backend storage. Return a public URL.
@@ -138,11 +140,13 @@ You own everything the user hears: resident voices, narration, the Story intervi
 - ✅ Done when: approved sentence plays in under 2 seconds; a repeated sentence plays instantly.
 
 **T1.3 — Wire speech into Speak For Me (hours 4–6)**
+
 - With T4: when the resident taps ✅, call `/speak` and play the audio.
 - Long-press on any button speaks its label (pre-generate these labels).
 - ✅ Done when: **Milestone 1** — tiles → suggestions → approve → spoken, end to end.
 
 **T1.4 — Story interview agent (hours 6–10)**
+
 - ElevenLabs Agent "Story Interviewer". Warm, slow, friendly voice.
 - System prompt rules: one short question at a time; plain words; only the current chapter; always offer 2–4 picture choices through show_choices; never assume an answer; thank the person after each answer.
 - Client tool `show_choices(question, options)`: rendered by T4's PhotoChoiceGrid; returns the tapped label.
@@ -152,23 +156,27 @@ You own everything the user hears: resident voices, narration, the Story intervi
 - ✅ Done when: one chapter fully interviewed with taps only and a draft read back.
 
 **T1.5 — Chapter narration (hours 10–12)**
+
 - `POST /story/approve`: generate narration in the resident's voice, save audio_url, mark chapter approved.
 - Pre-generate narration for all seeded chapters for Marcus and Dana.
 - ✅ Done when: **Milestone 2** — story page plays in the resident's voice.
 
 **T1.6 — Coach voice mode (hours 12–14)**
+
 - ElevenLabs Agent "Onboarding Coach", neutral staff-facing voice.
 - Webhook tool `ask_about(resident_id, question)` → `POST /coach/ask`. Agent reads the answer and says the source ("Marcus told us...", "A staff note from March 3 says...").
 - Prompt rule: never answer from its own knowledge; if the tool says unknown, say "I don't know, it's best to ask Marcus."
 - ✅ Done when: staff can ask out loud and hear a sourced answer.
 
 **T1.7 — Spoken approvals and confirmations (hours 14–16)**
+
 - Approval cards: speak a one-sentence summary ("Book bowling Saturday at 2pm, $15. Text Lisa.").
 - Memory confirmations: "Do you like tea now?" with yes/no tiles.
 - Handoff readout for staff (optional, neutral voice).
 - ✅ Done when: every approval card and confirmation can be heard.
 
 **T1.8 — Polish and demo audio (hours 16–24)**
+
 - Measure latency for each audio step; fix anything over target.
 - Pre-generate every line in the demo script.
 - Lead two rehearsals. Record voice-over for the backup video. Present the live demo.
@@ -181,12 +189,14 @@ You own everything the user hears: resident voices, narration, the Story intervi
 You own the database, seed data, all four MCP servers, the backend routes, mock services and the Handoff agent.
 
 **T2.1 — Repo, database and mocks (hour 0–1)**
+
 - Create the repo with the structure in §3 and `.env.example`.
 - Create the Tiger Data service, enable vector search, run schema.sql (§5).
 - Stand up FastAPI with every endpoint in §6 returning hard-coded mock JSON. Deploy it so others can call it.
 - ✅ Done when: T1, T3 and T4 can call every endpoint and get mock data.
 
 **T2.2 — Seed data (hours 1–3)**
+
 - Marcus: 12 tiles (coffee, tea, bowling, Raptors, park, music, bus, quiet, Lisa, help, yes, no); 2 draft story chapters; preferences (double-double, quiet spaces, bowling Saturdays, live basketball goal).
 - Dana: 12 tiles (garden, sister, groceries, tea, walk, money, TV, help, yes, no, etc.); 2 draft chapters; weekly budget $60.
 - 2 weeks of EMH notes, checklist entries with reasons ("grocery shopping: didn't happen, bus cancelled"), significant events.
@@ -197,17 +207,20 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 - ✅ Done when: reset runs in under a minute; all seeded content shows in the UI; Coach answers from binder facts labelled "From records" with the document date.
 
 **T2.3 — resident-profile MCP server (hours 3–6)**
+
 - Tools: get_profile, get_story, save_story_chapter, ask_about (retrieval only; T4's Coach does the wording), suggest_sentence (calls T3's Voice agent), log_sentence, log_choice, add_observation.
 - Every returned fact includes source and date.
 - Backend `mcp_client.py`: one function per tool, used by routes and agents.
 - ✅ Done when: all tools return correct data for both residents.
 
 **T2.4 — Replace mocks with real routes (hours 6–12)**
+
 - Wire /residents, /sentences, /story/answer, /story/{id}, /observations, /choices/{id}/decide to the MCP servers.
 - Build the emh mock server: get_contact_notes, get_checklist, get_significant_events.
 - ✅ Done when: Milestone 2 data paths are real, not mocked.
 
 **T2.5 — Memory MCP server (hours 12–14)**
+
 - Tools: remember, recall(query, type), get_routines, propose_update, confirm_memory.
 - recall: rank by vector similarity, boost keyword matches and recent last_seen; return status and source with each memory.
 - Store embeddings using T3's embedding function. Fix the vector size at setup.
@@ -215,6 +228,7 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 - ✅ Done when: `recall("drinks")` for Marcus returns coffee and tea memories with status.
 
 **T2.6 — Actions MCP server and mock services (hours 14–16)**
+
 - Tools: plan_actions (calls T4's Action agent), send_message (real email), add_to_calendar, book_activity (writes to bookings), next_bus (optional), create_staff_task.
 - **Approval gate: action tools refuse to run unless the plan status is approved.**
 - Mock booking page at /mock-booking showing current bookings.
@@ -229,11 +243,13 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 - ✅ Done when: approving a plan books, adds to calendar, sends a real email and creates a staff task.
 
 **T2.7 — Handoff agent (hour 16)**
+
 - GET /handoff: collect since staff.last_shift_end: EMH notes, checklist misses with reasons, observations, new choices, staff tasks, confirmed memory changes.
 - Gemini turns the list into short plain bullets. Facts only, every bullet keeps its date.
 - ✅ Done when: Handoff for Jordan matches seeded data.
 
 **T2.8 — Freeze, deploy, document (hours 16–24)**
+
 - Feature freeze at 18. Test every endpoint. Deploy final backend.
 - Stretch: connect the profile MCP server to Claude Desktop and record a clip.
 - README: setup steps, env vars, architecture diagram. Reset demo data before judging.
@@ -246,11 +262,13 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 You own everything the resident directly uses — the prompts AND the screens: Speak For Me, My Story, Supported Choice, approvals and confirmations. You are also accessibility lead, own the shared Gemini wrapper, and own the pitch: deck, demo video, Devpost, domain.
 
 **T3.1 — Gemini wrapper (hour 0–1)**
+
 - `services/gemini.py`: one function for structured JSON output (pass a schema, get validated JSON back), one for embeddings.
 - Agree output shapes with T1, T2 and T4. Hand the wrapper to T4 (Coach, memory, actions) and T2.
 - ✅ Done when: wrapper returns valid JSON for a test schema.
 
 **T3.2 — Voice agent: sentence suggestions (hours 1–5)**
+
 - Input: resident, tapped tiles, time of day, top memories from recall.
 - Output: 2–3 sentences, each under 12 words, first person, only meaning what the tiles mean, personalised by memories.
 - Rules: never add new wants; if unclear, include a short neutral option ("I want coffee.").
@@ -258,6 +276,7 @@ You own everything the resident directly uses — the prompts AND the screens: S
 - ✅ Done when: suggestions are personal ("double-double from Tim's") and faithful on 15/15 tests.
 
 **T3.3 — Speak For Me screen (hours 4–6)**
+
 - Built on T4's design system and shared tile/button components (ready by hour 3).
 - Tile grid by category, sentence strip at the top, "Help me say it" button.
 - Suggestion cards (tap to hear preview), large ✅ and ❌ buttons, "speak tiles only" button.
@@ -265,29 +284,34 @@ You own everything the resident directly uses — the prompts AND the screens: S
 - ✅ Done when: **Milestone 1** — tiles → suggestions → approve → spoken, end to end.
 
 **T3.4 — PhotoChoiceGrid + interview questions (hours 6–7)**
+
 - PhotoChoiceGrid: a question plus 2–4 big photo tiles; used by the Story agent's show_choices tool (hand to T1 by hour 7).
 - Write the 7 chapter templates and 3–5 picture-answerable questions each (with T1).
 - ✅ Done when: T1's Story agent can trigger the grid and receive the tapped label.
 
 **T3.5 — Story chapter writer + story pages (hours 7–9)**
+
 - `POST /story/draft`: turn story_answers into a 3–5 sentence first-person chapter. Use only what was answered. Ready by hour 9 for T1's readback.
 - Story pages: photo, short text, play button for narration. Embed the ElevenLabs conversation and register client tools (with T1).
 - Sleep hours 9–12; up for **Milestone 2**.
 - ✅ Done when: draft uses only interview answers and reads naturally; a chapter can be built and played back.
 
 **T3.6 — Choice agent + choice screen (hours 12–14)**
+
 - `POST /choices`: input options (label, photo, cost). **Code calculates money left this week.** Gemini writes one short consequence line per option.
 - Never recommends. Always includes "not decided yet".
 - Choice screen: photo options with cost and "money left" line, plus "not decided yet".
 - ✅ Done when: consequences are correct and neutral; choice flow is clickable end to end.
 
 **T3.7 — Approval card, "confirm?" screen, voice picker (hours 14–16)**
+
 - Action approval card: pictures for each step, total cost, approve and cancel; short cancel window after approval. Fed by T4's action plan format (agreed hour 13).
 - "Pattern noticed, confirm?" screen with yes/no tiles.
 - Voice picker: play 3 previews, choose one.
 - ✅ Done when: full resident demo flow clickable end to end.
 
 **T3.8 — Accessibility pass + pitch materials (hours 16–24)**
+
 - Hours 16–18: check every resident screen: tap targets, contrast, no time limits, consistent layout, undo, labels spoken on long press. Test on a real tablet. Freeze at 18.
 - Hours 18–20: pitch deck draft (6 slides): hook, what KW Habilitation told us, live demo, how it works, guardrails, what's next.
 - Hour 20: record and edit the backup demo video (under 3 minutes) with James's voice-over; William supports on staff screens.
@@ -301,35 +325,41 @@ You own everything the resident directly uses — the prompts AND the screens: S
 You own everything staff use — the prompts AND the screens: Coach, memory intelligence, actions, Handoff. Plus the shared frontend foundation (app shell, design system, Cloudinary) and the judge AI-safety answers.
 
 **T4.1 — App setup, design system, task board (hour 0–1)**
+
 - Next.js app with routes from §3. `lib/api.ts` calls the mock backend. Task board with one card per task ID.
 - Design tokens: large type (≥22px body), 64px+ tap targets, calm colours, high-contrast theme.
 - Choose one Cloudinary tile recipe: square crop with automatic subject/face focus, background removed, same padding and rounded corners; plus a high-contrast version.
 - ✅ Done when: app runs and shows mock data.
 
 **T4.2 — Cloudinary pipeline + binder extraction prompt (hours 1–3)**
+
 - Staff upload widget (unsigned preset). Save the public ID through the backend.
 - Tile component builds the image URL with the chosen transformation recipe. Process all seed photos and send IDs to T2.
 - **Binder importer** (with T2's T2.2 seed): Gemini document understanding over the fictional binder PDF → structured facts (type, content, date). Each saved via `remember` with `source = document`. Prompt rules: extract only what the document states, keep the document's date, never invent, never mark as resident-confirmed. Stretch: staff upload UI for new documents.
 - ✅ Done when: messy phone photos come out as matching tiles; binder facts land in the memory store labelled "From records" with dates.
 
 **T4.3 — Shared components + staff shell (hours 3–6)**
+
 - Shared tile/big-button/audio-playback components T3's Speak screen builds on (ready by hour 3 — this gates T3.3).
 - Pick-a-resident screen and staff app shell. Milestone 1 support.
 - ✅ Done when: T3 is unblocked on components; staff shell navigates.
 
 **T4.4 — Coach agent + Coach chat + onboarding path (hours 6–10)**
+
 - `POST /coach/ask`: recall relevant memories, profile, story, observations, EMH notes; answer in 1–3 plain sentences.
-- Output includes sources: type (resident | staff | emh | document | pattern) and date for each fact — document facts read as "From records, <year>".
+- Output includes sources: type (resident | staff | emh | document | pattern) and date for each fact — document facts read as "From records, ".
 - If nothing relevant is found, return unknown ("I don't know, ask Marcus").
 - Coach chat UI: text and voice; every answer shows source badges ("In Marcus's words", "Staff note, Mar 3", "Pattern noticed", "From records, 2019").
 - Onboarding path: Essentials (2 min, generated from confirmed memories), Story, Routines timeline, progress indicator.
 - ✅ Done when: 15/15 test questions answered with correct source labels; unknowns handled; a new staff member can complete Essentials.
 
 **T4.5 — Handoff screen + observation form (hours 10–12)**
+
 - Handoff list ("since your last shift") and add-observation form. **Milestone 2.**
 - ✅ Done when: Jordan's handoff renders T2's data; observations save.
 
 **T4.6 — Memory subagents (hours 12–13 core; finish 16–18)**
+
 - **Observer**: after every sentence, choice, observation or EMH note, extract candidate memories (type, content, evidence) and call remember with source = inferred or staff.
 - **Retriever**: helper used by Voice, Coach, Action and Handoff to fetch top memories with status.
 - Build both against T2's mocks before sleeping (hours 13–16); wire for real after.
@@ -338,6 +368,7 @@ You own everything staff use — the prompts AND the screens: Coach, memory inte
 - ✅ Done when: the tea pattern appears in Marcus's "confirm?" queue; the Coach mentions it labelled "pattern noticed"; the binder's outdated coffee fact is flagged against the recent tea pattern. (Fallback: seeded "pattern noticed" item.)
 
 **T4.7 — Action agent + activity log + wiring (hours 16–18)**
+
 - `POST /actions/plan`: input a goal ("bowling Saturday"). Output steps chosen only from the allowed tools, each tagged online or staff, plus total cost. Hand the plan format to T3 for the approval card at hour 13 (format first, prompt later).
 - Uses memories for usual details (2pm lane, sister Lisa's contact). Anything needing physical help becomes create_staff_task. Test with 5 goals.
 - Activity log screen: actions, choices and sentences with times.
@@ -345,6 +376,7 @@ You own everything staff use — the prompts AND the screens: Coach, memory inte
 - ✅ Done when: 5/5 goals split correctly into online actions and staff tasks; full demo flow clickable.
 
 **T4.8 — Judge answers, polish and stretch (hours 18–24)**
+
 - Write short answers for judge questions about AI safety (memory + actions), incl. the binder-import and Google Calendar questions.
 - Support Ahmed's backup video recording at hour 20 (drive the staff screens).
 - Bug fixes across staff screens. Stretch: manager view.
@@ -357,30 +389,35 @@ You own everything staff use — the prompts AND the screens: Coach, memory inte
 You own every screen, the Cloudinary photo pipeline, accessibility, and the pitch materials.
 
 **T4.1 — App setup and design system (hour 0–1)**
+
 - Next.js app with routes from §3. `lib/api.ts` calls the mock backend.
 - Design tokens: large type (≥22px body), 64px+ tap targets, calm colours, high-contrast theme.
-- Choose one Cloudinary tile recipe: square crop with automatic subject/face focus, background removed, same padding and rounded corners on every tile; plus a high-contrast version.
+- xf
 - ✅ Done when: app runs and shows mock data.
 
 **T4.2 — Cloudinary pipeline (hours 1–3)**
+
 - Staff upload widget (unsigned preset). Save the public ID through the backend.
 - Tile component builds the image URL with the chosen transformation recipe.
 - Process all seed photos and send IDs to T2.
 - ✅ Done when: messy phone photos come out as matching tiles.
 
 **T4.3 — Speak For Me screen (hours 3–6)**
+
 - Tile grid by category, sentence strip at the top, "Help me say it" button.
 - Suggestion cards (tap to hear preview), large ✅ and ❌ buttons, "speak tiles only" button.
 - Long-press any button to hear its label.
 - ✅ Done when: **Milestone 1** works with real suggestions and audio.
 
 **T4.4 — Story screens (hours 6–10)**
+
 - PhotoChoiceGrid: a question plus 2–4 big photo tiles; used by the Story agent's show_choices tool (with T1).
 - Embed the ElevenLabs conversation and register client tools.
 - Story pages: photo, short text, play button for narration.
 - ✅ Done when: a chapter can be built and played back.
 
 **T4.5 — Staff screens (hours 10–14)**
+
 - Pick-a-resident screen.
 - Onboarding path: Essentials (2 min), Story, Routines timeline, progress indicator.
 - Coach chat: text and voice; every answer shows source badges ("In Marcus's words", "Staff note, Mar 3", "Pattern noticed").
@@ -388,6 +425,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 - ✅ Done when: a new staff member can complete Essentials and ask the Coach questions.
 
 **T4.6 — Choice, action and memory screens (hours 14–16)**
+
 - Choice screen: photo options with cost and "money left" line, plus "not decided yet".
 - Action approval card: pictures for each step, total cost, approve and cancel; short cancel window after approval.
 - Activity log: actions, choices and sentences with times.
@@ -396,11 +434,13 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 - ✅ Done when: full demo flow clickable end to end.
 
 **T4.7 — Accessibility pass (hours 16–18)**
+
 - Check every screen: tap targets, contrast, no time limits, consistent layout, undo, labels spoken on long press.
 - Test on a real tablet.
 - ✅ Done when: someone outside the team can use the resident screens with no explanation.
 
 **T4.8 — Pitch materials (hours 18–24)**
+
 - Deck (6 slides): hook, what KW Habilitation told us, live demo, how it works, guardrails, what's next.
 - Record and edit the backup demo video (under 3 minutes) at hour 20.
 - Devpost write-up with sponsor categories. Point the GoDaddy domain at the web app.
@@ -433,6 +473,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 ## 9. Integration test scripts
 
 **Milestone 1 (hour 6)**
+
 1. Open Marcus's home screen.
 2. Tap coffee + now. Tap "Help me say it".
 3. See 2–3 personal suggestions within 3 seconds.
@@ -440,11 +481,13 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 5. Check the sentence appears in the sentences table.
 
 **Milestone 2 (hour 12)**
+
 1. Run one Story chapter by taps only. Approve the draft. Hear narration.
 2. Switch to staff (Jordan). Ask the Coach "What upsets Marcus?" Answer has a source badge.
 3. Ask something unknown. Coach says "I don't know, ask Marcus."
 
 **Feature freeze (hour 18)**
+
 1. Choice: bowling vs movie with costs; pick bowling; log says "Marcus chose".
 2. Action: approval card appears; approve; booking page shows it; calendar entry exists; email arrives; staff task in Handoff.
 3. Memory: tea pattern in "confirm?" queue; Coach mentions it as "pattern noticed"; confirm it; Coach now says "in Marcus's words".
