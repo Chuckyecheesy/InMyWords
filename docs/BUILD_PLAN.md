@@ -32,7 +32,7 @@ Companion to the [Project Plan](PROJECT_PLAN.md). This doc is the step-by-step b
 
 ### 2.1 Environment variables
 
-See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, and `EMAIL_SENDER` credentials for send_message.
+See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the Google Calendar stretch.
 
 ## 3. Repo structure
 
@@ -72,6 +72,7 @@ See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVEN
 | TTS | ElevenLabs low-latency model, cached by voice + text | Repeated phrases play instantly; saves credits. |
 | Budget and cost maths | Plain code, not the LLM | LLMs get arithmetic wrong. The agent only phrases the result. |
 | Routine detection | SQL grouping by weekday and hour, then Gemini phrases it | Patterns from data, not guesses. |
+| Calendar action (stretch) | Per-resident **Google Calendar**, dual-write | `calendar_events` in Tiger Data stays the source of truth; Google is a synced view. It's *the resident's* calendar — agent writes only resident-approved events, staff subscribe as readers. Real integration with zero contract changes (`add_to_calendar` input/output unchanged), and it drops cleanly if time runs out. |
 
 ### Latency targets
 
@@ -216,6 +217,13 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 - **Approval gate: action tools refuse to run unless the plan status is approved.**
 - Mock booking page at /mock-booking showing current bookings.
 - Log every step to action_results.
+- **Stretch — per-resident Google Calendar** (first thing to cut if behind; core path works without it):
+  - One Google Cloud project + Calendar API + one service account; key goes in `.env` as `GOOGLE_SERVICE_ACCOUNT_JSON`.
+  - Seed step creates "Marcus — In My Words" and "Dana — In My Words" calendars and shares **read** access to the staff demo accounts (`GOOGLE_CALENDAR_STAFF_EMAILS`). Pre-create these the night before the demo.
+  - `add_to_calendar` dual-writes: `calendar_events` row first (source of truth), then pushes the event to the resident's Google Calendar with an "approved by Marcus" note. If the Google call fails, DB-only still demos — same UI.
+  - Only resident-approved events ever reach Google — never notes, reasons, or health info. Those stay in Tiger Data where Handoff needs them (calendars can't hold "didn't happen — bus cancelled").
+  - Optional: staff tasks also land on a per-home staff calendar so the "drive Marcus Saturday 1:30" ride shows up where staff already look.
+  - Demo beat upgrade: during Choice + Action, the approved bowling trip appears in real Google Calendar on screen. Judge Q&A answer (add to T3's list): demo data is fictional; production targets an org Workspace tenant with Canadian data residency, and the calendar only receives approved events.
 - ✅ Done when: approving a plan books, adds to calendar, sends a real email and creates a staff task.
 
 **T2.7 — Handoff agent (hour 16)**
@@ -393,6 +401,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 | Live TTS on venue wifi | Pre-generated audio for every demo line | T1 |
 | Gemini slow or rate-limited | Cached suggestions and answers for demo inputs | T3 |
 | Email sending | Show the message in the activity log as "sent" | T2 |
+| Google Calendar API at venue | DB-only calendar entries — `calendar_events` is the source of truth and the UI reads from our DB either way | T2 |
 | Memory subagents unfinished | Seeded "pattern noticed" item in the queue | T3 |
 | Hosting down | Run everything locally on one laptop | T2 |
 | Live demo breaks | Backup video (recorded at hour 20) | T4 |
