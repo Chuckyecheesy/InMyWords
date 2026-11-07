@@ -7,6 +7,7 @@ only the tapped tiles plus a confirmed memory that overlaps those tiles.
 
 from __future__ import annotations
 
+import concurrent.futures
 import json
 import re
 from pathlib import Path
@@ -15,6 +16,8 @@ from services.gemini import SCHEMAS, GeminiError
 
 _WORD = re.compile(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*")
 _MAX_WORDS = 12
+# Tiles have to become sentences in under 3 seconds. Leave the rest for the route.
+_MODEL_WAIT_SECONDS = 2.5
 
 # Words that carry no extra want. A content word has to be a tile or a memory.
 _FUNCTION = {
@@ -234,19 +237,27 @@ def suggest(
             from services.gemini import generate_json
 
             caller = generate_json
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        fut = pool.submit(
+            caller,
+            _prompt(name, tiles, time_of_day, remembered),
+            SCHEMAS["voice"]["suggestions"],
+            system=_SYSTEM,
+        )
         try:
-            raw = caller(
-                _prompt(name, tiles, time_of_day, remembered),
-                SCHEMAS["voice"]["suggestions"],
-                system=_SYSTEM,
-            )
+            raw = fut.result(timeout=_MODEL_WAIT_SECONDS)
             options = _accept(raw, tiles, remembered, time_of_day)
+        except concurrent.futures.TimeoutError:
+            print("[suggest] model exceeded 2.5s")
+            options = []
         except (GeminiError, ValueError, TypeError, OSError):
             options = []
         except Exception as exc:
             # A live model can be down (rate limit, 503). The tap still gets text.
             print(f"[suggest] {type(exc).__name__}: model skipped")
             options = []
+        finally:
+            pool.shutdown(wait=False, cancel_futures=True)
     seen = {line.lower() for line in options}
     for line in fallback:
         if line.lower() not in seen:

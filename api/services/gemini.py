@@ -473,6 +473,9 @@ def generate_json(
         "temperature": temperature,
         "response_mime_type": "application/json",
         "response_json_schema": _gemini_schema(schema),
+        # One attempt, at least 10s. Shorter deadlines are rejected, and
+        # the default retry loop holds a tile tap open for a minute.
+        "http_options": {"timeout": 20000, "retry_options": {"attempts": 1}},
     }
     if system:
         config["system_instruction"] = system
