@@ -12,7 +12,7 @@ Full specs live in `docs/`: [PROJECT_PLAN.md](docs/PROJECT_PLAN.md) (features, a
 These are guardrails, not preferences. Never write code that violates them:
 
 1. **Nothing is spoken, saved as the resident's words, or acted on without the resident's approval.**
-2. **Every fact carries a source label**: `resident` ("In Marcus's words"), `staff` (with date), `emh`, or `inferred` ("pattern noticed"). Inferred facts are never shown as confirmed fact.
+2. **Every fact carries a source label**: `resident` ("In Marcus's words"), `staff` (with date), `emh`, `document` ("From records, 2019" — imported binder facts, the base profile layer), or `inferred` ("pattern noticed"). Inferred and imported facts are never shown as the resident's words until the resident confirms them.
 3. **Choices belong to the resident**: outcomes are `chosen` or `not_yet_decided`. There is no "staff decided".
 4. **Agents never touch the database directly** — all data access goes through the four MCP servers.
 5. **Actions require an approval card first**, run only from an allowlist, show costs, respect spending limits, and log everything.

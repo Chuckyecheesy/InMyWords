@@ -73,6 +73,7 @@ See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVEN
 | Budget and cost maths | Plain code, not the LLM | LLMs get arithmetic wrong. The agent only phrases the result. |
 | Routine detection | SQL grouping by weekday and hour, then Gemini phrases it | Patterns from data, not guesses. |
 | Calendar action (stretch) | Per-resident **Google Calendar**, dual-write | `calendar_events` in Tiger Data stays the source of truth; Google is a synced view. It's *the resident's* calendar — agent writes only resident-approved events, staff subscribe as readers. Real integration with zero contract changes (`add_to_calendar` input/output unchanged), and it drops cleanly if time runs out. |
+| Base profile layer | Import existing binder/record documents once at seed time (Gemini document understanding) | The binder gets read once — by the system. Extracted facts enter the memory store with `source = document` ("From records, 2019"), never shown as the resident's words, first in line for "Is this still true?" confirmation. Directly answers the problem statement and replaces hand-written seed JSON with a real capability. Staff upload UI is stretch. |
 
 ### Latency targets
 
@@ -97,7 +98,7 @@ Everything fits in free tiers plus participant credits for a 24-hour build. Bigg
 | story_answers | id, resident_id, chapter_key, question, answer, created_at |
 | sentences | id, resident_id, tiles, options, chosen_text, approved, created_at |
 | choices | id, resident_id, question, options (label, photo, cost), chosen, status (chosen \| not_yet_decided), created_at |
-| memories | id, resident_id, type (preference \| event \| routine), content, embedding, source (resident \| staff \| emh \| inferred), times_seen, first_seen, last_seen, status (confirmed \| pending \| dismissed) |
+| memories | id, resident_id, type (preference \| event \| routine), content, embedding, source (resident \| staff \| emh \| document \| inferred), source_date, times_seen, first_seen, last_seen, status (confirmed \| pending \| dismissed) |
 | observations | id, resident_id, staff_id, note, created_at |
 | action_plans | id, resident_id, goal, steps, total_cost, status (proposed \| approved \| cancelled \| done), created_at |
 | action_results | id, plan_id, step, result, created_at |
@@ -191,8 +192,9 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 - 2 weeks of EMH notes, checklist entries with reasons ("grocery shopping: didn't happen, bus cancelled"), significant events.
 - 2 weeks of memory history including a visible pattern: Marcus picked tea 5 times this week after months of coffee.
 - 3 staff (one new staff "Jordan" with no prior shifts), 2 homes, 1 manager.
-- Reset script that wipes and reloads everything.
-- ✅ Done when: reset runs in under a minute; all seeded content shows in the UI.
+- **Binder import (base profile layer)**: write a 2–3 page fictional binder document for Marcus (dated a few years back — routines, likes, family contacts, "what helps"). The ingest script runs T3's extraction over it and saves each fact via the memory server's `remember` with `source = document` and the document's date. These seed most of Marcus's profile instead of hand-written JSON. Include at least one outdated fact (e.g. the binder says coffee; recent pattern says tea) so the "Is this still true?" / contradiction demo has material.
+- Reset script that wipes and reloads everything, including re-running the binder import.
+- ✅ Done when: reset runs in under a minute; all seeded content shows in the UI; Coach answers from binder facts labelled "From records" with the document date.
 
 **T2.3 — resident-profile MCP server (hours 3–6)**
 - Tools: get_profile, get_story, save_story_chapter, ask_about (retrieval only; T3's Coach does the wording), suggest_sentence (calls T3's Voice agent), log_sentence, log_choice, add_observation.
@@ -262,7 +264,7 @@ You own every prompt and agent behaviour, the memory subagents, and AI quality t
 
 **T3.4 — Coach agent (hours 8–12)**
 - `POST /coach/ask`: recall relevant memories, profile, story, observations, EMH notes; answer in 1–3 plain sentences.
-- Output includes sources: type (resident | staff | emh | pattern) and date for each fact.
+- Output includes sources: type (resident | staff | emh | document | pattern) and date for each fact — document facts read as "From records, <year>".
 - If nothing relevant is found, return unknown ("I don't know, ask Marcus").
 - Onboarding path content: Essentials summary generated from confirmed memories.
 - ✅ Done when: 15/15 test questions answered with correct source labels; unknowns handled.
@@ -277,7 +279,8 @@ You own every prompt and agent behaviour, the memory subagents, and AI quality t
 - **Consolidator**: for each candidate, recall similar memories; above a similarity threshold, increase times_seen; if it contradicts a confirmed memory (tea vs coffee), call propose_update.
 - **Routine finder**: SQL groups events by weekday and hour; patterns seen 3+ times become suggested routines; Gemini phrases them.
 - **Retriever**: helper used by Voice, Coach, Action and Handoff to fetch top memories with status.
-- ✅ Done when: the tea pattern appears in Marcus's "confirm?" queue; the Coach mentions it labelled "pattern noticed".
+- **Binder importer** (runs once at seed time, with T2's T2.2): Gemini document understanding over the fictional binder PDF → structured facts (type, content, date). Each saved via `remember` with `source = document`. Prompt rules: extract only what the document states, keep the document's date, never invent, never mark as resident-confirmed. Stretch: staff upload UI for new documents.
+- ✅ Done when: the tea pattern appears in Marcus's "confirm?" queue; the Coach mentions it labelled "pattern noticed"; Coach answers binder facts as "From records" with date, and the binder's outdated coffee fact is flagged against the recent tea pattern.
 
 **T3.7 — Action agent (hours 15–16)**
 - `POST /actions/plan`: input a goal ("bowling Saturday"). Output steps chosen only from the allowed tools, each tagged online or staff, plus total cost.

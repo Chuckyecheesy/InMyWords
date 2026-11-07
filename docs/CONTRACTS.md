@@ -31,7 +31,7 @@ Teammate 2 publishes hard-coded mock responses for everything at hour 1 so nobod
 
 - **Sentence suggestions**: in resident + tiles + time of day → out list of 2–3 sentences
 - **Speak**: in sentence + resident → out audio URL
-- **Ask about**: in resident + question → out answer, source (`resident | staff | emh`), date
+- **Ask about**: in resident + question → out answer, source (`resident | staff | emh | document | pattern`), date
 - **Story save**: in resident + chapter + text + photo IDs → out chapter ID
 - **Choice**: in resident + options (label, photo, cost) → out choice ID and status
 - **Handoff**: in staff + resident → out list of items with type and date
@@ -42,4 +42,4 @@ Teammate 2 publishes hard-coded mock responses for everything at hour 1 so nobod
 
 ## Source labels (used everywhere)
 
-`resident` ("In Marcus's words") · `staff` (with date) · `emh` · `inferred`/`pattern` ("Pattern noticed" — until the resident confirms, then it becomes `resident`).
+`resident` ("In Marcus's words") · `staff` (with date) · `emh` · `document` ("From records, 2019" — imported binder/record facts, confirmable like anything else) · `inferred`/`pattern` ("Pattern noticed" — until the resident confirms, then it becomes `resident`).

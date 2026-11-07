@@ -59,10 +59,11 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 
 **Onboarding Coach**
 - Guided path: Essentials (2 min), Story (10 min), Routines timeline, Check understanding (stretch).
-- Staff ask questions by voice or text. Every answer has a source label: "In Marcus's words", "Staff observation, date", or "From EMH".
+- Staff ask questions by voice or text. Every answer has a source label: "In Marcus's words", "Staff observation, date", "From EMH", or "From records, 2019" (imported binder facts).
 - Says "I don't know, ask Marcus" when unsure.
 
 **Memory Layer (keeps the profile current)**
+- **Base layer**: existing binder and record documents are imported once (Gemini document understanding). Facts arrive labelled "From records" with the document's date — never shown as the resident's words, and first in line for "Is this still true?" confirmation.
 - Learns from every interaction: spoken sentences, choices, staff notes, EMH entries.
 - Three kinds of memory: **preferences** ("likes a double-double"), **events** ("went bowling Nov 8, asked to go again"), **routines** ("coffee around 7:30, asks to go out most Tuesdays").
 - Anything the system figures out is labelled "pattern noticed", never shown as fact.
@@ -375,6 +376,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Teammate 2 publishes mock
 - **Data?** Fictional for the demo. Every fact labels its source. Design supports Canadian data storage.
 - **Can agents be misused to exploit residents?** Actions are an allowlist. Every action needs a picture approval card, has spending limits and a cancel window. Agents never send money to people or share personal info. Everything is logged for staff.
 - **Does the AI decide what residents like?** No. It notices patterns and labels them "pattern noticed". Only the resident can confirm them.
+- **What about years of existing binder history?** Imported once as "From records" facts with the document's date. Nothing imported is ever shown as the resident's words; the resident confirms what's still true, and stale binder facts get flagged when current behaviour contradicts them — the out-of-date binder is the problem we're fixing, so we never treat it as ground truth.
 - **Cost?** Mostly free tiers. Main ongoing cost is voice minutes, reduced by caching.
 
 ## 12. Risks and cut list
