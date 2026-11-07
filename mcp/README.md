@@ -10,8 +10,10 @@ Four Python FastMCP servers over **streamable HTTP**, so both our backend and Cl
 |---|---|---|
 | profile (`profile_server.py`, :8101) | ✅ built, 8 tools | `cd mcp && python profile_server.py` |
 | emh (`emh_server.py`, :8104) | ✅ built, 3 tools | `cd mcp && python emh_server.py` |
-| memory (:8102) | ⬜ T2.5 | — |
+| memory (`memory_server.py`, :8102) | ✅ built, 5 tools + `get_pending` | `cd mcp && python memory_server.py` |
 | actions (:8103) | ⬜ T2.6 | — |
+
+Memory notes: `recall` ranks by keyword + recency (vector similarity joins the ranking once embeddings are backfilled after T3.1 — same output shape). Confirming a memory flips it to `confirmed` with `source = resident` ("in Marcus's words"); dismissing marks it `dismissed`. `remember` merges near-duplicates by word overlap and bumps `times_seen`.
 
 `pip install -r requirements.txt` first. Smoke test (servers running): `python test_servers.py`.
 
