@@ -77,6 +77,27 @@ class SeedStore:
         self.memories = [dict(m, id=i + 1) for i, m in enumerate(read("memories.json")["memories"])]
         # In-memory writes (lost on restart — fine for pre-DB development)
         self.sentences, self.choices, self.observations, self.story_answers = [], [], [], []
+        # Action-related writes persist to a shared runtime file so the
+        # actions server, backend and mock-booking page (separate processes)
+        # see the same bookings before the real database exists.
+        self._runtime_path = SEED_DIR / ".runtime.json"
+        self._runtime = {"action_plans": [], "action_results": [], "bookings": [],
+                         "calendar_events": [], "staff_tasks": []}
+        if self._runtime_path.exists():
+            try:
+                self._runtime.update(json.loads(self._runtime_path.read_text(encoding="utf-8")))
+            except Exception:
+                pass
+
+    def _save_runtime(self):
+        self._runtime_path.write_text(json.dumps(self._runtime, indent=1), encoding="utf-8")
+
+    def _reload_runtime(self):
+        if self._runtime_path.exists():
+            try:
+                self._runtime = json.loads(self._runtime_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
 
     # ---- reads ----
 
@@ -223,6 +244,87 @@ class SeedStore:
             m["status"] = "dismissed"
         m["last_seen"] = _now()
         return m
+
+    # ---- actions layer (T2.6) ----
+
+    def create_plan(self, rid, goal, steps, total_cost):
+        self._reload_runtime()
+        plans = self._runtime["action_plans"]
+        plan = {"id": max((p["id"] for p in plans), default=500) + 1, "resident_id": rid,
+                "goal": goal, "steps": steps, "total_cost": total_cost,
+                "status": "proposed", "created_at": _now()}
+        plans.append(plan)
+        self._save_runtime()
+        return plan
+
+    def get_plan(self, plan_id):
+        self._reload_runtime()
+        return next((p for p in self._runtime["action_plans"] if p["id"] == plan_id), None)
+
+    def set_plan_status(self, plan_id, status):
+        self._reload_runtime()
+        plan = next((p for p in self._runtime["action_plans"] if p["id"] == plan_id), None)
+        if plan:
+            plan["status"] = status
+            self._save_runtime()
+        return plan
+
+    def log_action_result(self, plan_id, step, result):
+        self._reload_runtime()
+        self._runtime["action_results"].append(
+            {"plan_id": plan_id, "step": step, "result": result, "created_at": _now()})
+        self._save_runtime()
+
+    def add_booking(self, rid, activity, starts_at):
+        self._reload_runtime()
+        self._runtime["bookings"].append(
+            {"id": len(self._runtime["bookings"]) + 1, "resident_id": rid,
+             "activity": activity, "starts_at": starts_at})
+        self._save_runtime()
+
+    def add_calendar_event(self, rid, title, starts_at):
+        self._reload_runtime()
+        self._runtime["calendar_events"].append(
+            {"id": len(self._runtime["calendar_events"]) + 1, "resident_id": rid,
+             "title": title, "starts_at": starts_at})
+        self._save_runtime()
+
+    def create_staff_task(self, rid, task, due_at):
+        self._reload_runtime()
+        self._runtime["staff_tasks"].append(
+            {"id": len(self._runtime["staff_tasks"]) + 1, "resident_id": rid,
+             "task": task, "due_at": due_at, "status": "open"})
+        self._save_runtime()
+
+    def get_bookings(self):
+        self._reload_runtime()
+        return list(self._runtime["bookings"])
+
+    def get_staff_tasks(self, rid=None):
+        self._reload_runtime()
+        tasks = self._runtime["staff_tasks"]
+        return [t for t in tasks if rid is None or t["resident_id"] == rid]
+
+    def get_activity(self, rid):
+        self._reload_runtime()
+        items = []
+        for s in self.sentences:
+            if s["resident_id"] == rid:
+                items.append({"kind": "sentence", "date": s["created_at"],
+                              "text": f"Spoke: '{s['chosen_text']}'" + ("" if s["approved"] else " (rejected)")})
+        for c in self.choices:
+            if c["resident_id"] == rid:
+                what = c["chosen"] or "not decided yet"
+                items.append({"kind": "choice", "date": c["created_at"], "text": f"Choice: {what}"})
+        for p in self._runtime["action_plans"]:
+            if p["resident_id"] == rid:
+                items.append({"kind": "action", "date": p["created_at"],
+                              "text": f"Plan '{p['goal']}' — {p['status']}"})
+        for r in self._runtime["action_results"]:
+            plan = next((p for p in self._runtime["action_plans"] if p["id"] == r["plan_id"]), None)
+            if plan and plan["resident_id"] == rid:
+                items.append({"kind": "action", "date": r["created_at"], "text": r["result"]})
+        return sorted(items, key=lambda i: i["date"], reverse=True)
 
 
 class PostgresStore:
@@ -392,6 +494,63 @@ class PostgresStore:
             sql = ("UPDATE memories SET status = 'dismissed', last_seen = now() "
                    "WHERE id = %s AND resident_id = %s RETURNING *")
         return self._one(sql, (memory_id, rid))
+
+    # ---- actions layer (T2.6) ----
+
+    def create_plan(self, rid, goal, steps, total_cost):
+        plan_id = self._insert(
+            "INSERT INTO action_plans (resident_id, goal, steps, total_cost) VALUES (%s,%s,%s,%s)",
+            (rid, goal, json.dumps(steps), total_cost))
+        return self.get_plan(plan_id)
+
+    def get_plan(self, plan_id):
+        return self._one("SELECT * FROM action_plans WHERE id = %s", (plan_id,))
+
+    def set_plan_status(self, plan_id, status):
+        return self._one("UPDATE action_plans SET status = %s WHERE id = %s RETURNING *",
+                         (status, plan_id))
+
+    def log_action_result(self, plan_id, step, result):
+        self._insert("INSERT INTO action_results (plan_id, step, result) VALUES (%s,%s,%s)",
+                     (plan_id, step, result))
+
+    def add_booking(self, rid, activity, starts_at):
+        self._insert("INSERT INTO bookings (resident_id, activity, starts_at) VALUES (%s,%s,%s)",
+                     (rid, activity, starts_at))
+
+    def add_calendar_event(self, rid, title, starts_at):
+        self._insert("INSERT INTO calendar_events (resident_id, title, starts_at) VALUES (%s,%s,%s)",
+                     (rid, title, starts_at))
+
+    def create_staff_task(self, rid, task, due_at):
+        self._insert("INSERT INTO staff_tasks (resident_id, task, due_at) VALUES (%s,%s,%s)",
+                     (rid, task, due_at))
+
+    def get_bookings(self):
+        return self._all("SELECT * FROM bookings ORDER BY starts_at")
+
+    def get_staff_tasks(self, rid=None):
+        if rid:
+            return self._all("SELECT * FROM staff_tasks WHERE resident_id = %s ORDER BY due_at", (rid,))
+        return self._all("SELECT * FROM staff_tasks ORDER BY due_at")
+
+    def get_activity(self, rid):
+        return self._all(
+            """SELECT 'sentence' AS kind, created_at AS date,
+                      'Spoke: ''' || coalesce(chosen_text,'') || '''' AS text
+               FROM sentences WHERE resident_id = %s
+               UNION ALL
+               SELECT 'choice', created_at, 'Choice: ' || coalesce(chosen, 'not decided yet')
+               FROM choices WHERE resident_id = %s
+               UNION ALL
+               SELECT 'action', ap.created_at, 'Plan ''' || ap.goal || ''' — ' || ap.status
+               FROM action_plans ap WHERE ap.resident_id = %s
+               UNION ALL
+               SELECT 'action', ar.created_at, ar.result
+               FROM action_results ar JOIN action_plans ap ON ap.id = ar.plan_id
+               WHERE ap.resident_id = %s
+               ORDER BY date DESC""",
+            (rid, rid, rid, rid))
 
 
 _store = None

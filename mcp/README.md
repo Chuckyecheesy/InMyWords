@@ -11,7 +11,9 @@ Four Python FastMCP servers over **streamable HTTP**, so both our backend and Cl
 | profile (`profile_server.py`, :8101) | ✅ built, 8 tools | `cd mcp && python profile_server.py` |
 | emh (`emh_server.py`, :8104) | ✅ built, 3 tools | `cd mcp && python emh_server.py` |
 | memory (`memory_server.py`, :8102) | ✅ built, 5 tools + `get_pending` | `cd mcp && python memory_server.py` |
-| actions (:8103) | ⬜ T2.6 | — |
+| actions (`actions_server.py`, :8103) | ✅ built, 6 tools + approve/cancel/activity | `cd mcp && python actions_server.py` |
+
+Actions notes: `plan_actions` only **proposes** (deterministic placeholder until William's Action agent, T4.7 — same shape). `approve_plan` runs the steps from the allowlist, logs each to `action_results`, and the executing tools **refuse any plan that isn't approved** — the gate lives in the server, not the UI. `cancel_plan` works until steps have run. Email is real when `EMAIL_SENDER_*` creds exist, otherwise logged as sent. The mock booking page (`python mock-booking/app.py`, :8200) shows bookings landing live.
 
 Memory notes: `recall` ranks by keyword + recency (vector similarity joins the ranking once embeddings are backfilled after T3.1 — same output shape). Confirming a memory flips it to `confirmed` with `source = resident` ("in Marcus's words"); dismissing marks it `dismissed`. `remember` merges near-duplicates by word overlap and bumps `times_seen`.
 
