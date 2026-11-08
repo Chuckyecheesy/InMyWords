@@ -11,15 +11,18 @@ Run the stack:
     uvicorn main:app --reload           # :8000  (works alone too, mocks-only)
 """
 
+import json
 import os
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mocks
 from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
-from services import mcp_client
+from services import elevenlabs, mcp_client
 from services.limits import allow
 from services.cloudinary import (
     CloudinaryConfigError,
@@ -46,6 +49,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Generated speech (services/elevenlabs.py cache), served as /audio/<hash>.mp3
+elevenlabs.CACHE_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/audio", StaticFiles(directory=elevenlabs.CACHE_DIR), name="audio")
 
 
 # ---------- request bodies (inputs frozen at hour 1) ----------
@@ -144,7 +151,25 @@ async def get_resident(resident_id: str):
 
 @app.put("/residents/{resident_id}/voice")
 def set_voice(resident_id: str, body: VoiceBody):
+    # /speak uses it right away. TODO(T2): persist to residents.voice_id via MCP.
+    elevenlabs.set_resident_voice(resident_id, body.voice_id)
     return {"ok": True}
+
+
+@app.get("/voices/{resident_id}")
+def voice_options(resident_id: str, request: Request):
+    """Additive (not in the frozen table): the 3 designed voices for the voice picker."""
+    entry = elevenlabs.load_voices().get(resident_id)
+    if not entry:
+        return {"current": elevenlabs.resident_voice(resident_id), "options": []}
+    return {
+        "current": elevenlabs.resident_voice(resident_id),
+        "options": [
+            {"voice_id": o["voice_id"], "label": o["label"], "preview_text": o["preview_text"],
+             "preview_url": _audio_url(request, o["preview_file"])}
+            for o in entry["options"]
+        ],
+    }
 
 
 # ---------- Speak For Me ----------
@@ -184,10 +209,42 @@ async def suggest(body: SuggestBody, request: Request):
     return {"options": mocks.SUGGESTIONS.get(resident_id, mocks.SUGGESTIONS["marcus"])}
 
 
+def _audio_url(request: Request, filename: str) -> str:
+    # Behind the deployed proxy the web server calls us on 127.0.0.1, so the
+    # browser-facing base comes from PUBLIC_API_URL (set by ops/deploy.sh).
+    public = os.environ.get("PUBLIC_API_URL", "").rstrip("/")
+    if public:
+        return f"{public}/audio/{filename}"
+    return str(request.url_for("audio", path=filename))
+
+
 @app.post("/speak")
-def speak(body: SpeakBody):
-    # Real version (James, T1.2): ElevenLabs TTS cached by voice_id + text.
-    return {"audio_url": f"https://example.com/audio/mock_{body.resident_id}.mp3"}
+async def speak(body: SpeakBody, request: Request):
+    """Approved text → audio in the resident's voice (T1.2).
+
+    Call ONLY after the resident approved the text (approval card ✅).
+    "Speak tiles only" is the same call with text = the tile words joined,
+    e.g. "coffee now"; no AI involved. Cached by voice_id + text.
+    """
+    text = elevenlabs.normalize(body.text)
+    if not text:
+        raise HTTPException(422, "text is empty")
+    if not elevenlabs.configured():
+        return {"audio_url": f"https://example.com/audio/mock_{body.resident_id}.mp3", "cached": False}
+
+    profile_voice = None
+    if not elevenlabs.has_override(body.resident_id):
+        profile, live = await _mcp(mcp_client.get_profile(body.resident_id), None)
+        if live and profile and not profile.get("error"):
+            profile_voice = profile.get("voice_id")
+    voice_id = elevenlabs.resident_voice(body.resident_id, profile_voice)
+
+    try:
+        filename, cached = await elevenlabs.synthesize(voice_id, text)
+    except elevenlabs.ElevenLabsError as exc:
+        print(f"[speak] {exc}")
+        raise HTTPException(502, "Couldn't make the audio right now. The tiles are still here.")
+    return {"audio_url": _audio_url(request, filename), "cached": cached}
 
 
 @app.post("/sentences")
@@ -358,6 +415,11 @@ def save_photo(body: PhotoBody):
     return save_photo_record(record, _photos)
 
 
+_VERSION_FILE = Path(__file__).resolve().parents[1] / "VERSION"  # written by ops/deploy.sh
+
+
 @app.get("/")
 def health():
-    return {"service": "in-my-words-api", "mode": "mocks", "docs": "/docs"}
+    version = json.loads(_VERSION_FILE.read_text()) if _VERSION_FILE.exists() else {}
+    return {"service": "in-my-words-api", "mode": "mocks", "docs": "/docs",
+            "git_sha": version.get("git_sha"), "deployed_at": version.get("deployed_at")}

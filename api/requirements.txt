@@ -9,8 +9,11 @@ psycopg[binary]
 google-genai
 jsonschema
 
+# ElevenLabs voice service (James, T1) — plain REST via httpx; .env loading
+httpx
+python-dotenv
+
 # Added as real logic lands (uncomment when needed):
 # fastmcp            # MCP servers (T2.3+)
-# elevenlabs         # TTS service (James, T1.2)
 cloudinary           # photo pipeline (William, T4.2)
 Pillow               # messy seed photo generation (T4.2)

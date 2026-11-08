@@ -51,3 +51,19 @@ Choice lines and action steps do not include a money total. Code sums cost and m
 ```bash
 python -m unittest tests.test_gemini
 ```
+
+## ElevenLabs voice service (T1)
+
+`services/elevenlabs.py` is the only ElevenLabs client (plain REST via `httpx`). It needs `ELEVENLABS_API_KEY` in the repo-root `.env`. Without the key, `/speak` stays in mock mode and returns the placeholder URL, so the app still runs.
+
+- `POST /speak {resident_id, text}` → `{audio_url, cached}`. Call it **only after the resident approves** the text. For "speak tiles only", send the tile words as `text` (`"coffee now"`).
+  - Audio comes from the low-latency `eleven_flash_v2_5` model and is cached on disk by model + voice + text in `api/audio-cache/` (gitignored), then served at `/audio/<hash>.mp3`. A repeated line never calls ElevenLabs again.
+  - If ElevenLabs fails, the route returns 502 with a friendly message, and the screen keeps the tiles visible.
+- The resident's voice is picked in this order: the voice set with `PUT /residents/{id}/voice` → the profile's `voice_id` → the default in `services/voices.json` → an ElevenLabs stock voice.
+- `GET /voices/{resident_id}` → `{current, options: [{voice_id, label, preview_text, preview_url}]}` feeds the voice picker. This endpoint is additive and not in the frozen table.
+
+```bash
+python -m scripts.design_voices    # T1.1: 3 designed voices each for Marcus + Dana → services/voices.json
+python -m scripts.pregenerate      # warm the cache: tile labels + demo lines
+python -m unittest tests.test_elevenlabs
+```
