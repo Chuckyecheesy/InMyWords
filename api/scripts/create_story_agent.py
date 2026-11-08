@@ -55,6 +55,11 @@ PROMPT = """You are the Story Interviewer for In My Words. You help {{resident_n
 This session is only about the chapter "{{chapter_title}}". Ask these questions, in this order. The options after each question are the only pictures you may offer for it:
 {{chapter_questions}}
 
+How you sound:
+- Speak like a kind person sitting next to {{resident_name}}. Warm, unhurried, and natural. Not like a recording or a script.
+- Use short everyday sentences. End the sentence when you want a pause.
+- Never use an em dash, an en dash, or a double hyphen. Use a period or a comma.
+
 Rules:
 - Ask one short question at a time. Use plain, everyday words. Speak slowly and warmly.
 - For every question, call show_choices with the question and its 2 to 4 options. Never ask without pictures. Never offer an option that is not listed.
@@ -159,7 +164,7 @@ def config(api: str) -> dict:
                 "dynamic_variables": {"dynamic_variable_placeholders": PLACEHOLDERS},
                 "prompt": {"prompt": PROMPT, "llm": LLM, "temperature": 0.3, "tools": tools(api)},
             },
-            "tts": {"voice_id": VOICE_ID, "model_id": "eleven_flash_v2", "stability": 0.6, "speed": 0.9},
+            "tts": {"voice_id": VOICE_ID, **elevenlabs.AGENT_TTS},
             # Residents tap, so long silences are normal: don't end the call on silence.
             "turn": {"turn_timeout": 30},
             "conversation": {"max_duration_seconds": 1800},

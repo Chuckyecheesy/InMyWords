@@ -84,7 +84,11 @@ def gemini_phrase(name: str, answers: list[dict]) -> str:
         "story",
         prompt,
         SCHEMAS["story"]["draft"],
-        system="Use only the interview answers. Do not add facts. Return JSON.",
+        system=(
+            "Use only the interview answers. Do not add facts. "
+            "Write short spoken sentences with periods and commas. "
+            "Never use an em dash, an en dash, or a double hyphen. Return JSON."
+        ),
         temperature=0.1,
     )
     return data.get("text") or ""
@@ -198,7 +202,8 @@ async def draft(books, resident_id: str, chapter: str, *, generate=None) -> dict
             print(f"[story draft] {type(exc).__name__}: {exc}")
         else:
             if proposed and grounded(proposed, name, answers):
-                text = " ".join(proposed.split())
+                text = proposed
+    text = elevenlabs.normalize(text)
     saved = await books.save_draft(resident_id, chapter, text)
     if saved.get("error"):
         raise StoryError(saved["error"])

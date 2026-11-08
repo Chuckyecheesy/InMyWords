@@ -173,6 +173,23 @@ export function greeting(now = new Date()): string {
   return "Good evening";
 }
 
+/**
+ * Turn an em dash, an en dash, or a spaced double hyphen into a sentence break.
+ * A hyphen inside a word, such as double-double, stays.
+ */
+export function forSpeech(text: string): string {
+  const cleaned = text
+    .replace(/\s*(?:—|–|--)\s*/g, ". ")
+    .replace(/\s+([,.!?;:])/g, "$1")
+    .replace(/([.!?])(?:\s*\1)+/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned.replace(
+    /([.!?]\s+)([a-z])/g,
+    (_, lead: string, letter: string) => lead + letter.toUpperCase(),
+  );
+}
+
 export function initials(name: string): string {
   return name.trim().slice(0, 1).toUpperCase() || "?";
 }
