@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-const themeScript = `(function(){try{var t=localStorage.getItem("imw-theme");if(t==="contrast"||t==="calm"){document.documentElement.dataset.theme=t;}else if(window.matchMedia("(prefers-contrast: more)").matches){document.documentElement.dataset.theme="contrast";}var s=localStorage.getItem("imw-text");if(s==="large"){document.documentElement.dataset.text="large";}}catch(e){}})();`;
+const themeScript = `(function(){try{var t=localStorage.getItem("imw-theme");if(t==="contrast"||t==="calm"){document.documentElement.dataset.theme=t;}else if(window.matchMedia("(prefers-contrast: more)").matches){document.documentElement.dataset.theme="contrast";}var s=localStorage.getItem("imw-text");if(s==="large"){document.documentElement.dataset.text="large";}var f=localStorage.getItem("imw-touch");if(f==="onefinger"){document.documentElement.dataset.touch="onefinger";}}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

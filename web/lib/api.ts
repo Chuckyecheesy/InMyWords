@@ -40,9 +40,12 @@ function apiBaseUrl(): string {
   return configured || "http://127.0.0.1:8000";
 }
 
-async function fetchJson(path: string): Promise<unknown | null> {
+async function fetchJson(path: string, sessionCookie?: string): Promise<unknown | null> {
   try {
-    const response = await fetch(`${apiBaseUrl()}${path}`, { cache: "no-store" });
+    const response = await fetch(`${apiBaseUrl()}${path}`, {
+      cache: "no-store",
+      headers: sessionCookie ? { Cookie: `imw_session=${sessionCookie}` } : undefined,
+    });
     if (!response.ok) return null;
     return await response.json();
   } catch {
@@ -231,9 +234,9 @@ function normalizeActivity(value: unknown): ActivityItem | null {
   };
 }
 
-export const getResident = cache(async (id: string): Promise<Result<Resident> | null> => {
+export const getResident = cache(async (id: string, sessionCookie?: string): Promise<Result<Resident> | null> => {
   const sample = sampleResident(id);
-  const live = normalizeResident(id, await fetchJson(`/residents/${encodeURIComponent(id)}`));
+  const live = normalizeResident(id, await fetchJson(`/residents/${encodeURIComponent(id)}`, sessionCookie));
   if (live) return { data: live, origin: "api" };
   if (sample) return { data: sample, origin: "sample" };
   return null;
@@ -742,8 +745,8 @@ export type PlannerWeek = {
   declined: PlannerVisit[];
 };
 
-export async function getPlanner(id: string): Promise<Result<PlannerWeek>> {
-  const raw = record(await fetchJson(`/planner/${encodeURIComponent(id)}`));
+export async function getPlanner(id: string, sessionCookie?: string): Promise<Result<PlannerWeek>> {
+  const raw = record(await fetchJson(`/planner/${encodeURIComponent(id)}`, sessionCookie));
   const visits = raw && !raw.error ? visitsOf(raw) : null;
   if (raw && visits) {
     const staff = (Array.isArray(raw.staff) ? raw.staff : [])
@@ -838,4 +841,93 @@ export async function importCalendarView(input: {
   const result = await plannerCall("/planner/import", input);
   if (!result.ok) return result;
   return { ok: true, data: (visitsOf(result.data) ?? []).map((v) => ({ ...v, read_only: true })) };
+}
+
+// ---------- Accounts & privacy (ROADMAP Phase 2) ----------
+// Sessions are HTTP-only cookies set by the API; browser calls ride the
+// same-origin /backend proxy, so they flow without extra configuration.
+
+export type SessionUser = {
+  role: "resident" | "staff" | "manager";
+  resident_id: string | null;
+  staff_id: string | null;
+  display_name: string;
+};
+
+export type SessionInfo = {
+  mode: "open" | "required";
+  user: SessionUser | null;
+  assignments: string[];
+};
+
+export function login(loginId: string, secret: string) {
+  return sendJson<{ ok: boolean; user: SessionUser }>("/auth/login", {
+    login_id: loginId,
+    secret,
+  });
+}
+
+export function logout() {
+  return sendJson<{ ok: boolean }>("/auth/logout", {});
+}
+
+export async function getSession(sessionCookie?: string): Promise<SessionInfo | null> {
+  const raw = record(await fetchJson("/auth/me", sessionCookie));
+  if (!raw) return null;
+  return raw as unknown as SessionInfo;
+}
+
+export async function getResidentLogins(): Promise<
+  { resident_id: string; display_name: string }[]
+> {
+  const raw = record(await fetchJson("/auth/residents"));
+  const rows = Array.isArray(raw?.residents) ? raw.residents : [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    if (!item || typeof item.resident_id !== "string") return [];
+    return [{ resident_id: item.resident_id, display_name: text(item.display_name) ?? item.resident_id }];
+  });
+}
+
+export function createResident(input: {
+  first_name: string;
+  pin: string;
+  home_id?: string;
+  communication_style?: string;
+  weekly_budget?: number | null;
+  staff_ids?: string[];
+}) {
+  return sendJson<{ ok: boolean; resident_id: string }>("/residents", input);
+}
+
+// ---------- Get staff help (ROADMAP Phase 6) ----------
+
+export type HelpRequest = {
+  id: number;
+  resident_id: string;
+  status: "open" | "acknowledged" | "done";
+  created_at: string;
+  acknowledged_by: string | null;
+  acknowledged_at: string | null;
+};
+
+export function requestHelp(residentId: string) {
+  return sendJson<{ ok: boolean; request: HelpRequest }>("/help", { resident_id: residentId });
+}
+
+export async function getHelpRequests(residentId?: string): Promise<HelpRequest[]> {
+  const query = residentId ? `?resident_id=${encodeURIComponent(residentId)}` : "";
+  const raw = record(await fetchJson(`/help${query}`));
+  const rows = Array.isArray(raw?.requests) ? raw.requests : [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    if (!item || typeof item.id !== "number") return [];
+    return [item as unknown as HelpRequest];
+  });
+}
+
+export function acknowledgeHelp(taskId: number, staffId: string) {
+  return sendJson<{ ok: boolean; request: HelpRequest }>(`/help/${taskId}/acknowledge`, {
+    staff_id: staffId,
+  });
 }

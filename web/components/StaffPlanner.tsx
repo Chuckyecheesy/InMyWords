@@ -18,6 +18,7 @@ export function StaffPlanner({
   staff,
   today,
   me,
+  identityLocked = false,
 }: {
   residentId: string;
   residentName: string;
@@ -27,6 +28,7 @@ export function StaffPlanner({
   today: string;
   /** The staff member answering. Only visits booked with them can be answered. */
   me: string;
+  identityLocked?: boolean;
 }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const [visits, setVisits] = useState(initialVisits);
@@ -66,16 +68,22 @@ export function StaffPlanner({
       <section className="panel planner-answer" aria-labelledby="planner-answer-h">
         <div className="panel-head">
           <h2 id="planner-answer-h">Waiting for your answer</h2>
-          <label className="planner-answer-as">
-            Answering as{" "}
-            <select value={answeringAs} onChange={(e) => setAnsweringAs(e.target.value)}>
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {identityLocked ? (
+            <span className="planner-answer-as">
+              {answeringAs ? `Answering as ${staffName(staff, answeringAs)}` : "Sign in as staff to answer visits."}
+            </span>
+          ) : (
+            <label className="planner-answer-as">
+              Answering as{" "}
+              <select value={answeringAs} onChange={(e) => setAnsweringAs(e.target.value)}>
+                {staff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
         {waiting.length === 0 ? (
           <p className="panel-sub">No visits are waiting for {staffName(staff, answeringAs)}.</p>

@@ -38,6 +38,11 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 | `POST /input-events` *(gaze/gesture, Nov 8)* | events: [{ts, resident_id, session_id, input_type, action, target, hold_ms, gesture, confidence, outcome}] | saved: N | T2 |
 | `GET /input-profile/{resident_id}` *(gaze/gesture, Nov 8)* | — | preferred_select, preferred_yes, dwell_ms, rates, notes, events_counted, confidence | T2 |
 
+Planner routes enforce the same session scope as other resident data. Signed-in
+staff may respond only as themselves, and only to visits for their assigned
+residents; calendar import proposals and commits also require their own staff
+identity. Anonymous access remains available in open demo mode.
+
 ## Cross-team data shapes (PROJECT_PLAN §7)
 
 - **Sentence suggestions**: in resident + tiles + time of day → out list of 2–3 sentences

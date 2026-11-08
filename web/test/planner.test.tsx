@@ -14,6 +14,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 
 import { MyPlanner } from "../components/MyPlanner.tsx";
 import { StaffPlanner } from "../components/StaffPlanner.tsx";
+import { getPlanner, getResident, getSession } from "../lib/api.ts";
 import {
   clock,
   daysPhrase,
@@ -102,6 +103,18 @@ async function answerAll() {
 }
 
 const PREVIEW = { visits: WEEK.map(({ staff, starts_at, ends_at }) => ({ staff, starts_at, ends_at })) };
+
+test("planner server reads forward the session cookie", async () => {
+  const headers: (HeadersInit | undefined)[] = [];
+  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    headers.push(init?.headers);
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  await getResident("dana", "signed-token");
+  await getPlanner("dana", "signed-token");
+  await getSession("signed-token");
+  assert.deepEqual(headers, Array(3).fill({ Cookie: "imw_session=signed-token" }));
+});
 
 describe("planner helpers", () => {
   test("times read the spec's way, in Toronto", () => {
@@ -440,6 +453,13 @@ describe("staff accept or reject (PROJECT_PLAN §2.5)", () => {
     assert.equal(screen.queryByRole("button", { name: /^Reject/ }), null);
   });
 
+  test("a signed-in staff member cannot switch the answering identity", () => {
+    staffPlanner({ me: "jordan", identityLocked: true });
+    assert.ok(screen.getByText("Answering as Jordan"));
+    assert.equal(screen.queryByRole("combobox"), null);
+    assert.equal(screen.queryByRole("button", { name: /^Accept/ }), null);
+  });
+
   test("accept: one call, and the visit shows as booked on the grid", async () => {
     const calls = stubApi((path, body) =>
       path === "/planner/respond"
@@ -483,4 +503,3 @@ describe("staff accept or reject (PROJECT_PLAN §2.5)", () => {
     assert.equal(container.querySelectorAll('.visit-block[data-status="pending"]').length, 2);
   });
 });
-

@@ -29,9 +29,14 @@ test.describe("T3.6 supported choice", () => {
 
     const body = await openChoice(page, "marcus");
     expect(body.weekly_budget).toBe(40);
+    // Phase 4 broadened the option set beyond bowling; "Something else"
+    // means "no" is never the only exit.
     expect(body.options.map((option: { label: string }) => option.label)).toEqual([
       "Bowling",
       "Movie",
+      "Swimming",
+      "Basketball",
+      "Something else",
       "not decided yet",
     ]);
     const bowling = body.options.find((option: { label: string }) => option.label === "Bowling");
@@ -39,7 +44,7 @@ test.describe("T3.6 supported choice", () => {
     expect(bowling.money_left).toBe(25);
     expect(movie.money_left).toBe(28);
 
-    await expect(page.getByRole("heading", { name: "Bowling or a movie this Saturday?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What would you like to do this Saturday?" })).toBeVisible();
     await expect(page.getByText("Weekly budget $40.")).toBeVisible();
     await expect(page.getByText("$25 left this week.")).toBeVisible();
     await expect(page.getByText("$28 left this week.")).toBeVisible();
@@ -59,7 +64,7 @@ test.describe("T3.6 supported choice", () => {
     const create = posts(sent, "/choices").find((request) => !request.url().includes("/decide"));
     expect(create?.postDataJSON()).toMatchObject({
       resident_id: "marcus",
-      question: "Bowling or a movie this Saturday?",
+      question: "What would you like to do this Saturday?",
     });
   });
 

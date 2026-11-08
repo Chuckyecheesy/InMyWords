@@ -243,6 +243,44 @@ def get_staff_tasks(resident: str = "") -> dict:
 
 
 @mcp.tool
+def request_staff_help(resident: str) -> dict:
+    """'Get staff help' (ROADMAP Phase 6): the resident asked the on-duty
+    staff member to come. Creates an URGENT staff task. This is an in-app
+    notification to staff — explicitly NOT emergency services."""
+    store = get_store()
+    row = store.create_staff_task(
+        resident, "Came to see what they need (resident pressed Get staff help).",
+        None, priority="urgent")
+    return {"request": _help_row(row), "store_mode": store.mode}
+
+
+@mcp.tool
+def get_help_requests(resident: str = "", open_only: bool = True) -> dict:
+    """Urgent help requests, newest first: the resident screen polls its own
+    (acknowledged yet?), staff screens poll all for the banner."""
+    store = get_store()
+    rows = store.get_help_requests(resident or None, open_only)
+    return {"requests": [_help_row(r) for r in rows], "store_mode": store.mode}
+
+
+@mcp.tool
+def acknowledge_help(task_id: int, staff: str) -> dict:
+    """A staff member saw the request and is coming. Logged, never deleted."""
+    store = get_store()
+    row = store.acknowledge_task(task_id, staff)
+    if not row:
+        return {"error": f"no help request {task_id}"}
+    return {"request": _help_row(row), "store_mode": store.mode}
+
+
+def _help_row(row) -> dict:
+    return {"id": row["id"], "resident_id": row["resident_id"],
+            "status": row["status"], "created_at": str(row.get("created_at") or ""),
+            "acknowledged_by": row.get("acknowledged_by"),
+            "acknowledged_at": str(row.get("acknowledged_at") or "") or None}
+
+
+@mcp.tool
 def get_activity(resident: str) -> dict:
     """Activity log: sentences, choices, plans and executed steps, newest first."""
     store = get_store()
