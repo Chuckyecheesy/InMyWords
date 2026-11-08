@@ -34,6 +34,7 @@ import {
 } from "@/lib/planner";
 import { speakWithDevice } from "@/lib/speech";
 import { BigButton } from "./shared";
+import { usePlannerUpdates } from "./usePlannerUpdates";
 
 /** After Approve, the resident can still undo before anything is saved. */
 export const PLANNER_CANCEL_WINDOW_MS = 5000;
@@ -52,7 +53,7 @@ export function MyPlanner({
   residentId,
   residentName,
   initialVisits,
-  declined = [],
+  declined: initialDeclined = [],
   staff,
   today,
   cancelWindowMs = PLANNER_CANCEL_WINDOW_MS,
@@ -79,6 +80,8 @@ export function MyPlanner({
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [visits, setVisits] = useState<PlannerVisit[]>(initialVisits);
+  const [declined, setDeclined] = useState<PlannerVisit[]>(initialDeclined);
+  const updatesUnavailable = usePlannerUpdates(residentId, step === "week", setVisits, setDeclined);
   const { imported, importNote, showCalendarFile } = useCalendarImport(residentId, today);
   const [weekOffset, setWeekOffset] = useState(0);
   const timer = useRef<number | null>(null);
@@ -207,20 +210,25 @@ export function MyPlanner({
 
   if (step === "week") {
     return (
-      <WeekView
-        viewer="resident"
-        residentName={residentName}
-        today={today}
-        weekOffset={weekOffset}
-        setWeekOffset={setWeekOffset}
-        visits={[...visits.filter((v) => v.approved), ...imported]}
-        declined={declined}
-        onHear={hear}
-        staff={staff}
-        onAdd={begin}
-        importNote={importNote}
-        onCalendarFile={showCalendarFile}
-      />
+      <>
+        {updatesUnavailable ? (
+          <p className="note" role="status">The planner couldn&apos;t refresh. These visits may be out of date.</p>
+        ) : null}
+        <WeekView
+          viewer="resident"
+          residentName={residentName}
+          today={today}
+          weekOffset={weekOffset}
+          setWeekOffset={setWeekOffset}
+          visits={[...visits.filter((v) => v.approved), ...imported]}
+          declined={declined}
+          onHear={hear}
+          staff={staff}
+          onAdd={begin}
+          importNote={importNote}
+          onCalendarFile={showCalendarFile}
+        />
+      </>
     );
   }
 
@@ -601,7 +609,7 @@ export function WeekView({
                 >
                   {placed.map(({ visit: v, top, height, lane, lanes }) => {
                     const hoursTall = (height / 100) * hours.length;
-                    const short = hoursTall < 0.9; // under ~an hour: one line
+                    const short = hoursTall < 0.9; // under ~an hour: title only
                     const roomy = hoursTall >= 3; // room for time, title and label
                     return (
                       <article
@@ -621,21 +629,19 @@ export function WeekView({
                         }${v.google_synced ? `, on ${staffName(staff, v.staff)}'s calendar` : ""}`}
                       >
                         {short ? (
-                          // Under an hour there is room for one line: the title. The time is
-                          // where it sits on the grid, and the full range is in aria-label.
                           <span className="visit-what">{what(v)}</span>
                         ) : (
                           <>
-                            <strong className="visit-time">
-                              <span>{clock(v.starts_at)}–</span>
-                              <span>{clock(v.ends_at)}</span>
-                            </strong>
                             <span className="visit-what">
                               {what(v)}
                               {v.google_synced ? (
                                 <CalendarCheck className="visit-synced-icon" size={20} aria-hidden="true" />
                               ) : null}
                             </span>
+                            <strong className="visit-time">
+                              <span>{clock(v.starts_at)}–</span>
+                              <span>{clock(v.ends_at)}</span>
+                            </strong>
                             {v.status === "pending" && !v.read_only ? (
                               <span className="visit-status">Waiting for {staffName(staff, v.staff)}</span>
                             ) : null}
