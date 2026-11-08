@@ -255,6 +255,16 @@ class SaveRoutineTests(PlannerTestCase):
         self.assertEqual(len(week), 7)
         self.assertEqual(by_start(week)[0]["starts_at"], "2026-11-08T13:00:00-05:00")
 
+    def test_second_routine_is_saved_and_bookable(self):
+        """Regression: a second save (runtime file already on disk) once lost
+        the routine row while keeping its visits."""
+        self.dana_routine()
+        second = self.dana_routine(start_time="10:00", length_min=30, days=["sat"])
+        out = tool(actions().book_staff_visit)("dana", second["routine_id"], True)
+        self.assertNotIn("error", out)
+        self.assertEqual(len(out["visits"]), 1)
+        self.assertEqual(len(tool(profile().get_planner)("dana")["visits"]), 8)
+
     def test_unknown_resident_or_staff_is_an_error(self):
         self.assertIn("error", self.dana_routine(resident="nobody"))
         self.assertIn("error", self.dana_routine(staff="nobody"))

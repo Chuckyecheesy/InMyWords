@@ -8,7 +8,7 @@ sentence writer in api/agents/voice.py (text only, same output shape).
 
 from fastmcp import FastMCP
 
-from store import get_store, source_label
+from store import get_store, source_label, visit_view
 
 mcp = FastMCP("resident-profile")
 
@@ -284,6 +284,48 @@ def save_tile(resident: str, label: str, cloudinary_id: str, category: str = "")
         return {"error": f"unknown resident '{resident}'"}
     tile, replaced = store.save_tile(resident, label, category.strip() or None, cloudinary_id)
     return {"resident": resident, "tile": tile, "replaced": replaced, "store_mode": store.mode}
+
+
+# ---- My Planner (PROJECT_PLAN §2.5) ----
+
+
+@mcp.tool
+def save_routine(resident: str, staff: str, start_time: str, length_min: int,
+                 days: list[str] | None = None, start_date: str | None = None) -> dict:
+    """The resident's routine ("meet Sam at 13:00 for 120 minutes", every day by
+    default) expanded into one visit block per day for a week. Plain code does
+    the time maths. Nothing is booked: every visit waits for the approval card."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from calendar_core import DEFAULT_TZ, WEEKDAYS, expand_routine
+
+    store = get_store()
+    r = store.get_resident(resident)
+    if not r:
+        return {"error": f"unknown resident '{resident}'"}
+    if not store.get_staff(staff):
+        return {"error": f"unknown staff '{staff}'"}
+    start_date = start_date or datetime.now(ZoneInfo(DEFAULT_TZ)).date().isoformat()
+    try:
+        blocks = expand_routine(start_date, start_time, length_min, days=days, tz=DEFAULT_TZ)
+    except ValueError as exc:
+        return {"error": str(exc)}
+    routine, visits = store.create_routine(resident, staff, start_time, int(length_min),
+                                           list(days) if days else list(WEEKDAYS), "resident", blocks)
+    return {"routine_id": routine["id"], "resident": resident,
+            "visits": [visit_view(v, r["first_name"]) for v in visits]}
+
+
+@mcp.tool
+def get_planner(resident: str) -> dict:
+    """Every visit block for the resident, earliest first."""
+    store = get_store()
+    r = store.get_resident(resident)
+    if not r:
+        return {"error": f"unknown resident '{resident}'"}
+    visits = sorted(store.get_visits(rid=resident), key=lambda v: v["starts_at"])
+    return {"resident": resident, "visits": [visit_view(v, r["first_name"]) for v in visits]}
 
 
 if __name__ == "__main__":

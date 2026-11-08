@@ -11,6 +11,7 @@ Run the stack:
     uvicorn main:app --reload           # :8000  (works alone too, mocks-only)
 """
 
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -535,6 +536,103 @@ async def approve_actions(plan_id: int, resident_id: str = "marcus"):
 async def cancel_actions(plan_id: int, resident_id: str = "marcus"):
     result, live = await _mcp(mcp_client.cancel_plan(resident_id, plan_id), None)
     return result if live else {"plan_id": plan_id, "status": "cancelled"}
+
+
+# ---------- My Planner (PROJECT_PLAN §2.5) ----------
+
+class PlannerRoutineBody(BaseModel):
+    resident_id: str
+    person: str                       # staff id
+    start: str                        # "13:00", local
+    length_min: int
+    days: list[str] | None = None     # default all 7
+    start_date: str | None = None     # default today (Toronto)
+
+
+class PlannerBookBody(BaseModel):
+    resident_id: str
+    routine_id: int
+    approved: bool
+
+
+class CalendarZipBody(BaseModel):
+    resident_id: str = ""
+    staff_id: str = ""
+    calendar_zip_b64: str
+
+
+class CalendarCommitBody(BaseModel):
+    staff_id: str
+    import_id: str
+    approved_ids: list[str]
+    approved: bool
+
+
+_PLANNER_DOWN = {"error": "The planner is not reachable right now. Nothing was booked."}
+
+
+def _sync_call_tool():
+    """call_tool for the sync Planner subagent, which runs in a worker thread:
+    each MCP call is handed back to this event loop (where the sessions live)."""
+    loop = asyncio.get_running_loop()
+
+    def call(name: str, args: dict) -> dict:
+        future = asyncio.run_coroutine_threadsafe(mcp_client.call_tool(name, args), loop)
+        return future.result(timeout=30)
+    return call
+
+
+@app.post("/planner/routine")
+async def planner_routine(body: PlannerRoutineBody):
+    result, live = await _mcp(mcp_client.save_routine(
+        body.resident_id, body.person, body.start, body.length_min, body.days, body.start_date), None)
+    return result if live else _PLANNER_DOWN
+
+
+@app.get("/planner/{resident_id}")
+async def planner_week(resident_id: str):
+    result, live = await _mcp(mcp_client.get_planner(resident_id), None)
+    return result if live else {"resident": resident_id, "visits": [], "error": _PLANNER_DOWN["error"]}
+
+
+@app.post("/planner/book")
+async def planner_book(body: PlannerBookBody):
+    """The resident approved the planner card. The Gemini Planner subagent
+    writes the visits to Google Calendar through MCP; plain code finishes
+    anything it could not. Visits stay booked in the app if Google is down."""
+    from agents import planner
+    try:
+        return await asyncio.to_thread(
+            planner.book_visits, body.resident_id, body.routine_id, body.approved,
+            call_tool=_sync_call_tool(), run_tools=planner.default_run_tools())
+    except Exception as exc:
+        print(f"[planner] booking failed ({type(exc).__name__}): {exc}")
+        return _PLANNER_DOWN
+
+
+@app.post("/planner/import")
+async def planner_import_view(body: CalendarZipBody):
+    """Fallback: a staff .zip calendar export shown read-only on the grid."""
+    result, live = await _mcp(mcp_client.import_calendar(body.resident_id, body.calendar_zip_b64), None)
+    return result if live else _PLANNER_DOWN
+
+
+@app.post("/planner/import/propose")
+async def planner_import_propose(body: CalendarZipBody):
+    result, live = await _mcp(mcp_client.propose_calendar_import(body.staff_id, body.calendar_zip_b64), None)
+    return result if live else _PLANNER_DOWN
+
+
+@app.post("/planner/import/commit")
+async def planner_import_commit(body: CalendarCommitBody):
+    from agents import planner
+    try:
+        return await asyncio.to_thread(
+            planner.import_events, body.staff_id, body.import_id, body.approved_ids, body.approved,
+            call_tool=_sync_call_tool(), run_tools=planner.default_run_tools())
+    except Exception as exc:
+        print(f"[planner] import failed ({type(exc).__name__}): {exc}")
+        return {"error": "The calendar import could not run right now. Nothing was imported."}
 
 
 # ---------- Memory ----------
