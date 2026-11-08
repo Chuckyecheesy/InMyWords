@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
-import { tileImageUrl } from "@/lib/cloudinary";
+import { demoPhotoUrl } from "@/lib/cloudinary";
 
 export interface ChoiceOption {
   label: string;
@@ -91,8 +91,8 @@ function ChoiceTile({
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false);
-  const calm = option.photo_id ? tileImageUrl(option.photo_id, "calm") : null;
-  const contrast = option.photo_id ? tileImageUrl(option.photo_id, "contrast") : null;
+  const calm = option.photo_id ? demoPhotoUrl(option.photo_id) : null;
+  const contrast = calm;
 
   function clear() {
     if (timer.current) {

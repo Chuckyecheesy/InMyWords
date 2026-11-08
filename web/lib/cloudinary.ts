@@ -41,6 +41,13 @@ export function unsignedUploadFields(input: {
 }
 
 /** Wide chapter photo for story pages. Same cloud as tiles, from config. */
+/** A photo saved under web/public/demo, one file per public id. */
+export function demoPhotoUrl(publicId: string): string | null {
+  const id = publicId.replace(/^\/+/, "");
+  if (!id) return null;
+  return `/demo/${id}.jpg`;
+}
+
 export function storyImageUrl(publicId: string): string | null {
   const cloud =
     process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||

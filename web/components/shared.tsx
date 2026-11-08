@@ -7,7 +7,7 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { tileImageUrl } from "@/lib/cloudinary";
+import { demoPhotoUrl } from "@/lib/cloudinary";
 import type { Tile } from "@/lib/types";
 
 const LONG_PRESS_MS = 600;
@@ -73,8 +73,8 @@ export function TileButton({
   onLongPress?: (label: string) => void;
 }) {
   const longPress = useLongPress(onLongPress, tile.label);
-  const calm = tile.cloudinary_id ? tileImageUrl(tile.cloudinary_id, "calm") : null;
-  const contrast = tile.cloudinary_id ? tileImageUrl(tile.cloudinary_id, "contrast") : null;
+  const calm = tile.cloudinary_id ? demoPhotoUrl(tile.cloudinary_id) : null;
+  const contrast = calm;
 
   return (
     <button

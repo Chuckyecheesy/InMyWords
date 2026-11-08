@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { approveAction, cancelAction, speak } from "@/lib/api";
 import { stepPhoto } from "@/lib/action-photos";
-import { tileImageUrl } from "@/lib/cloudinary";
+import { demoPhotoUrl } from "@/lib/cloudinary";
 import { money } from "@/lib/format";
 import type { ActionPlan } from "@/lib/api";
 import { BigButton } from "./shared";
@@ -126,8 +126,8 @@ function StepPicture({
   extra: string | null;
 }) {
   const photo = stepPhoto(residentId, step);
-  const calm = tileImageUrl(photo, "calm");
-  const contrast = tileImageUrl(photo, "contrast");
+  const calm = demoPhotoUrl(photo);
+  const contrast = calm;
   return (
     <article className="choice-button" data-step={step}>
       {calm && contrast ? (

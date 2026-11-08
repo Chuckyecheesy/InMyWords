@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getResident, getStory } from "@/lib/api";
-import { storyImageUrl } from "@/lib/cloudinary";
+import { demoPhotoUrl } from "@/lib/cloudinary";
 import { AudioPlayback } from "@/components/shared";
 
 export const metadata = { title: "Story" };
@@ -44,7 +44,7 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           <h2>Your Story</h2>
           {chapters.map((chapter) => {
             const photoId = chapter.photo_ids?.[0];
-            const photoUrl = photoId ? storyImageUrl(photoId) : null;
+            const photoUrl = photoId ? demoPhotoUrl(photoId) : null;
             return (
             <article key={chapter.id} className="story-chapter">
               {photoUrl ? (

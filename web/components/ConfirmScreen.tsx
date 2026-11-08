@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { confirmMemory, speak } from "@/lib/api";
-import { tileImageUrl } from "@/lib/cloudinary";
+import { demoPhotoUrl } from "@/lib/cloudinary";
 import { sourceChip } from "@/lib/format";
 import type { PendingMemory } from "@/lib/types";
 import { SourceChip } from "./SourceChip";
@@ -108,8 +108,8 @@ function AnswerTile({
 }) {
   const leaf = label.toLowerCase();
   const photo = `tiles/${residentId.toLowerCase()}_${leaf}`;
-  const calm = tileImageUrl(photo, "calm");
-  const contrast = tileImageUrl(photo, "contrast");
+  const calm = demoPhotoUrl(photo);
+  const contrast = calm;
   const held = useRef(false);
   return (
     <button
