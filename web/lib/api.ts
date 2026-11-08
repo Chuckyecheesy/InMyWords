@@ -9,7 +9,7 @@ import {
 } from "./mock";
 import type {
   ActivityItem,
-  ChoiceOption,
+  ChoiceResult,
   CoachAnswer,
   HandoffItem,
   MutationResult,
@@ -321,18 +321,15 @@ export function askCoach(input: { resident_id: string; question: string }) {
 export function createChoice(input: {
   resident_id: string;
   question: string;
-  options: ChoiceOption[];
+  options: { label: string; photo: string | null; cost: number }[];
 }) {
-  return sendJson<{ id: string; options: ChoiceOption[] }>("/choices", input);
+  return sendJson<ChoiceResult>("/choices", input);
 }
 
-export function decideChoice(
-  choiceId: string,
-  input: { status: "chosen" | "not_yet_decided"; chosen?: string },
-) {
-  return sendJson<{ ok: boolean }>(
+export function decideChoice(choiceId: string, chosen: string) {
+  return sendJson<{ ok: boolean; status?: "chosen" | "not_yet_decided" }>(
     `/choices/${encodeURIComponent(choiceId)}/decide`,
-    input,
+    { chosen },
   );
 }
 

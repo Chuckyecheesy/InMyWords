@@ -75,6 +75,16 @@ export type ChoiceOption = {
   label: string;
   photo: string | null;
   cost: number;
+  money_left?: number | null;
+  consequence?: string;
+};
+
+export type ChoiceResult = {
+  id: number | string;
+  question: string;
+  weekly_budget: number | null;
+  status: "chosen" | "not_yet_decided";
+  options: ChoiceOption[];
 };
 
 export type ChoicePreview = {
