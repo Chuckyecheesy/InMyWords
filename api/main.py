@@ -517,6 +517,7 @@ async def plan_actions(body: ActionPlanBody):
         }
     planned = dict(result)
     planned["agents"] = proposal["agents"]
+    planned["planner"] = proposal.get("planner", "rules")  # "gemini" or "rules" fallback
     return planned
 
 
