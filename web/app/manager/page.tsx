@@ -14,7 +14,7 @@ export const metadata = { title: "Manager" };
 const TEAM = [
   { name: "Priya", role: "Manager", note: "Both homes" },
   { name: "Sam", role: "Staff", note: "Maple House" },
-  { name: "Jordan", role: "New staff", note: "First shift — onboarding" },
+  { name: "Jordan", role: "New staff", note: "First shift, onboarding" },
 ];
 
 export default async function ManagerPage() {
@@ -49,7 +49,7 @@ export default async function ManagerPage() {
       </StaffHead>
       {rows.some((row) => row.sample) ? (
         <div style={{ marginBottom: "var(--space-5)" }}>
-          <DataBanner>Sample data — the API didn&apos;t answer, so these are the demo homes.</DataBanner>
+          <DataBanner>Sample data, the API didn&apos;t answer, so these are the demo homes.</DataBanner>
         </div>
       ) : null}
 

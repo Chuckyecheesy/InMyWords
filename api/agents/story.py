@@ -2,9 +2,9 @@
 
 Order is fixed:
 
-1. record_answer — store the tapped label. A repeat replaces that question.
-2. draft — turn those answers into first-person text. No audio.
-3. narrate — ElevenLabs, and only after the resident approves the draft.
+1. record_answer, store the tapped label. A repeat replaces that question.
+2. draft, turn those answers into first-person text. No audio.
+3. narrate, ElevenLabs, and only after the resident approves the draft.
 
 Nothing in draft calls the voice service. narrate is the only step that does.
 """

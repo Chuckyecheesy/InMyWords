@@ -18,12 +18,14 @@ test("Coach returns a sourced overview for an onboarding question", async ({ pag
     answer: string;
     sources: { type: string; date: string; label: string }[];
   };
-  // Spoken wording (coach_wording): sources sit in the sentence, not as
-  // "From records, 2021:" labels. Onboarding pulls communication facts.
+  // Spoken wording phrases sources inline ("From the 2021 records, ...").
+  // The answer lives in .msg-a; the source badges sit behind "View sources".
   expect(body.answer).not.toContain("I don't know");
   expect(body.answer).toContain("In Marcus's words");
   expect(body.answer).toContain("From the 2021 records");
   expect(body.sources.some((source) => source.type === "document")).toBeTruthy();
 
-  await expect(page.getByText("From the 2021 records")).toBeVisible();
+  await expect(page.locator(".msg-a").last()).toContainText("From the 2021 records", {
+    timeout: 15_000,
+  });
 });

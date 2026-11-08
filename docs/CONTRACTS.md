@@ -14,10 +14,10 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 | `POST /suggest` | resident_id, tiles, time | options: 2–3 sentences | T3 |
 | `POST /speak` | resident_id, text | audio_url | T1 |
 | `POST /sentences` | resident_id, tiles, chosen_text, approved | id | T2 |
-| `POST /story/answer` | resident_id, chapter, question, answer | ok (webhook for Story agent) | T2 |
-| `POST /story/draft` | resident_id, chapter | chapter text | T3 |
-| `POST /story/approve` | chapter_id | audio_url | T1 |
-| `GET /story/{resident_id}` | — | chapters with photos, text, audio | T2 |
+| `POST /planner/routine` | resident_id, person, start, length_min, days (default all 7) | routine_id, expanded visit blocks | T2 |
+| `POST /planner/plan` | resident_id, routine_id | proposed visit_events (start, end, person) for approval | T3 |
+| `POST /planner/book` | resident_id, visit_events, approved | booked ids, google_event_ids (via Google Calendar MCP; DB rows are source of truth) | T2 |
+| `GET /planner/{resident_id}` | — | weekly visit blocks (start, end, person, day, source) | T2 |
 | `POST /coach/ask` | resident_id, question | answer, sources (type, date) | T4 |
 | `POST /choices` | resident_id, question, options | options with consequences | T3 |
 | `POST /choices/{id}/decide` | chosen \| not_yet_decided | ok | T2 |
@@ -28,6 +28,8 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 | `GET /handoff` | staff_id, resident_id | items with type and date | T2 |
 | `GET /activity/{resident_id}` | — | actions, choices, sentences log | T2 |
 | `POST /observations` | resident_id, staff_id, note | ok | T2 |
+| `POST /records` *(records library)* | resident_id, title, body, category, author?, doc_date? | ok, id | T2 |
+| `GET /records/{resident_id}` *(records library)* | — | records: [{id, title, category, author, doc_date, uploaded_at, body}] | T2 |
 | `POST /input-events` *(gaze/gesture, Nov 8)* | events: [{ts, resident_id, session_id, input_type, action, target, hold_ms, gesture, confidence, outcome}] | saved: N | T2 |
 | `GET /input-profile/{resident_id}` *(gaze/gesture, Nov 8)* | — | preferred_select, preferred_yes, dwell_ms, rates, notes, events_counted, confidence | T2 |
 
@@ -36,7 +38,8 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 - **Sentence suggestions**: in resident + tiles + time of day → out list of 2–3 sentences
 - **Speak**: in sentence + resident → out audio URL
 - **Ask about**: in resident + question → out answer, source (`resident | staff | emh | document | pattern`), date
-- **Story save**: in resident + chapter + text + photo IDs → out chapter ID
+- **Save routine**: in resident + person + start + length + days → out routine ID + expanded visit blocks
+- **Book staff visit**: in resident + approved visit_events → out booked ids + google_event_ids (fallback if MCP down: staff upload a .zip calendar export instead)
 - **Choice**: in resident + options (label, photo, cost) → out choice ID and status
 - **Handoff**: in staff + resident → out list of items with type and date
 - **Recall**: in resident + query + type → out memories with source and confirmed status

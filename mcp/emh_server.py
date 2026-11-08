@@ -1,9 +1,9 @@
-"""emh MCP server (mock) — BUILD_PLAN T2.4. 3 tools.
+"""emh MCP server (mock), BUILD_PLAN T2.4. 3 tools.
 
 Run:  python mcp/emh_server.py          (streamable HTTP on :8104)
 
 Pitch point: swap this mock for a real EMH connection and no agent code
-changes — the tools and shapes stay identical.
+changes, the tools and shapes stay identical.
 """
 
 from fastmcp import FastMCP
@@ -37,7 +37,7 @@ def get_checklist(home: str, date: str = "") -> dict:
 @mcp.tool
 def get_staff(staff: str) -> dict:
     """Staff record incl. last_shift_end (EMH is the staffing system of
-    record today — additive tool, Handoff needs the shift boundary).
+    record today, additive tool, Handoff needs the shift boundary).
     last_shift_end = null means new staff: Handoff shows everything."""
     row = get_store().get_staff(staff)
     if not row:

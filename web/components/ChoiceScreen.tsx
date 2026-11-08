@@ -312,7 +312,7 @@ export function ChoiceScreen({
                 }}
               >
                 <Clock size={24} aria-hidden="true" />
-                Not decided yet — I&apos;m not ready
+                Not decided yet, I&apos;m not ready
               </button>
             </div>
           ) : null}

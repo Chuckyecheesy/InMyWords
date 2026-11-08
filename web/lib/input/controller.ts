@@ -1,5 +1,5 @@
 /**
- * Input Controller (GAZE_GESTURE_PLAN §4.2–4.3) — pure logic, unit-tested.
+ * Input Controller (GAZE_GESTURE_PLAN §4.2–4.3), pure logic, unit-tested.
  * Hit-testing with padding + hysteresis, the dwell state machine, and
  * outcome-event emission. No browser APIs in here: the gaze module feeds
  * points in, React components read ring progress out.
@@ -163,7 +163,7 @@ export class DwellController {
   }
 }
 
-/** Held-gesture detection (GAZE_GESTURE_PLAN §4.4) — pure, unit-tested. */
+/** Held-gesture detection (GAZE_GESTURE_PLAN §4.4), pure, unit-tested. */
 export class GestureDetector {
   private frames: { name: string; score: number; at: number }[] = [];
   private cooldownUntil = 0;

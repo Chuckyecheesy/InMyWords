@@ -5164,3 +5164,150 @@ textarea {
 .entry-stage .kicker {
   color: var(--stage-kicker, #d9efe9);
 }
+
+/* The real brand icon carries its own bubble — no chip behind it. */
+.wordmark-mark[data-brand] {
+  background: transparent;
+  border-radius: 0;
+}
+
+.wordmark-mark[data-brand] img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Full logo on the pitch stage (dark variant). */
+.pitch-logo {
+  height: 44px;
+  width: auto;
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+[data-theme="contrast"] .pitch-logo-dark { display: none; }
+.pitch-logo-light { display: none; }
+[data-theme="contrast"] .pitch-logo-light { display: block; }
+
+/* Playable entry preview: tiles are buttons now. */
+button.entry-preview-tile {
+  cursor: pointer;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  font: inherit;
+  font-weight: 700;
+}
+
+button.entry-preview-tile[aria-pressed="true"] {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-soft);
+}
+
+button.entry-preview-play {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font: inherit;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+}
+
+button.entry-preview-play:disabled { opacity: 0.6; }
+
+/* Compact source disclosure on Coach answers. */
+.sources-disclosure summary {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--ink-2);
+  list-style: none;
+}
+
+.sources-disclosure summary::-webkit-details-marker { display: none; }
+
+.sources-disclosure summary::before {
+  content: "▸";
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.sources-disclosure[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.sources-disclosure[open] {
+  padding-bottom: var(--space-2);
+}
+
+/* Records library. */
+.records-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 var(--space-3);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  min-height: 52px;
+  flex: 1;
+  max-width: 420px;
+}
+
+.records-search input {
+  border: none;
+  background: transparent;
+  font: inherit;
+  width: 100%;
+  min-height: 48px;
+  outline: none;
+}
+
+.record-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.record-title { font-weight: 800; }
+.record-date { color: var(--ink-3); font-size: 0.95rem; margin-left: auto; }
+
+.record-body {
+  border-top: 1px solid var(--line);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  color: var(--ink-2);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.field input,
+.field select,
+.field textarea {
+  font: inherit;
+  padding: 12px var(--space-3);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  min-height: 52px;
+}
+
+.field textarea { min-height: 120px; }

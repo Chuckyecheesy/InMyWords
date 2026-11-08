@@ -59,7 +59,7 @@ async def main():
     r = await call(memory, "recall", {"resident": "marcus", "query": "drinks coffee tea"})
     contents = [m["content"][:40] for m in r["memories"]]
     assert any("coffee" in c for c in contents) and any("tea" in c.lower() for c in contents), contents
-    print(f"recall('drinks'): {len(r['memories'])} memories incl. coffee AND tea — done-when met")
+    print(f"recall('drinks'): {len(r['memories'])} memories incl. coffee AND tea, done-when met")
 
     q = await call(memory, "get_pending", {"resident": "marcus"})
     tea = next(m for m in q["memories"] if "tea" in m["content"].lower())
@@ -69,7 +69,7 @@ async def main():
     c1 = await call(memory, "confirm_memory", {"resident": "marcus", "memory": tea["id"], "confirmed": True})
     assert c1["memory"]["status"] == "confirmed" and c1["memory"]["source"] == "resident"
     assert c1["memory"]["label"] == "In Marcus's words"
-    print(f"confirmed: now [{c1['memory']['label']}] — the demo beat works")
+    print(f"confirmed: now [{c1['memory']['label']}], the demo beat works")
 
     m1 = await call(memory, "remember",
                     {"resident": "marcus", "event": "Asked to go bowling again", "source": "inferred"})
@@ -93,7 +93,7 @@ async def main():
     assert plan["status"] == "proposed" and plan["total_cost"] == 15.0
     assert len(plan["online_steps"]) == 3 and len(plan["staff_tasks"]) == 1
     print(f"plan_actions: {len(plan['online_steps'])} online + {len(plan['staff_tasks'])} staff, "
-          f"${plan['total_cost']} — status={plan['status']}")
+          f"${plan['total_cost']}, status={plan['status']}")
 
     gate = await call(actions, "book_activity",
                       {"resident": "marcus", "activity": "sneaky", "time": "now",

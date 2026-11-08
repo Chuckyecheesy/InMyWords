@@ -81,7 +81,7 @@ def main() -> int:
 
     print(f"Generated {len(result['photos'])} messy photos under db/seed/photos/")
     if args.dry_run:
-        print("Dry run only — nothing uploaded.")
+        print("Dry run only, nothing uploaded.")
         return 0
 
     preset = result["upload_preset"] or PRESET_NAME
@@ -98,7 +98,7 @@ def main() -> int:
             "Reload Speak For Me in a minute."
         )
     else:
-        print("Calm and contrast tile URLs are warm — matching tiles are ready.")
+        print("Calm and contrast tile URLs are warm, matching tiles are ready.")
     return 0
 
 

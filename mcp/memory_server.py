@@ -1,11 +1,11 @@
-"""memory MCP server (BUILD_PLAN T2.5) — 5 tools.
+"""memory MCP server (BUILD_PLAN T2.5), 5 tools.
 
 Run:  python mcp/memory_server.py          (streamable HTTP on :8102)
 
 Confirmed memories ARE the profile. Everything inferred stays "pattern
-noticed" (pending) until the resident confirms it — then it becomes
+noticed" (pending) until the resident confirms it, then it becomes
 "in <name>'s words" (source flips to resident). recall is hybrid
-RAG — Gemini embedding similarity + keywords + recency (mcp/retrieval.py),
+RAG, Gemini embedding similarity + keywords + recency (mcp/retrieval.py),
 falling back to keywords when embeddings are unavailable. Same output shape.
 """
 
@@ -52,7 +52,7 @@ def remember(resident: str, event: str, source: str = "inferred",
              type: str = "event", source_date: str = "") -> dict:
     """Save a candidate memory (type: preference | event | routine).
     Near-duplicates bump times_seen instead of creating a copy. New
-    memories start PENDING — only the resident can confirm them.
+    memories start PENDING, only the resident can confirm them.
     source_date is required for document facts (the binder's own date)."""
     if source not in ("resident", "staff", "emh", "document", "inferred"):
         return {"error": f"invalid source '{source}'"}
@@ -95,7 +95,7 @@ def get_routines(resident: str) -> dict:
 
 @mcp.tool
 def get_pending(resident: str) -> dict:
-    """The resident's 'confirm?' queue — everything waiting for their yes/no.
+    """The resident's 'confirm?' queue, everything waiting for their yes/no.
     (Additive tool beyond the 5 in the contract; the UI needs it.)"""
     store = get_store()
     name = _name(store, resident)
@@ -107,7 +107,7 @@ def get_pending(resident: str) -> dict:
 @mcp.tool
 def get_recent_changes(resident: str, since: str = "") -> dict:
     """Memories the resident confirmed (now 'in their words'), optionally
-    since an ISO timestamp. (Additive — Handoff mentions these changes.)"""
+    since an ISO timestamp. (Additive, Handoff mentions these changes.)"""
     store = get_store()
     name = _name(store, resident)
     rows = store.get_recent_confirmed(resident, since or None)
@@ -117,7 +117,7 @@ def get_recent_changes(resident: str, since: str = "") -> dict:
 @mcp.tool
 def propose_update(resident: str, memory: int, reason: str) -> dict:
     """Flag an existing memory for the resident's 'confirm?' queue (e.g. the
-    Consolidator noticed current behaviour contradicts it). Never overwrites —
+    Consolidator noticed current behaviour contradicts it). Never overwrites , 
     the resident decides."""
     store = get_store()
     row = store.propose_update(resident, memory, reason)
@@ -135,7 +135,7 @@ def confirm_memory(resident: str, memory: int, confirmed: bool) -> dict:
     if not row:
         return {"error": f"no memory {memory} for '{resident}'"}
     return {"memory": _fact(row, _name(store, resident)),
-            "now": "confirmed — in the resident's words" if confirmed else "dismissed",
+            "now": "confirmed, in the resident's words" if confirmed else "dismissed",
             "store_mode": store.mode}
 
 
@@ -153,7 +153,7 @@ def log_input_event(event: dict) -> dict:
 
 @mcp.tool
 def log_input_events(events: list[dict]) -> dict:
-    """Batch version of log_input_event — what POST /input-events uses
+    """Batch version of log_input_event, what POST /input-events uses
     (the frontend queue flushes every 2 s)."""
     store = get_store()
     saved = store.log_input_events(events)
@@ -165,14 +165,14 @@ def get_input_profile(resident: str) -> dict:
     """How this resident communicates best, learned from input history
     (last 14 days): preferred select method, preferred yes, dwell_ms,
     confirmed rates, time-of-day notes, confidence. Plain arithmetic.
-    Labelled 'from input history' — never the resident's own words."""
+    Labelled 'from input history', never the resident's own words."""
     store = get_store()
     return dict(store.get_input_profile(resident), store_mode=store.mode)
 
 
 @mcp.tool
 def save_custom_gesture(resident: str, tile: str, samples: list[list[float]]) -> dict:
-    """G8: store a taught personal gesture — 5 normalized landmark samples
+    """G8: store a taught personal gesture, 5 normalized landmark samples
     (63 floats each) for one tile. Re-teaching the same tile replaces it.
     Landmarks only, never video."""
     if not samples or any(len(s) != 63 for s in samples):

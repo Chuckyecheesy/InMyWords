@@ -2,11 +2,11 @@
 
 Two backends, picked automatically:
 - PostgresStore  when DATABASE_URL is set and reachable (Tiger Data).
-- SeedStore      otherwise — reads db/seed/*.json so every tool works
+- SeedStore      otherwise, reads db/seed/*.json so every tool works
                  before the database exists. Writes go to memory only
                  (lost on restart) and are clearly marked in the result.
 
-Agents NEVER import this directly — they go through the MCP servers.
+Agents NEVER import this directly, they go through the MCP servers.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ _query_vec_cache: dict[str, list[float]] = {}
 
 def embed_text(text, task_type="RETRIEVAL_QUERY"):
     """Best-effort embedding via Ahmed's wrapper (api/services/gemini.py).
-    Returns None when the key is missing or the call fails — callers fall
+    Returns None when the key is missing or the call fails, callers fall
     back to keyword ranking. Query embeddings are cached (a repeated Coach
     question costs no extra call, which protects the 4s latency budget)."""
     if not os.environ.get("GEMINI_API_KEY") or not (text or "").strip():
@@ -121,7 +121,7 @@ def _window(hour: int) -> str:
 
 def build_input_profile(events, resident_id):
     """Input-profile rules (GAZE_GESTURE_PLAN §4.6) over a list of event
-    dicts from the last 14 days. Plain arithmetic — no LLM. Shared by both
+    dicts from the last 14 days. Plain arithmetic, no LLM. Shared by both
     store backends so seed mode and Postgres agree exactly."""
     from statistics import median
 
@@ -190,7 +190,7 @@ def source_label(source: str, name: str, date: str | None) -> str:
     if source == "document":
         year = (date or "")[:4]
         return f"From records, {year}" if year else "From records"
-    return "Pattern noticed"  # inferred — never shown as fact
+    return "Pattern noticed"  # inferred, never shown as fact
 
 
 class SeedStore:
@@ -223,7 +223,7 @@ class SeedStore:
         # Seed-mode RAG: document vectors cached on disk by content hash
         # (gitignored), so recall is semantic even without the database.
         self._vectors = VectorCache(SEED_DIR / ".embeddings.json", embed_texts)
-        # In-memory writes (lost on restart — fine for pre-DB development)
+        # In-memory writes (lost on restart, fine for pre-DB development)
         self.sentences, self.choices, self.observations, self.story_answers = [], [], [], []
         # Action-related writes persist to a shared runtime file so the
         # actions server, backend and mock-booking page (separate processes)
@@ -339,12 +339,34 @@ class SeedStore:
         facts += [{"content": n["note"], "source": "emh", "date": n["created_at"][:10],
                    "status": "confirmed", "kind": "emh_note", "id": None, "update_reason": None}
                   for n in self.emh_notes if n["resident_id"] == rid]
+        facts += [{"content": f"{d['title']}: {d['body'][:400]}", "source": "document",
+                   "date": str(d.get("doc_date") or "")[:10] or None,
+                   "status": "confirmed", "kind": "document", "id": None, "update_reason": None}
+                  for d in self.get_documents(rid)]
         ranked = self._rank(rid, facts, [f["content"] for f in facts], query, limit,
                             dates=[f["date"] for f in facts])
         for f in ranked:
             f.pop("score", None)  # keep the contract shape
             f.pop("similarity", None)
         return ranked
+
+    # ---- records library (ROADMAP Phase 3) ----
+
+    def add_document(self, rid, title, category, author, doc_date, body):
+        self._reload_runtime()
+        docs = self._runtime.setdefault("documents", [])
+        doc = {"id": len(docs) + 1, "resident_id": rid, "title": title,
+               "category": category, "author": author, "doc_date": doc_date,
+               "uploaded_at": _now(), "body": body}
+        docs.append(doc)
+        self._save_runtime()
+        return doc
+
+    def get_documents(self, rid):
+        self._reload_runtime()
+        return sorted(
+            [d for d in self._runtime.get("documents", []) if d["resident_id"] == rid],
+            key=lambda d: str(d.get("doc_date") or ""), reverse=True)
 
     def get_emh_notes(self, rid, since=None):
         notes = [n for n in self.emh_notes if n["resident_id"] == rid]
@@ -630,7 +652,7 @@ class SeedStore:
         for p in self._runtime["action_plans"]:
             if p["resident_id"] == rid:
                 items.append({"kind": "action", "date": p["created_at"],
-                              "text": f"Plan '{p['goal']}' — {p['status']}"})
+                              "text": f"Plan '{p['goal']}', {p['status']}"})
         for r in self._runtime["action_results"]:
             plan = next((p for p in self._runtime["action_plans"] if p["id"] == r["plan_id"]), None)
             if plan and plan["resident_id"] == rid:
@@ -745,6 +767,8 @@ class PostgresStore:
         room = limit - len(facts)
         if words and room > 0:
             note_match = " OR ".join(["strpos(lower(note), %s) > 0"] * len(words))
+            doc_match = " OR ".join(
+                ["strpos(lower(title || ' ' || body), %s) > 0"] * len(words))
             facts += self._all(
                 f"""SELECT note AS content, 'staff' AS source, created_at::date::text AS date,
                           'confirmed' AS status, 'observation' AS kind, NULL::int AS id,
@@ -753,9 +777,27 @@ class PostgresStore:
                    UNION ALL
                    SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note', NULL::int, NULL::text
                    FROM emh_notes WHERE resident_id = %s AND ({note_match})
+                   UNION ALL
+                   SELECT title || ': ' || left(body, 400), 'document', doc_date::text,
+                          'confirmed', 'document', NULL::int, NULL::text
+                   FROM documents WHERE resident_id = %s AND ({doc_match})
                    LIMIT %s""",
-                tuple([rid, *words, rid, *words, room]))
+                tuple([rid, *words, rid, *words, rid, *words, room]))
         return facts
+
+    # ---- records library (ROADMAP Phase 3) ----
+
+    def add_document(self, rid, title, category, author, doc_date, body):
+        doc_id = self._insert(
+            "INSERT INTO documents (resident_id, title, category, author, doc_date, body) "
+            "VALUES (%s,%s,%s,%s,%s,%s)",
+            (rid, title, category, author, doc_date, body))
+        return self._one("SELECT * FROM documents WHERE id = %s", (doc_id,))
+
+    def get_documents(self, rid):
+        return self._all(
+            "SELECT * FROM documents WHERE resident_id = %s "
+            "ORDER BY doc_date DESC NULLS LAST, uploaded_at DESC", (rid,))
 
     def get_emh_notes(self, rid, since=None):
         if since:
@@ -1084,7 +1126,7 @@ class PostgresStore:
                SELECT 'choice', created_at, 'Choice: ' || coalesce(chosen, 'not decided yet')
                FROM choices WHERE resident_id = %s
                UNION ALL
-               SELECT 'action', ap.created_at, 'Plan ''' || ap.goal || ''' — ' || ap.status
+               SELECT 'action', ap.created_at, 'Plan ''' || ap.goal || ''', ' || ap.status
                FROM action_plans ap WHERE ap.resident_id = %s
                UNION ALL
                SELECT 'action', ar.created_at, ar.result

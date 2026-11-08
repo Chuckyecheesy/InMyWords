@@ -105,6 +105,19 @@ if profile and profile.get("events_counted"):
     else:
         print("  ok   profile matches the worked example (gaze, Thumb_Up, ~1045ms, evening note)")
 
+print("records library (Phase 3)")
+hit("POST", "/records",
+    {"resident_id": "marcus", "title": "Swim program intake",
+     "body": "Marcus joined the Monday swim program. Prefers the quiet early slot.",
+     "category": "update", "author": "Sam", "doc_date": "2026-11-08"}, ("ok",))
+library = hit("GET", "/records/marcus", expect_keys=("records",))
+if library:
+    titles = [r.get("title") for r in library.get("records", [])]
+    if "Swim program intake" not in titles:
+        failures.append("records roundtrip: added record not returned")
+    if "Resident Information Binder" not in titles:
+        failures.append("records seed: binder document missing from library")
+
 print("custom gestures (G8)")
 sample = [round(0.01 * i, 4) for i in range(63)]
 hit("POST", "/custom-gestures",

@@ -19,7 +19,7 @@ import type {
  * It tells one story, drawn from db/seed: Marcus (34) lives at Maple House,
  * loves the Raptors and Saturday bowling, orders a double-double, talks to
  * his sister Lisa every week, finds loud rooms hard, and has picked tea five
- * times this week — a pattern still waiting for his confirmation.
+ * times this week, a pattern still waiting for his confirmation.
  */
 export const DEMO_RESIDENT_IDS = ["marcus", "dana"] as const;
 export const DEMO_STAFF = { id: "jordan", name: "Jordan", home: "Maple House" };
@@ -200,7 +200,7 @@ const profiles: Record<string, ResidentProfile> = {
     observations: [
       { text: "Pointed at the kettle at breakfast and picked the tea tile. Seemed pleased with it.", source: "emh", date: "2026-11-06", author: "Sam" },
       { text: "Bowling went great. High-fived the lane attendant and signed 'again' on the way out.", source: "emh", date: "2026-11-01", author: "Sam" },
-      { text: "Mall trip cut short — the food court was loud and he covered his ears. Calm once outside.", source: "emh", date: "2026-10-29", author: "Sam" },
+      { text: "Mall trip cut short, the food court was loud and he covered his ears. Calm once outside.", source: "emh", date: "2026-10-29", author: "Sam" },
     ],
     pending: [
       { text: "Likes tea now (picked tea 5 times this week after months of coffee).", source: "inferred", date: "2026-11-06" },
@@ -243,7 +243,7 @@ const coach: Record<string, CoachEntry[]> = {
       keywords: ["upset", "upsets", "loud", "noise", "angry", "calm", "settle", "distress"],
       answer: {
         answer:
-          "Loud, busy rooms are hard for Marcus — a mall trip on Oct 29 was cut short because the food court was too loud. Moving somewhere quiet and offering his headphones helps him settle. Give him a heads-up before it's time to leave somewhere.",
+          "Loud, busy rooms are hard for Marcus, a mall trip on Oct 29 was cut short because the food court was too loud. Moving somewhere quiet and offering his headphones helps him settle. Give him a heads-up before it's time to leave somewhere.",
         sources: [
           { type: "resident", date: "2026-10-29" },
           { type: "emh", date: "2026-10-29" },
@@ -255,7 +255,7 @@ const coach: Record<string, CoachEntry[]> = {
       keywords: ["communicate", "communication", "talk", "speak", "tiles", "understand", "say"],
       answer: {
         answer:
-          "Marcus uses picture tiles, single words and gestures. Ask one question at a time and wait — he'll answer yes or no with a tile or a nod. When he builds a sentence in Speak For Me, he approves it before it is spoken.",
+          "Marcus uses picture tiles, single words and gestures. Ask one question at a time and wait, he'll answer yes or no with a tile or a nod. When he builds a sentence in Speak For Me, he approves it before it is spoken.",
         sources: [
           { type: "document", date: RECORDS },
           { type: "staff", date: "2026-10-30" },
@@ -266,7 +266,7 @@ const coach: Record<string, CoachEntry[]> = {
       keywords: ["like", "likes", "enjoy", "enjoys", "fun", "love", "hobby", "hobbies", "bowling", "raptors"],
       answer: {
         answer:
-          "Marcus loves the Toronto Raptors — his goal is to see a live game. He bowls on Saturday afternoons, usually at 2pm, and listens to music in his room after the day program.",
+          "Marcus loves the Toronto Raptors, his goal is to see a live game. He bowls on Saturday afternoons, usually at 2pm, and listens to music in his room after the day program.",
         sources: [
           { type: "resident", date: "2026-11-02" },
           { type: "resident", date: "2026-11-01" },
@@ -289,7 +289,7 @@ const coach: Record<string, CoachEntry[]> = {
       keywords: ["tea", "coffee", "drink", "drinks", "double-double", "tim"],
       answer: {
         answer:
-          "His 2021 records say coffee — a double-double from Tim Hortons. This week he picked tea 5 times. That's a pattern noticed, not yet confirmed by Marcus, so offer both and let him choose.",
+          "His 2021 records say coffee, a double-double from Tim Hortons. This week he picked tea 5 times. That's a pattern noticed, not yet confirmed by Marcus, so offer both and let him choose.",
         sources: [
           { type: "document", date: RECORDS },
           { type: "inferred", date: "2026-11-06" },
@@ -300,7 +300,7 @@ const coach: Record<string, CoachEntry[]> = {
       keywords: ["important", "family", "sister", "lisa", "who", "friends", "contact"],
       answer: {
         answer:
-          "His sister Lisa is his main contact. She calls every week — on Oct 26 he held the phone with both hands the whole time, smiling.",
+          "His sister Lisa is his main contact. She calls every week, on Oct 26 he held the phone with both hands the whole time, smiling.",
         sources: [
           { type: "resident", date: "2026-11-02" },
           { type: "document", date: RECORDS },
@@ -363,7 +363,7 @@ const pending: Record<string, PendingMemory[]> = {
     {
       id: "mem-coffee",
       type: "preference",
-      content: "Drinks coffee — a double-double from Tim Hortons.",
+      content: "Drinks coffee, a double-double from Tim Hortons.",
       source: "document",
       source_date: "2021-03-15",
       times_seen: 1,
@@ -391,7 +391,7 @@ const handoff: Record<string, HandoffItem[]> = {
     {
       type: "checklist",
       date: "2026-11-05",
-      text: "Grocery shopping didn't happen — the bus was cancelled.",
+      text: "Grocery shopping didn't happen, the bus was cancelled.",
       status: "missed",
     },
     {
@@ -416,7 +416,7 @@ const handoff: Record<string, HandoffItem[]> = {
     {
       type: "checklist",
       date: "2026-10-29",
-      text: "Community outing ended early — the food court was too loud for Marcus.",
+      text: "Community outing ended early, the food court was too loud for Marcus.",
       status: "missed",
       significant: true,
     },

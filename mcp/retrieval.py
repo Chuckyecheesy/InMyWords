@@ -3,7 +3,7 @@
 Both stores (SeedStore, PostgresStore) use this so the Coach (`ask_about`),
 Voice (`recall`) and Handoff all rank memories the same way.
 
-Plain code only — no LLM here (non-negotiable rule 6). The LLM phrases results
+Plain code only, no LLM here (non-negotiable rule 6). The LLM phrases results
 elsewhere; this module only decides WHICH stored facts are relevant.
 
 Calibration (gemini-embedding-001, 768-d, normalized, Marcus seed data, with
@@ -34,7 +34,7 @@ KEYWORD_BOOST = float(os.environ.get("RAG_KEYWORD_BOOST", "0.08"))  # per matche
 # Memory-vs-memory cosine at or above this = the same fact reworded, so
 # remember bumps times_seen instead of saving a copy. Measured (document
 # embeddings): true rewordings 0.879-0.937; the closest DIFFERENT facts 0.802-
-# 0.868 — and 0.868 is a contradiction ("Prefers tea over coffee" vs "Drinks
+# 0.868, and 0.868 is a contradiction ("Prefers tea over coffee" vs "Drinks
 # coffee") that must never be merged away. 0.90 errs on keeping a rare
 # duplicate rather than hiding a contradiction.
 DUPLICATE_SIM = float(os.environ.get("RAG_DUPLICATE_SIM", "0.90"))
@@ -51,7 +51,7 @@ which while who whom why will with would you your tell know
 def query_terms(query: str, limit: int = 8, ignore=()) -> list[str]:
     """Meaningful words for literal matching. Letters, digits, - and ' only (a
     tile can't become a regular expression); stopwords dropped so 'what', 'when',
-    'he' don't match every sentence. `ignore` drops extra words — pass the
+    'he' don't match every sentence. `ignore` drops extra words, pass the
     resident's name, which appears in nearly every fact about them."""
     ignore = {w.lower() for w in ignore if w}
     words: list[str] = []
@@ -110,7 +110,7 @@ def select(rows: list[dict], limit: int, broad: bool = False) -> list[dict]:
     - broad=True drops the MARGIN rule: every on-topic row above the floor.
       For contradiction checks, where a near-duplicate tops the list and the
       memory it contradicts ("Drinks coffee" vs a new tea pattern) sits lower.
-    An empty result is meaningful: the Coach must say "I don't know — ask <name>".
+    An empty result is meaningful: the Coach must say "I don't know, ask <name>".
     """
     if not rows:
         return []

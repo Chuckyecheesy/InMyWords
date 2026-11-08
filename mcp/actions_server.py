@@ -1,16 +1,16 @@
-"""actions MCP server (BUILD_PLAN T2.6) — plan, approve, run.
+"""actions MCP server (BUILD_PLAN T2.6), plan, approve, run.
 
 Run:  python mcp/actions_server.py          (streamable HTTP on :8103)
 
 Guardrails baked in:
 - plan_actions only PROPOSES. Nothing runs until the resident approves.
 - Every executing tool checks the plan is status='approved' and REFUSES
-  otherwise — the gate lives here, not in the UI.
+  otherwise, the gate lives here, not in the UI.
 - cancel_plan honours the short cancel window (works until steps run).
 - Every step is logged to action_results (visible in the activity log).
 - Email is real when EMAIL_SENDER_* creds exist, otherwise logged as
   sent (the plan's venue fallback). Never sends money, never shares
-  personal info — the allowlist below is the whole action surface.
+  personal info, the allowlist below is the whole action surface.
 
 plan_actions remains a deterministic placeholder for callers that
 only have a goal. save_plan stores the plan the Action agent already
@@ -58,7 +58,7 @@ def _approved_plan_or_error(plan_id):
         return None, {"error": f"no plan {plan_id}"}
     if plan["status"] != "approved":
         return None, {"refused": True,
-                      "error": f"plan {plan_id} is '{plan['status']}', not approved — "
+                      "error": f"plan {plan_id} is '{plan['status']}', not approved, "
                                "the resident must approve first"}
     return plan, None
 
@@ -66,15 +66,15 @@ def _approved_plan_or_error(plan_id):
 @mcp.tool
 def plan_actions(resident: str, goal: str) -> dict:
     """Split a goal into online steps + staff tasks with total cost.
-    PROPOSES only — returns a plan for the resident's approval card.
+    PROPOSES only, returns a plan for the resident's approval card.
     Placeholder for callers that do not pass the Action agent's steps."""
     goal_l = goal.lower()
     steps = []
     if "bowling" in goal_l:
         steps = [
             {"step": "book_activity", "kind": "online", "detail": "Lane at KW Bowl, Saturday 2:00pm",
-             "activity": "Bowling — KW Bowl", "time": "2026-11-14T14:00:00", "cost": 15.0},
-            {"step": "add_to_calendar", "kind": "online", "detail": "Bowling — Saturday 2:00pm",
+             "activity": "Bowling, KW Bowl", "time": "2026-11-14T14:00:00", "cost": 15.0},
+            {"step": "add_to_calendar", "kind": "online", "detail": "Bowling, Saturday 2:00pm",
              "title": "Bowling at KW Bowl", "time": "2026-11-14T14:00:00", "cost": 0},
             {"step": "send_message", "kind": "online", "contact": "lisa",
              "detail": "Email Lisa: bowling Saturday 2pm, want to come?",
@@ -137,13 +137,13 @@ def approve_plan(resident: str, plan_id: int) -> dict:
     if plan["resident_id"] != resident:
         return {"error": "plan belongs to a different resident"}
     if plan["status"] != "proposed":
-        return {"refused": True, "error": f"plan is '{plan['status']}' — only proposed plans can be approved"}
+        return {"refused": True, "error": f"plan is '{plan['status']}', only proposed plans can be approved"}
 
     store.set_plan_status(plan_id, "approved")
     results = []
     for s in plan["steps"]:
         if s["step"] not in ALLOWED_STEPS:
-            result = f"SKIPPED '{s['step']}' — not on the allowlist"
+            result = f"SKIPPED '{s['step']}', not on the allowlist"
         elif s["step"] == "book_activity":
             store.add_booking(resident, s["activity"], s["time"])
             result = f"Booked: {s['activity']}, {s['time']}"
@@ -169,14 +169,14 @@ def approve_plan(resident: str, plan_id: int) -> dict:
 
 @mcp.tool
 def cancel_plan(resident: str, plan_id: int) -> dict:
-    """Cancel within the window — works while the plan is proposed or
+    """Cancel within the window, works while the plan is proposed or
     approved-but-not-run."""
     store = get_store()
     plan = store.get_plan(plan_id)
     if not plan or plan["resident_id"] != resident:
         return {"error": f"no plan {plan_id} for '{resident}'"}
     if plan["status"] == "done":
-        return {"refused": True, "error": "plan already ran — ask staff to help undo the steps"}
+        return {"refused": True, "error": "plan already ran, ask staff to help undo the steps"}
     store.set_plan_status(plan_id, "cancelled")
     store.log_action_result(plan_id, "cancel", "Cancelled by the resident")
     return {"plan_id": plan_id, "status": "cancelled"}
@@ -184,7 +184,7 @@ def cancel_plan(resident: str, plan_id: int) -> dict:
 
 @mcp.tool
 def send_message(resident: str, contact: str, text: str, plan_id: int) -> dict:
-    """Send a message — ONLY as part of an approved plan."""
+    """Send a message, ONLY as part of an approved plan."""
     plan, err = _approved_plan_or_error(plan_id)
     if err:
         return err
@@ -198,7 +198,7 @@ def send_message(resident: str, contact: str, text: str, plan_id: int) -> dict:
 
 @mcp.tool
 def add_to_calendar(resident: str, event: str, time: str, plan_id: int) -> dict:
-    """Add a calendar entry — ONLY as part of an approved plan."""
+    """Add a calendar entry, ONLY as part of an approved plan."""
     plan, err = _approved_plan_or_error(plan_id)
     if err:
         return err
@@ -210,7 +210,7 @@ def add_to_calendar(resident: str, event: str, time: str, plan_id: int) -> dict:
 
 @mcp.tool
 def book_activity(resident: str, activity: str, time: str, plan_id: int) -> dict:
-    """Book an activity on the mock booking site — ONLY as part of an
+    """Book an activity on the mock booking site, ONLY as part of an
     approved plan."""
     plan, err = _approved_plan_or_error(plan_id)
     if err:
@@ -223,7 +223,7 @@ def book_activity(resident: str, activity: str, time: str, plan_id: int) -> dict
 
 @mcp.tool
 def create_staff_task(resident: str, task: str, time: str = "", plan_id: int = 0) -> dict:
-    """Create a task in staff Handoff. Allowed outside a plan too — staff
+    """Create a task in staff Handoff. Allowed outside a plan too, staff
     tasks are requests for human help, not autonomous actions."""
     store = get_store()
     store.create_staff_task(resident, task, time or None)
@@ -235,7 +235,7 @@ def create_staff_task(resident: str, task: str, time: str = "", plan_id: int = 0
 @mcp.tool
 def get_staff_tasks(resident: str = "") -> dict:
     """Open and done staff tasks, optionally filtered to one resident.
-    (Additive read tool — Handoff shows these.)"""
+    (Additive read tool, Handoff shows these.)"""
     store = get_store()
     tasks = store.get_staff_tasks(resident or None)
     return {"tasks": [{"resident": t["resident_id"], "task": t["task"],

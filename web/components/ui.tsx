@@ -14,15 +14,12 @@ import type { ChipTone, Highlight, SourceType } from "@/lib/types";
 /* Brand ------------------------------------------------------------------ */
 
 export function WordmarkMark({ size = 34 }: { size?: number }) {
+  // The real brand icon (web/public/brand/icon.svg), a speech bubble of
+  // tiles. It carries its own colors, so the chip background goes away.
   return (
-    <span className="wordmark-mark" style={{ width: size, height: size }} aria-hidden="true">
-      <svg width={size * 0.56} height={size * 0.56} viewBox="0 0 24 24" fill="none">
-        <path
-          d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.2 3.6c-.5.4-1.3 0-1.3-.6V16A2.5 2.5 0 0 1 4 13.5v-7Z"
-          fill="currentColor"
-        />
-        <path d="M8.5 10h7" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
-      </svg>
+    <span className="wordmark-mark" data-brand="" style={{ width: size, height: size }} aria-hidden="true">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/icon.svg" alt="" width={size} height={size} />
     </span>
   );
 }

@@ -34,17 +34,14 @@ export default async function EntryPage() {
               <p className="entry-sub">
                 Your choices, made by you. <span className="hl">Communication</span>,{" "}
                 <span className="hl">life story</span> and <span className="hl">staff onboarding</span>{" "}
-                for supported living — in one place.
+                for supported living, in one place.
               </p>
             </div>
             <EntryPreview />
           </div>
-          <p className="builtwith">
-            <span>Built with</span> ElevenLabs · Gemini · Tiger Data · Cloudinary · MCP
-          </p>
         </section>
 
-        {sample ? <DataBanner>Sample data — the API didn&apos;t answer, so these are the demo residents.</DataBanner> : null}
+        {sample ? <DataBanner>Sample data, the API didn&apos;t answer, so these are the demo residents.</DataBanner> : null}
 
         <section aria-labelledby="residents-label">
           <p id="residents-label" className="eyebrow entry-section-label">
@@ -55,7 +52,9 @@ export default async function EntryPage() {
               <Link prefetch={false} key={data.id} href={`/resident/${data.id}`} className="card card-link entry-card">
                 <Avatar name={data.name} size="lg" tone={index === 1 ? "coral" : undefined} />
                 <div>
-                  <h2>I&apos;m {data.name}</h2>
+                  <h2>
+                    I&apos;m {data.name} <span className="badge" data-tone="neutral">Demo profile</span>
+                  </h2>
                   <p>{homeFor(data.id)} · Open my home screen</p>
                 </div>
                 <ArrowRight className="go" size={24} aria-hidden="true" />
@@ -93,12 +92,6 @@ export default async function EntryPage() {
         </section>
       </main>
 
-      <footer className="entry-foot">
-        <span>Built for CommuniHacks 2026 · KW Habilitation, Problem 11. All people are fictional.</span>
-        <Link href="/pitch" className="text-link">
-          Pitch deck
-        </Link>
-      </footer>
     </div>
   );
 }

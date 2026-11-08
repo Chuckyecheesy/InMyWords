@@ -1,6 +1,6 @@
 /**
  * Input profile + adaptive settings (GAZE_GESTURE_PLAN G6) and the
- * "How I Communicate" card templates (§6). Template text only — the card
+ * "How I Communicate" card templates (§6). Template text only, the card
  * can never invent behaviour, and it is labelled "From input history".
  */
 

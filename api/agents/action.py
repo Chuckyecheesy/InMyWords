@@ -291,26 +291,82 @@ def _keyword(goal: str) -> str:
     return words[0] if words else goal.lower()
 
 
-def _retriever_note(raw: list[dict] | None, usable: list[dict]) -> str:
+_NOT_TOPICAL = {"a", "an", "the", "on", "at", "in", "to", "for", "my", "me", "with", "this",
+                "next", "week", "today", "tonight", "tomorrow", "want", "would", "like", "please"}
+_NOTE_MAX = 90  # characters per quoted memory; the note sits in a small card
+
+
+def _topic_words(goal: str) -> set[str]:
+    return {w for w in re.findall(r"[a-z]+", goal.lower()) if len(w) > 2 and w not in _NOT_TOPICAL}
+
+
+def _relevance(memory: dict, topics: set[str]) -> int:
+    words = re.findall(r"[a-z]+", str(memory.get("content", "")).lower())
+    # Prefix match so "bowl" finds "bowling" and "call" finds "calls".
+    return sum(1 for t in topics if any(w.startswith(t) or t.startswith(w) and len(w) > 3 for w in words))
+
+
+def _shorten(text: str) -> str:
+    text = " ".join(text.split()).rstrip(" .;")
+    if len(text) <= _NOTE_MAX:
+        return text
+    cut = text[:_NOTE_MAX].rsplit(" ", 1)[0].rstrip(" ,;—-")
+    return cut + "…"
+
+
+def _memory_phrase(memory: dict) -> str:
+    content = _shorten(str(memory.get("content", "")))
+    label = memory.get("label")
+    if memory.get("source") == "resident":
+        # The resident's own words: quoted as saved, never reworded.
+        return f'{label or "In their words"}: "{content}."'
+    return f"{label}: {content}." if label else f"{content}."
+
+
+def _note_floor() -> float:
+    # Same floor the memory server uses (mcp/retrieval.py MIN_SCORE).
+    import os
+    return float(os.environ.get("RAG_MIN_SCORE", "0.63"))
+
+
+def _by_meaning(hits: list[dict]) -> list[dict]:
+    """Memories the server ranked by meaning for this goal, best first. The
+    server lets a weak semantic hit through on a keyword boost ("haircut next
+    week" -> "weekly phone calls"); the note only quotes hits whose own
+    similarity clears the floor. A hit with no embedding yet keeps its place."""
+    floor = _note_floor()
+    return [m for m in hits
+            if m.get("status") not in ("pending", "rejected", "dismissed")
+            and (m.get("similarity") is None or m["similarity"] >= floor)]
+
+
+def _by_words(usable: list[dict], goal: str) -> list[dict]:
+    """Fallback when there is no meaning-ranked recall: shared words."""
+    topics = _topic_words(goal)
+    scored = [(_relevance(m, topics), i, m) for i, m in enumerate(usable)]
+    return [m for score, _i, m in sorted(scored, key=lambda x: (-x[0], x[1])) if score > 0]
+
+
+def _retriever_note(raw: list[dict] | None, usable: list[dict], goal: str = "",
+                    goal_hits: list[dict] | None = None) -> str:
     if raw is None:
-        return "The retriever could not reach saved memories."
-    if not usable:
-        return "No saved memory matched this choice."
-    lines = []
-    for memory in usable[:2]:
-        content = " ".join(str(memory.get("content", "")).split())
-        if content and content[-1] not in ".!?":
-            content += "."
-        label = memory.get("label")
-        lines.append(f"{label}: {content}" if label else content)
-    return " ".join(lines)
+        return "Could not reach saved memories right now."
+    relevant = _by_meaning(goal_hits) if goal_hits is not None else _by_words(usable, goal)
+    if not relevant:
+        return "Nothing saved about this yet."
+    # One memory is usually enough; add a second only if it comes from a different source.
+    picked = [relevant[0]]
+    second = next((m for m in relevant[1:] if m.get("source") != relevant[0].get("source")), None)
+    if second:
+        picked.append(second)
+    return " ".join(_memory_phrase(m) for m in picked)
 
 
 def _routine_note(events: list[dict] | None, keyword: str) -> str:
     from agents.memory.routines import find_routines
 
     if events is None:
-        return "The routine finder could not read the outing record."
+        return "Could not read the outing record right now."
     rows = []
     for event in events:
         text = str(event.get("event") or event.get("content") or "")
@@ -321,12 +377,12 @@ def _routine_note(events: list[dict] | None, keyword: str) -> str:
             continue
         rows.append({"content": keyword.capitalize(), "at": at})
     if not rows:
-        return "Nothing in the record repeats often enough to call a routine."
+        return "No regular pattern yet."
     found = find_routines(rows, phrase=_phrase_routine)
     if not found:
-        return "Nothing in the record repeats often enough to call a routine."
+        return "No regular pattern yet."
     top = found[0]
-    return f"{top['content']}. Seen {top['count']} times."
+    return f"{top['content']}, {top['count']} times recently."
 
 
 def _action_note(steps: list[dict]) -> str:
@@ -362,21 +418,28 @@ def _usable(memories: list[dict] | None) -> list[dict]:
     return [m for m in kept if m.get("status") not in ("pending", "rejected", "dismissed")]
 
 
-def agent_notes(name: str, goal: str, memories: list[dict] | None, events: list[dict] | None, plan: dict) -> list[dict]:
-    """What the choice screen shows beside the approval card."""
-    usable = _usable(memories)
+def agent_notes(name: str, goal: str, memories: list[dict] | None, events: list[dict] | None, plan: dict,
+                goal_hits: list[dict] | None = None) -> list[dict]:
+    """What the choice screen shows beside the approval card.
+    goal_hits: the memory server's recall for the goal itself, ranked by
+    meaning. Without it the note falls back to shared words."""
+    # Rank the whole recall, not just the retriever's top 5,
+    # so a matching memory further down the list is not cut off.
+    usable = [m for m in (memories or []) if m.get("status") not in ("pending", "rejected", "dismissed")]
     return [
         {"id": "observer", "name": "Observer", "note": f"{name} chose {goal.strip()}."},
-        {"id": "retriever", "name": "Retriever", "note": _retriever_note(memories, usable)},
+        {"id": "retriever", "name": "Retriever",
+         "note": _retriever_note(memories, usable, goal, goal_hits)},
         {"id": "routine", "name": "Routine finder", "note": _routine_note(events, _keyword(goal))},
         {"id": "action", "name": "Action", "note": _action_note(plan.get("steps") or [])},
     ]
 
 
-def plan_with_notes(goal: str, *, name: str, memories: list[dict] | None, events: list[dict] | None, **plan_kwargs) -> dict:
+def plan_with_notes(goal: str, *, name: str, memories: list[dict] | None, events: list[dict] | None,
+                    goal_hits: list[dict] | None = None, **plan_kwargs) -> dict:
     usable = _usable(memories)
     plan = build_plan(goal, usable, **plan_kwargs)
-    plan["agents"] = agent_notes(name, goal, memories, events, plan)
+    plan["agents"] = agent_notes(name, goal, memories, events, plan, goal_hits)
     return plan
 
 
@@ -387,16 +450,21 @@ async def propose_plan(resident_id: str, goal: str, *, name: str) -> dict:
 
     memories: list[dict] | None
     events: list[dict] | None
+    goal_hits: list[dict] | None = None
     try:
         seen: dict = {}
         for query in (goal, "usual time", "family sister contact"):
-            for memory in (await mcp_client.recall(resident_id, query)).get("memories", []):
+            found = (await mcp_client.recall(resident_id, query)).get("memories", [])
+            if query == goal:
+                goal_hits = list(found)  # ranked by meaning, best first: the note quotes these
+            for memory in found:
                 if memory.get("status") not in ("pending", "rejected", "dismissed"):
                     seen[memory.get("id", memory.get("content"))] = memory
         memories = list(seen.values())
     except Exception as exc:
         print(f"[action] retriever skipped ({type(exc).__name__}): {exc}")
         memories = None
+        goal_hits = None
     try:
         significant = await mcp_client.get_significant_events(resident_id)
         events = list(significant.get("events") or [])
@@ -414,4 +482,5 @@ async def propose_plan(resident_id: str, goal: str, *, name: str) -> dict:
             propose = lambda _goal, _memories: steps  # noqa: E731
         except Exception as exc:
             print(f"[action] Gemini proposer failed, using rules ({type(exc).__name__}): {exc}")
-    return plan_with_notes(goal, name=name, memories=memories, events=events, propose=propose)
+    return plan_with_notes(goal, name=name, memories=memories, events=events,
+                           goal_hits=goal_hits, propose=propose)

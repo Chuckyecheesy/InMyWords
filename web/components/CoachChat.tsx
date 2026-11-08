@@ -37,7 +37,12 @@ function provenanceLine(answer: CoachAnswer, name: string): string {
   const types = new Set(answer.sources.map((source) => source.type));
   if (types.has("resident")) return `Includes ${name}'s own words.`;
   if (types.has("inferred") || types.has("pattern")) return `Includes a pattern ${name} hasn't confirmed yet.`;
-  return `From staff notes and records — not ${name}'s own words.`;
+  return `From staff notes and records, not ${name}'s own words.`;
+}
+
+/** The resident-words badge shows only when resident-confirmed material backs the answer. */
+function includesResidentWords(answer: CoachAnswer): boolean {
+  return answer.sources.some((source) => source.type === "resident");
 }
 
 function Answer({ message, name }: { message: Message; name: string }) {
@@ -54,11 +59,17 @@ function Answer({ message, name }: { message: Message; name: string }) {
         {unknown ? (
           <p className="msg-unknown">
             <CircleHelp size={16} aria-hidden="true" />
-            Not on file. The Coach won&apos;t guess — ask {name}, or add a staff note once you know.
+            Not on file. The Coach won&apos;t guess, ask {name}, or add a staff note once you know.
           </p>
         ) : (
-          <div className="msg-sources">
-            <span className="msg-sources-label">Sources · {provenanceLine(answer, name)}</span>
+          <details className="msg-sources sources-disclosure">
+            <summary>
+              View sources ({answer.sources.length})
+              {includesResidentWords(answer) ? (
+                <SourceBadge source="resident" name={name} date={null} />
+              ) : null}
+            </summary>
+            <span className="msg-sources-label">{provenanceLine(answer, name)}</span>
             <div className="chips">
               {answer.sources.map((source, index) => (
                 <SourceBadge key={index} source={source.type} name={name} date={source.date} />
@@ -72,7 +83,7 @@ function Answer({ message, name }: { message: Message; name: string }) {
                   May have changed: {source.update_reason}. Check with {name}.
                 </p>
               ))}
-          </div>
+          </details>
         )}
         <div className="row" style={{ gap: 8 }}>
           {message.origin === "sample" ? <Badge tone="neutral" label="Offline sample answer" /> : null}
