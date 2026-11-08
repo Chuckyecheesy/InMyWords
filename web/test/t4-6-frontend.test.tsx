@@ -88,11 +88,15 @@ describe("T4.6 frontend — confirm queue", () => {
   test("outdated binder coffee fact is flagged against the tea pattern", async () => {
     stubFetch(() => LIVE_PENDING);
     const { data } = await getPendingMemories("marcus-t46-c");
-    render(<ConfirmQueue residentName="Marcus" memories={data} />);
+    // The queue shows one question at a time (T4.7 a11y), so check each alone.
+    const coffeeOnly = data.filter((m) => /coffee/i.test(m.content));
+    render(<ConfirmQueue residentName="Marcus" memories={coffeeOnly} />);
     const coffee = screen.getByText("Drinks coffee.").closest("article")!;
     assert.ok(coffee.textContent!.includes("From records, 2019"));
     assert.ok(/may have changed/i.test(coffee.textContent!));
     assert.ok(coffee.textContent!.includes("tea 5x this week"));
+    cleanup();
+    render(<ConfirmQueue residentName="Marcus" memories={data.filter((m) => /tea/i.test(m.content) && !/coffee/i.test(m.content))} />);
     const tea = screen.getByText("Marcus has tea in the morning.").closest("article")!;
     assert.ok(!/may have changed/i.test(tea.textContent!));
   });

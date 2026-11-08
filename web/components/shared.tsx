@@ -13,7 +13,7 @@ import type { Tile } from "@/lib/types";
 
 const LONG_PRESS_MS = 600;
 
-function useLongPress(onLongPress?: (label: string) => void, label = "") {
+export function useLongPress(onLongPress?: (label: string) => void, label = "") {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false);
 

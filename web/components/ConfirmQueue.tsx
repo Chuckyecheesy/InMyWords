@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { confirmMemory } from "@/lib/api";
+import { confirmMemory, speak } from "@/lib/api";
 import { sourceChip } from "@/lib/format";
 import type { PendingMemory } from "@/lib/types";
 import { SourceChip } from "./SourceChip";
@@ -33,14 +33,20 @@ export function ConfirmQueue({
     setAnswered((prev) => ({ ...prev, [id]: value }));
   }
 
+  // Long-press any button to hear its label.
+  function hear(label: string) {
+    void speak({ resident_id: residentId, text: label });
+  }
+
   const waiting = memories.filter((memory) => !answered[memory.id]);
   if (waiting.length === 0) {
     return <p>Nothing is waiting for {residentName} to confirm.</p>;
   }
+  const later = waiting.length - 1;
 
   return (
     <>
-      {waiting.map((memory) => {
+      {waiting.slice(0, 1).map((memory) => {  // one question at a time
         const chip = sourceChip(memory.source, residentName, memory.source_date);
         const seen = memory.times_seen && memory.times_seen > 1 ? memory.times_seen : null;
         return (
@@ -55,10 +61,10 @@ export function ConfirmQueue({
             ) : null}
             <p className="note">Is this still true for {residentName}?</p>
             <div className="actions">
-              <BigButton tone="approve" onClick={() => answer(memory.id, "yes")}>
+              <BigButton tone="approve" onLongPress={hear} onClick={() => answer(memory.id, "yes")}>
                 Yes
               </BigButton>
-              <BigButton tone="reject" onClick={() => answer(memory.id, "no")}>
+              <BigButton tone="reject" onLongPress={hear} onClick={() => answer(memory.id, "no")}>
                 No
               </BigButton>
             </div>
@@ -68,6 +74,9 @@ export function ConfirmQueue({
           </article>
         );
       })}
+      {later > 0 ? (
+        <p className="note">{later} more after this one.</p>
+      ) : null}
     </>
   );
 }
