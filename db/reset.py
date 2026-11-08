@@ -108,6 +108,18 @@ def main():
                 (event["resident_id"], event["event"], event["created_at"]),
             )
 
+        accounts = read_json("users.json")
+        for u in accounts["users"]:
+            cur.execute(
+                """INSERT INTO users (login_id, role, resident_id, staff_id, display_name, secret_hash)
+                   VALUES (%s,%s,%s,%s,%s,%s)""",
+                (u["login_id"], u["role"], u["resident_id"], u["staff_id"],
+                 u["display_name"], u["secret_hash"]))
+        for a in accounts["staff_assignments"]:
+            cur.execute(
+                "INSERT INTO staff_assignments (staff_id, resident_id) VALUES (%s,%s)",
+                (a["staff_id"], a["resident_id"]))
+
         binder_path = HERE / "seed" / "marcus_binder.md"
         if binder_path.exists():
             cur.execute(

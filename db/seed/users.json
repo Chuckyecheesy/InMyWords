@@ -1,0 +1,50 @@
+{
+  "_note": "Demo logins (ROADMAP Phase 2). PINs/passwords here are DEMO-ONLY and documented on purpose: marcus 1234, dana 2468, sam@inmywords.demo sunflower-demo, jordan@inmywords.demo bluejay-demo, priya@inmywords.demo maple-demo. Real deployments must replace every row.",
+  "users": [
+    {
+      "login_id": "marcus",
+      "role": "resident",
+      "resident_id": "marcus",
+      "staff_id": null,
+      "display_name": "Marcus",
+      "secret_hash": "pbkdf2$60000$marcussalt1$8e48fb9c1839b69b1551904206a57bf28354f0bcd0b0e569cb8a170752156db5"
+    },
+    {
+      "login_id": "dana",
+      "role": "resident",
+      "resident_id": "dana",
+      "staff_id": null,
+      "display_name": "Dana",
+      "secret_hash": "pbkdf2$60000$danasalt01$9cdd878597396371f2415d0526a538125662464d004698bdaa27fc52f35923c8"
+    },
+    {
+      "login_id": "sam@inmywords.demo",
+      "role": "staff",
+      "resident_id": null,
+      "staff_id": "sam",
+      "display_name": "Sam",
+      "secret_hash": "pbkdf2$60000$samsalt001$c0251f5e43df05c6d2428c66c1f831cb7733fac981890de003127e0ace54031e"
+    },
+    {
+      "login_id": "jordan@inmywords.demo",
+      "role": "staff",
+      "resident_id": null,
+      "staff_id": "jordan",
+      "display_name": "Jordan",
+      "secret_hash": "pbkdf2$60000$jordansalt$f91ff94c2e1b942bb4c9ce9ec25bd30760eb7e26ba4a16dc61e1c16e77fa7ccd"
+    },
+    {
+      "login_id": "priya@inmywords.demo",
+      "role": "manager",
+      "resident_id": null,
+      "staff_id": "priya",
+      "display_name": "Priya",
+      "secret_hash": "pbkdf2$60000$priyasalt1$34d128e831ad8e035c0fc13bd42908a0c52e89b339c7e096ccaca0151fcb2306"
+    }
+  ],
+  "staff_assignments": [
+    { "staff_id": "sam", "resident_id": "marcus" },
+    { "staff_id": "sam", "resident_id": "dana" },
+    { "staff_id": "jordan", "resident_id": "marcus" }
+  ]
+}

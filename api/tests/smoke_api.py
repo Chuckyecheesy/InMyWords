@@ -146,6 +146,72 @@ if tile_id:
 else:
     failures.append("tiles create: no tile_id returned")
 
+print("accounts & privacy (Phase 2)")
+import urllib.error  # noqa: E402
+
+
+def raw(method, path, body=None, cookie=None):
+    """Like hit() but returns (status, payload, set_cookie) and treats 4xx as data."""
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"Content-Type": "application/json"}
+    if cookie:
+        headers["Cookie"] = cookie
+    req = urllib.request.Request(BASE + path, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return resp.status, json.loads(resp.read().decode()), resp.headers.get("Set-Cookie", "")
+    except urllib.error.HTTPError as exc:
+        return exc.code, {}, ""
+
+
+def expect(name, got, want):
+    if got == want:
+        print(f"  ok   {name}")
+    else:
+        failures.append(f"{name}: expected {want}, got {got}")
+        print(f"  FAIL {name} — expected {want}, got {got}")
+
+
+status, _, _ = raw("POST", "/auth/login", {"login_id": "dana", "secret": "9999"})
+expect("wrong PIN rejected", status, 401)
+
+status, _, dana_cookie = raw("POST", "/auth/login", {"login_id": "dana", "secret": "2468"})
+expect("resident login (dana)", status, 200)
+dana_cookie = dana_cookie.split(";")[0]
+status, _, _ = raw("GET", "/residents/dana", cookie=dana_cookie)
+expect("dana reads her own page", status, 200)
+status, _, _ = raw("GET", "/residents/marcus", cookie=dana_cookie)
+expect("dana blocked from marcus (403)", status, 403)
+status, _, _ = raw("GET", "/records/marcus", cookie=dana_cookie)
+expect("dana blocked from marcus records (403)", status, 403)
+
+status, _, jordan_cookie = raw("POST", "/auth/login",
+                               {"login_id": "jordan@inmywords.demo", "secret": "bluejay-demo"})
+expect("staff login (jordan)", status, 200)
+jordan_cookie = jordan_cookie.split(";")[0]
+status, _, _ = raw("GET", "/residents/marcus", cookie=jordan_cookie)
+expect("jordan reads assigned resident", status, 200)
+status, _, _ = raw("GET", "/residents/dana", cookie=jordan_cookie)
+expect("jordan blocked from unassigned resident (403)", status, 403)
+
+print("get staff help (Phase 6)")
+status, made, _ = raw("POST", "/help", {"resident_id": "marcus"})
+expect("resident requests help", status, 200)
+help_id = (made.get("request") or {}).get("id")
+if help_id:
+    status, mine, _ = raw("GET", "/help?resident_id=marcus")
+    open_ids = [r["id"] for r in mine.get("requests", [])]
+    expect("request visible to the resident", help_id in open_ids, True)
+    status, _, _ = raw("GET", "/help", cookie=dana_cookie)
+    expect("residents cannot read the staff banner (403)", status, 403)
+    status, acked, _ = raw("POST", f"/help/{help_id}/acknowledge",
+                           {"staff_id": "jordan"}, cookie=jordan_cookie)
+    expect("staff acknowledges", status, 200)
+    expect("acknowledged by jordan",
+           (acked.get("request") or {}).get("acknowledged_by"), "jordan")
+else:
+    failures.append("help request: no id returned")
+
 print("staff")
 hit("GET", "/handoff?staff_id=jordan&resident_id=marcus", expect_keys=("items",))
 hit("GET", "/activity/marcus", expect_keys=("items",))

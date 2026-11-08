@@ -932,10 +932,6 @@ textarea {
   font-size: var(--text-small);
 }
 
-.entry-preview-tile:first-child {
-  border-color: var(--accent);
-}
-
 .entry-preview-photo {
   position: relative;
   display: block;
@@ -5819,4 +5815,229 @@ button.entry-preview-play:disabled { opacity: 0.6; }
   .planner-approval .cancel-window {
     animation: none;
   }
+}
+
+/* ---------- Accounts & privacy (ROADMAP Phase 2) ---------- */
+
+.login-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: start center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--surface);
+}
+
+.login-page {
+  width: min(560px, 100%);
+}
+
+.login-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.login-person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 112px;
+  padding: var(--space-3);
+  border: 2px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-person:hover,
+.login-person:focus-visible {
+  border-color: var(--accent);
+}
+
+.pin-dots {
+  font-size: 2rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+  margin: var(--space-2) 0;
+}
+
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: var(--space-2);
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.pin-key {
+  min-height: 72px;
+  min-width: 64px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.pin-key:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pin-key:not(:disabled):hover,
+.pin-key:focus-visible {
+  border-color: var(--accent);
+}
+
+.pin-go {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.login-staff {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.session-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--surface);
+}
+
+.session-guard .setup-card {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  max-width: 480px;
+}
+
+.s-user .btn {
+  margin-left: auto;
+}
+
+.new-resident .check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.05rem;
+  padding: var(--space-1) 0;
+}
+
+.new-resident .check-row input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--accent);
+}
+
+.new-resident select,
+.new-resident textarea {
+  font: inherit;
+  padding: var(--space-2);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card);
+  color: inherit;
+}
+
+/* ---------- Advanced access & staff help (ROADMAP Phase 6) ---------- */
+
+.help-fab {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 55;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-pill, 999px);
+  border: 2px solid var(--accent);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 0.14);
+}
+
+.help-fab:hover,
+.help-fab:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+
+.help-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 0.45);
+}
+
+.help-card {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: stretch;
+  text-align: center;
+  width: min(480px, 100%);
+}
+
+.urgent-banner {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: #7c2d12;
+  color: #fff;
+}
+
+.urgent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: 1.1rem;
+}
+
+.urgent-row strong {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* One-finger mode: wider spacing + bigger targets, same layout everywhere. */
+html[data-touch="onefinger"] .tile-grid,
+html[data-touch="onefinger"] .letter-board .letter-row,
+html[data-touch="onefinger"] .pin-pad {
+  gap: var(--space-4);
+}
+
+html[data-touch="onefinger"] .letter-key {
+  min-width: 84px;
+  min-height: 92px;
+  font-size: 2rem;
+}
+
+html[data-touch="onefinger"] .btn[data-size="lg"],
+html[data-touch="onefinger"] .btn[data-size="xl"] {
+  min-height: 80px;
+  padding-inline: var(--space-4);
+}
+
+html[data-touch="onefinger"] .pin-key {
+  min-height: 88px;
 }

@@ -9,6 +9,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP VIEW IF EXISTS profile_items;
 DROP MATERIALIZED VIEW IF EXISTS input_daily CASCADE;
+DROP TABLE IF EXISTS staff_assignments CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS input_events CASCADE;
 DROP TABLE IF EXISTS custom_gestures CASCADE;
 DROP TABLE IF EXISTS documents CASCADE;
@@ -134,12 +136,18 @@ CREATE TABLE action_results (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- priority 'urgent' + acknowledged_* back the resident "Get staff help"
+-- control (ROADMAP Phase 6). Explicitly NOT emergency services.
 CREATE TABLE staff_tasks (
-  id          SERIAL PRIMARY KEY,
-  resident_id TEXT REFERENCES residents(id),
-  task        TEXT NOT NULL,
-  due_at      TIMESTAMPTZ,
-  status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done'))
+  id              SERIAL PRIMARY KEY,
+  resident_id     TEXT REFERENCES residents(id),
+  task            TEXT NOT NULL,
+  due_at          TIMESTAMPTZ,
+  status          TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'acknowledged', 'done')),
+  priority        TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'urgent')),
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  acknowledged_by TEXT,
+  acknowledged_at TIMESTAMPTZ
 );
 
 CREATE TABLE calendar_events (
@@ -269,6 +277,29 @@ CREATE TABLE documents (
 );
 
 CREATE INDEX documents_resident_idx ON documents (resident_id, doc_date DESC);
+
+-- Accounts & privacy (ROADMAP Phase 2). Sessions + scoping + assignments,
+-- deliberately NOT a full identity system. Residents sign in with a photo
+-- tile + large-key PIN; staff with email + password. Hashes are PBKDF2
+-- (plain code, api/services/auth.py); raw PINs/passwords are never stored.
+CREATE TABLE users (
+  id            SERIAL PRIMARY KEY,
+  login_id      TEXT UNIQUE NOT NULL,       -- resident id, or staff email
+  role          TEXT NOT NULL CHECK (role IN ('resident', 'staff', 'manager')),
+  resident_id   TEXT REFERENCES residents(id),  -- set when role = 'resident'
+  staff_id      TEXT REFERENCES staff(id),      -- set when role = staff/manager
+  display_name  TEXT NOT NULL,
+  secret_hash   TEXT NOT NULL,              -- pbkdf2$<iterations>$<salt>$<hash>
+  created_at    TIMESTAMPTZ DEFAULT now()
+);
+
+-- Which staff member supports which resident. Scope rule: residents see
+-- only themselves; staff see assigned residents; managers see their homes.
+CREATE TABLE staff_assignments (
+  staff_id    TEXT REFERENCES staff(id),
+  resident_id TEXT REFERENCES residents(id),
+  PRIMARY KEY (staff_id, resident_id)
+);
 
 -- The profile IS the confirmed memory store (PROJECT_PLAN §3).
 CREATE VIEW profile_items AS
