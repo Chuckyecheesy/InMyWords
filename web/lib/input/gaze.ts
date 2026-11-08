@@ -23,7 +23,11 @@ type WebGazerInstance = {
   recordScreenPosition(x: number, y: number, type: string): void;
   clearData(): void;
   removeMouseEventListeners(): void;
-  params: { showVideo: boolean; faceMeshSolutionPath: string };
+  params: {
+    showVideo: boolean;
+    faceMeshSolutionPath: string;
+    camConstraints: MediaStreamConstraints;
+  };
 };
 
 // WebGazer defaults this to "./mediapipe/face_mesh", which is relative to
@@ -45,18 +49,46 @@ async function loadWebGazer(): Promise<WebGazerInstance> {
   // Script tag, not a bundled import: WebGazer's TensorFlow dependency
   // chain breaks Next's static analysis. The dist build is served locally
   // from /models (copied by scripts/fetch-vision-assets.mjs) and attaches
-  // itself to window.webgazer.
+  // itself to window.webgazer. The file sometimes comes back as a 500
+  // while the server is busy, so a failed load is retried.
   const w = window as unknown as { webgazer?: WebGazerInstance };
   if (w.webgazer) return w.webgazer;
-  await new Promise<void>((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = "/models/webgazer.js";
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("webgazer.js failed to load"));
-    document.head.appendChild(script);
-  });
-  if (!w.webgazer) throw new Error("webgazer.js loaded but window.webgazer is missing");
-  return w.webgazer;
+  let lastError: unknown = new Error("webgazer.js failed to load");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = attempt === 0 ? "/models/webgazer.js" : `/models/webgazer.js?retry=${attempt}`;
+        script.onload = () => resolve();
+        script.onerror = () => {
+          script.remove();
+          reject(new Error("webgazer.js failed to load"));
+        };
+        document.head.appendChild(script);
+      });
+      if (w.webgazer) return w.webgazer;
+      lastError = new Error("webgazer.js loaded but window.webgazer is missing");
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+  }
+  throw lastError;
+}
+
+/** Words for a failed camera start. Permission, missing device, and a busy camera each get their own line. */
+export function cameraStartMessage(error: unknown): string {
+  const name = error instanceof DOMException || error instanceof Error ? error.name : "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Allow the camera for this site in the address bar, then try again.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No camera was found on this device.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "The camera is busy in another app or tab. Close it, then try again.";
+  }
+  return "The camera could not start. Reload the page and try again.";
 }
 
 /** Start the camera + gaze model. Resolves once WebGazer is live. */
@@ -64,6 +96,9 @@ export async function startGaze(): Promise<void> {
   if (running) return;
   webgazer = await loadWebGazer();
   webgazer.params.faceMeshSolutionPath = FACE_MESH_PATH;
+  // The built-in minimum of 320×240 plus facingMode rejects some real
+  // cameras with OverconstrainedError before the preview ever appears.
+  webgazer.params.camConstraints = { video: true, audio: false };
   webgazer
     .setRegression("ridge")
     .showVideoPreview(false)
@@ -81,7 +116,18 @@ export async function startGaze(): Promise<void> {
       const lost = smoother.lost(now);
       for (const cb of listeners) cb(point, lost);
     });
-  await webgazer.begin();
+  try {
+    await webgazer.begin();
+  } catch (error) {
+    const name = error instanceof DOMException ? error.name : "";
+    if (name === "NotAllowedError" || name === "NotFoundError") throw error;
+    try {
+      webgazer.end();
+    } catch {
+      /* begin failed before the stream existed */
+    }
+    await webgazer.begin();
+  }
   running = true;
 }
 

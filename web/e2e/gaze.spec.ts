@@ -80,3 +80,13 @@ test("consent on: eye grid opens and the camera indicator comes on", async ({
   const startupWarnings = warnings.filter((line) => /camera start failed|gesture start failed/i.test(line));
   expect(startupWarnings, startupWarnings.join("\n")).toHaveLength(0);
 });
+
+test("teach screen: picking a picture starts the camera", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("imw-camera-consent-marcus", "yes");
+  });
+  await page.goto("/resident/marcus/teach");
+  await page.getByRole("button", { name: "coffee", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Capture" })).toBeEnabled({ timeout: 45_000 });
+  await expect(page.getByText(/could not start/i)).toHaveCount(0);
+});
