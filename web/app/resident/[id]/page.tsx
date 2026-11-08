@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowRight, AudioLines, Eye } from "lucide-react";
+import { ArrowRight, AudioLines, Eye, BellRing } from "lucide-react";
 import { FeatureArt } from "@/components/FeatureArt";
 import { getPendingMemories, getResident } from "@/lib/api";
 import { greeting } from "@/lib/format";
@@ -56,6 +56,10 @@ export default async function ResidentHomePage({
           </Link>
         ))}
       </nav>
+
+      <Link href={`${base}/services`} className="btn service-bar" data-variant="primary">
+        <BellRing size={30} aria-hidden="true" /> Call staff
+      </Link>
 
       <div className="home-more">
         {pending.data.length > 0 ? (

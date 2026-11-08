@@ -15,6 +15,7 @@ type Poster = (events: InputEvent[]) => Promise<boolean>;
 export class EventQueue {
   private queue: InputEvent[] = [];
   private retries = 0;
+  private flushing: Promise<void> | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
   readonly sessionId: string;
 
@@ -69,11 +70,18 @@ export class EventQueue {
     return this.queue.length;
   }
 
-  async flush(): Promise<void> {
+  flush(): Promise<void> {
+    if (this.flushing) return this.flushing;
+    this.flushing = this.flushBatch().finally(() => { this.flushing = null; });
+    return this.flushing;
+  }
+
+  private async flushBatch(): Promise<void> {
     if (this.queue.length === 0) return;
     const batch = this.queue;
     this.queue = [];
-    const ok = await this.post(batch);
+    let ok = false;
+    try { ok = await this.post(batch); } catch { /* network failure: retry below */ }
     if (!ok && this.retries < MAX_RETRIES) {
       this.retries += 1;
       this.queue = [...batch, ...this.queue];

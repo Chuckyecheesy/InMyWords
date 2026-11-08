@@ -14,8 +14,10 @@ const LONG_PRESS_MS = 600;
 
 function instructionsFor(section: string, name: string): string {
   switch (section) {
+    case "services":
+      return "Choose Refreshments, Entertainment, or Family. You can choose more than one. Review your choices, then confirm to send a request to staff. With hand control, hold the pointer over each button for one second.";
     case "speak":
-      return "Tap pictures to build what you want to say. Then tap Help me say it. Pick a sentence, check it, and tap Approve and speak. Nothing is said until you approve it.";
+      return "Choose Refreshments, Entertainment, or Family. Your complete sentence appears below. Choose Say my words when you are ready. With your eyes, look at a large button and hold for one second.";
     case "story":
       return "This is your story. Tap a chapter to read it. Tap Play my story to hear it in your voice.";
     case "interview":

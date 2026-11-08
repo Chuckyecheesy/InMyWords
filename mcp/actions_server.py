@@ -18,6 +18,7 @@ built. Cost is recomputed in code either way.
 """
 
 import os
+import service_requests
 import smtplib
 from email.message import EmailMessage
 
@@ -28,6 +29,35 @@ from store import get_store
 mcp = FastMCP("actions")
 
 ALLOWED_STEPS = ("book_activity", "add_to_calendar", "send_message", "create_staff_task")
+
+
+def _service_result(operation, *args):
+    try:
+        return operation(get_store(), *args)
+    except LookupError as exc:
+        return {"error": str(exc), "code": 404}
+    except ValueError as exc:
+        return {"error": str(exc), "code": 422}
+
+
+@mcp.tool
+def submit_service_request(resident_id: str, categories: list[str], submission_key: str,
+                           approved: bool = False) -> dict:
+    """Create a staff request only after resident confirmation; retries are idempotent."""
+    return _service_result(service_requests.create, resident_id, categories, submission_key, approved)
+
+
+@mcp.tool
+def list_service_requests(resident_id: str = '', status: str = '') -> dict:
+    """Read the shared resident request queue."""
+    result = _service_result(service_requests.list_requests, resident_id, status)
+    return result if isinstance(result, dict) else {"requests": result}
+
+
+@mcp.tool
+def update_service_request(request_id: str, status: str) -> dict:
+    """Acknowledge, complete, or cancel a resident request."""
+    return _service_result(service_requests.update, request_id, status)
 
 # Demo contacts (fictional). DEMO_CONTACT_EMAIL overrides so the live demo
 # can show a real inbox receiving the message.

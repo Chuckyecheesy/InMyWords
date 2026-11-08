@@ -11,6 +11,7 @@ DROP VIEW IF EXISTS profile_items;
 DROP MATERIALIZED VIEW IF EXISTS input_daily CASCADE;
 DROP TABLE IF EXISTS input_events CASCADE;
 DROP TABLE IF EXISTS custom_gestures CASCADE;
+DROP TABLE IF EXISTS service_requests CASCADE;
 DROP TABLE IF EXISTS emh_events, emh_checklist, emh_notes, bookings, calendar_events,
   staff_tasks, action_results, action_plans, observations, memories, choices,
   sentences, story_answers, story_chapters, tiles, staff, residents, homes CASCADE;
@@ -129,6 +130,18 @@ CREATE TABLE action_results (
   step       TEXT NOT NULL,
   result     TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE service_requests (
+  id TEXT PRIMARY KEY,
+  resident_id TEXT NOT NULL REFERENCES residents(id),
+  categories JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'sent'
+    CHECK (status IN ('sent', 'acknowledged', 'completed', 'cancelled')),
+  submission_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (resident_id, submission_key)
 );
 
 CREATE TABLE staff_tasks (

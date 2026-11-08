@@ -28,6 +28,21 @@ import type {
 } from "./types";
 export type { AgentNote };
 export type ActionPlan = ActionPlanShape;
+import type { ServiceCategory, ServiceRequest, ServiceStatus } from "./services";
+
+export function getServiceRequests(residentId = "") {
+  return sendJson<{ requests: ServiceRequest[] }>(`/service-requests?resident_id=${encodeURIComponent(residentId)}`, undefined, "GET");
+}
+
+export function submitServiceRequest(residentId: string, categories: ServiceCategory[], submissionKey: string) {
+  return sendJson<ServiceRequest>("/service-requests", {
+    resident_id: residentId, categories, submission_key: submissionKey, approved: true,
+  });
+}
+
+export function updateServiceRequest(id: string, status: Exclude<ServiceStatus, "sent">) {
+  return sendJson<ServiceRequest>(`/service-requests/${encodeURIComponent(id)}`, { status }, "PATCH");
+}
 
 function apiBaseUrl(): string {
   const configured = (process.env.API_BASE_URL ?? "").replace(/\/$/, "");
@@ -52,7 +67,7 @@ async function fetchJson(path: string): Promise<unknown | null> {
 async function sendJson<T>(
   path: string,
   body?: unknown,
-  method: "POST" | "PUT" | "GET" = "POST",
+  method: "POST" | "PUT" | "GET" | "PATCH" = "POST",
 ): Promise<MutationResult<T>> {
   try {
     const response = await fetch(`${apiBaseUrl()}${path}`, {

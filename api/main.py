@@ -19,6 +19,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from typing import Literal
 
 import mocks
 from agents.action import propose_plan
@@ -68,6 +69,41 @@ app.mount("/audio", StaticFiles(directory=elevenlabs.CACHE_DIR), name="audio")
 
 class VoiceBody(BaseModel):
     voice_id: str
+
+
+class ServiceRequestBody(BaseModel):
+    resident_id: str
+    categories: list[Literal['refreshments', 'entertainment', 'family']]
+    submission_key: str
+    approved: Literal[True]
+
+
+class ServiceRequestStatusBody(BaseModel):
+    status: Literal['acknowledged', 'completed', 'cancelled']
+
+
+async def _service_response(coro):
+    result, live = await _mcp(coro, None)
+    if not live or not isinstance(result, dict):
+        raise HTTPException(503, 'Staff requests are unavailable. Please retry.')
+    if result.get('error'):
+        raise HTTPException(result.get('code', 422), result['error'])
+    return result
+
+
+@app.post('/service-requests')
+async def submit_service_request(body: ServiceRequestBody):
+    return await _service_response(mcp_client.submit_service_request(**body.model_dump()))
+
+
+@app.get('/service-requests')
+async def list_service_requests(resident_id: str = '', status: str = ''):
+    return await _service_response(mcp_client.list_service_requests(resident_id, status))
+
+
+@app.patch('/service-requests/{request_id}')
+async def update_service_request(request_id: str, body: ServiceRequestStatusBody):
+    return await _service_response(mcp_client.update_service_request(request_id, body.status))
 
 class SuggestBody(BaseModel):
     resident_id: str
@@ -616,7 +652,9 @@ async def input_events(body: InputEventsBody):
     video, never raw gaze samples (frontend flushes every 2 s / 20 events)."""
     events = [e.model_dump() for e in body.events]
     result, live = await _mcp(mcp_client.log_input_events(events), None)
-    return {"saved": result["saved"]} if live else {"saved": len(events)}
+    if not live or not isinstance(result, dict) or result.get("saved") != len(events):
+        raise HTTPException(503, "Input history could not be saved. Please retry.")
+    return {"saved": result["saved"]}
 
 
 class CustomGestureBody(BaseModel):
@@ -630,8 +668,12 @@ async def save_custom_gesture(body: CustomGestureBody):
     """G8: save a taught personal gesture (landmarks only, never video)."""
     result, live = await _mcp(
         mcp_client.save_custom_gesture(body.resident_id, body.tile, body.samples), None)
+    if not live or not isinstance(result, dict):
+        raise HTTPException(503, 'Your gesture could not be saved. Please retry.')
     if live and result.get("error"):
         raise HTTPException(422, result["error"])
+    if result.get('ok') is not True:
+        raise HTTPException(503, 'Your gesture could not be saved. Please retry.')
     return {"ok": True, "tile": body.tile}
 
 

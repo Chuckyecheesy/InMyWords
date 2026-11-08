@@ -4424,13 +4424,17 @@ textarea {
   font-size: var(--text-small);
 }
 
+/* Reserve tracking feedback space so targets do not move when gaze is lost. */
+.gaze-status { min-height: 3em; }
+
 /* Gaze grid (from main, restyled) */
 .gaze-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 4vw;
-  min-height: 70vh;
+  gap: min(4vw, 3dvh);
+  height: 70dvh;
+  min-height: calc(3 * var(--tap-min) + 6dvh);
 }
 
 @media (min-width: 900px) {
@@ -4442,7 +4446,7 @@ textarea {
 
 .gaze-tile {
   position: relative;
-  min-height: max(var(--tap-min), 22vh);
+  min-height: var(--tap-min);
   font-size: calc(var(--text-body) * 1.3);
   overflow: hidden;
 }
@@ -5163,4 +5167,96 @@ textarea {
    kicker rendering in --ink-2 on the dark stage at 2.04:1. Two classes win. */
 .entry-stage .kicker {
   color: var(--stage-kicker, #d9efe9);
+}
+/* Category-level communication: large pictures, explicit review, visible input. */
+.service-page { max-width: 1120px; margin-inline: auto; }
+.service-page h1:focus { outline: none; }
+.service-category-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.service-category { position: relative; overflow: hidden; padding: 0; background: var(--surface, #fff); color: var(--ink, var(--ink)); border: 3px solid var(--line, #bcc8bd); border-radius: 16px; text-align: left; cursor: pointer; font: inherit; }
+.service-category img { display: block; width: 100%; height: 220px; object-fit: cover; }
+.service-category-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 22px 16px; font-size: clamp(22px, 2vw, 28px); font-weight: 700; }
+.service-check { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; border: 2px solid currentColor; border-radius: 50%; }
+.service-category[aria-pressed="true"] { border-color: var(--accent-strong); background: var(--accent-soft); }
+.service-category[aria-pressed="true"] .service-check { background: var(--accent-strong); color: #fff; }
+.service-category:hover { border-color: var(--accent-strong); }
+.service-category:focus-visible, .service-page .btn:focus-visible { outline: 3px solid var(--accent-strong); outline-offset: 4px; }
+.service-category:disabled { cursor: default; opacity: .6; }
+.service-bar { position: relative; width: 100%; min-height: 88px; justify-content: center; gap: 16px; font-size: clamp(24px, 3vw, 32px); white-space: normal; }
+.service-bars { display: grid; gap: 20px; }
+.service-forward { transform: rotate(180deg); }
+.service-input { padding-block: 16px; border-block: 1px solid var(--line, #bcc8bd); }
+.service-input-controls, .service-modes { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.service-input-controls { justify-content: space-between; }
+.service-input-dock { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 8px; padding: 8px; border: 2px solid var(--line-strong); border-radius: 12px; background: var(--surface); }
+.service-input-dock .btn { min-width: 64px; min-height: 64px; font-size: 22px; }
+.service-page:has(.service-input-dock) { padding-bottom: 96px; }
+.service-modes .btn { min-height: 64px; font-size: 22px; }
+.service-modes [aria-pressed="true"] { background: var(--accent-strong); color: #fff; }
+.service-input-feedback { display: flex; align-items: center; gap: 20px; margin-top: 16px; }
+.service-input-feedback p { margin-block: 6px; }
+.service-camera { width: 160px; height: 110px; border-radius: 12px; object-fit: cover; transform: scaleX(-1); background: var(--ink); }
+.service-pointer { position: fixed; z-index: 10000; width: 28px; height: 28px; border: 4px solid #fff; border-radius: 50%; background: var(--accent-strong); outline: 2px solid var(--ink); transform: translate(-50%, -50%); pointer-events: none; }
+.service-page [data-holding] { outline: 4px solid var(--accent-strong); outline-offset: 3px; position: relative; }
+.service-page [data-holding]::after { content: ""; position: absolute; left: 0; bottom: 0; height: 10px; width: var(--hold-progress, 0%); background: var(--accent-strong); pointer-events: none; }
+.service-page [data-variant="primary"][data-holding]::after { background: #fff; }
+.service-summary { list-style: none; padding: 0; display: grid; gap: 20px; }
+.service-summary li { display: flex; align-items: center; gap: 16px; font-size: 30px; font-weight: 700; padding-block: 16px; border-bottom: 1px solid var(--line, #bcc8bd); }
+.service-success { display: flex; align-items: center; gap: 20px; color: var(--accent-strong); padding-block: 16px; }
+.service-history { margin-top: 24px; }
+.service-request-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-block: 20px; border-bottom: 1px solid var(--line, #bcc8bd); }
+.service-request-row h3, .service-request-row p { margin-block: 4px; }
+.service-request-row time { font-size: .8em; }
+.service-page .service-request-row .btn { min-height: 64px; font-size: 22px; }
+.service-error { color: var(--danger); padding: 16px; background: var(--danger-soft); border-radius: 12px; }
+.service-staff-queue { margin-bottom: 24px; }
+@media (max-width: 700px) {
+  .service-category-grid { grid-template-columns: 1fr; gap: 16px; }
+  .service-category { display: grid; grid-template-columns: 120px minmax(0, 1fr); }
+  .service-category img { height: 120px; }
+  .service-category-label { padding: 16px; }
+  .service-input-feedback { align-items: flex-start; }
+  .service-camera { width: 100px; height: 80px; }
+  .service-modes { flex-wrap: nowrap; gap: 8px; width: 100%; }
+  .service-modes .btn { flex: 1; padding-inline: 12px; gap: 8px; }
+  .service-request-row { align-items: flex-start; flex-direction: column; }
+}
+[data-theme="contrast"] .service-category { border-color: var(--ink); color: var(--ink); background: var(--surface); }
+[data-theme="contrast"] .service-category[aria-pressed="true"] { border-width: 5px; }
+[data-theme="contrast"] .service-check,
+[data-theme="contrast"] .service-modes [aria-pressed="true"] { background: var(--ink); color: var(--surface); }
+
+/* Keep the three speaking targets stationary and inside a tablet viewport. */
+.simple-speak { display: grid; gap: 12px; }
+.simple-speak-heading h1 { font-size: 32px; line-height: 1.1; margin: 0; }
+.simple-speak-heading p { margin: 4px 0 0; font-size: 22px; }
+.simple-speak .service-input { padding-block: 8px; }
+.simple-speak .service-input-feedback { margin-top: 8px; gap: 12px; }
+.service-settings { position: relative; }
+.service-settings summary { list-style: none; min-height: 64px; font-size: 22px; }
+.service-settings summary::-webkit-details-marker { display: none; }
+.service-settings-body { position: absolute; top: calc(100% + 8px); left: 0; z-index: 60; width: min(480px, calc(100vw - 48px)); padding: 16px; border: 2px solid var(--line-strong); border-radius: 12px; background: var(--surface); }
+.service-settings-body p { margin-top: 12px; }
+.simple-speak .service-camera { width: 96px; height: 64px; }
+.simple-speak .service-category-grid { gap: 32px; }
+.simple-speak .service-category { min-height: 176px; }
+.simple-speak .service-category img { height: 100px; }
+.simple-speak .service-category-label { padding: 16px; }
+.simple-speak-sentence { background: var(--accent-soft); padding: 12px 20px; border-radius: 12px; min-height: 68px; display: grid; align-items: center; }
+.simple-speak .composer-sentence { margin: 0; font-size: clamp(24px, 2.5vw, 30px); color: var(--ink); }
+.simple-speak-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 32px; }
+.simple-speak-actions .service-bar { min-height: 72px; }
+.simple-speak-status { min-height: 28px; margin: 0; font-size: 22px; }
+.simple-speak-staff { font-size: 22px; justify-self: start; }
+@media (min-width: 701px) {
+  .simple-speak .service-input-dock { display: none; }
+  .simple-speak:has(.service-input-dock) { padding-bottom: 0; }
+}
+@media (max-width: 700px) {
+  .simple-speak { gap: 12px; }
+  .simple-speak .service-category-grid { gap: 20px; }
+  .simple-speak .service-category { min-height: 96px; grid-template-columns: 92px minmax(0, 1fr); }
+  .simple-speak .service-category img { height: 96px; }
+  .simple-speak-actions { grid-template-columns: 1fr; gap: 20px; }
+  .simple-speak-actions .service-bar { min-height: 72px; }
+  .simple-speak-actions [data-service-target="say"] { grid-row: 1; }
 }

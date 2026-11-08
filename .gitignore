@@ -55,3 +55,4 @@ db/seed/.embeddings.json
 
 # MediaPipe model + WASM — fetched by web/scripts/fetch-vision-assets.mjs
 web/public/models/
+db/seed/*.service-requests.json

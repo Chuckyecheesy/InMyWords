@@ -289,10 +289,10 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
     setSuggest({ state: "idle" });
   }
 
-  /** The resident's own tile words, no AI involved. */
+  /** Speak the complete sentence the resident can read before approving. */
   async function speakTilesOnly() {
     if (labels.length === 0) return;
-    const text = labels.join(" ");
+    const text = sentence;
     setBusy("tiles");
     setSpeakError(null);
     const ok = await play(text, "approved");
@@ -329,6 +329,16 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
   }
 
   const thinking = suggest.state === "thinking";
+
+  const inputError = input.consent && input.error ? (
+        <div className="input-error" role="status">
+          <p className="note">{input.error}</p>
+          <button type="button" className="btn" data-longpress="own"
+            onPointerDown={hold.down("Try camera again")}
+            onPointerUp={hold.clear} onPointerLeave={hold.clear} onPointerCancel={hold.clear}
+            onClick={() => { if (!hold.consumed()) input.retry(); }}>Try camera again</button>
+        </div>
+      ) : null;
 
   return (
     <div className="speak">
@@ -637,6 +647,11 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         <CameraConsent residentId={resident.id} cameraOn={input.cameraOn} onChange={input.setConsent} />
         {input.consent ? (
           <div className="row">
+            {!input.calibrationReady ? (
+              <Link prefetch={false} href={`/resident/${resident.id}/calibrate`} className="btn" data-variant="secondary" data-size="lg">
+                <Eye size={22} aria-hidden="true" /> Eye grid
+              </Link>
+            ) : (
             <button
               type="button"
               className="btn"
@@ -648,11 +663,15 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
               onPointerUp={hold.clear}
               onPointerLeave={hold.clear}
               onPointerCancel={hold.clear}
-              onClick={() => !hold.consumed() && input.setEyeMode(!input.eyeMode)}
+              onClick={() => {
+                if (hold.consumed()) return;
+                input.setEyeMode(!input.eyeMode);
+              }}
             >
               <Eye size={22} aria-hidden="true" />
               {input.eyeMode ? "Touch grid" : "Eye grid"}
             </button>
+            )}
             <Link prefetch={false} href={`/resident/${resident.id}/calibrate`} className="btn" data-variant="ghost" data-size="lg">
               <Crosshair size={22} aria-hidden="true" />
               Set up my eyes
@@ -665,10 +684,13 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         ) : null}
       </section>
 
-      {input.consent && input.eyeMode ? (
+      {input.consent && input.status === "starting" ? <p role="status">Starting eye tracking...</p> : null}
+      {input.status === "error" ? inputError : null}
+      {input.consent && input.eyeMode && input.calibrationReady ? (
         <GazeTileGrid
           tiles={resident.tiles}
           dwellMs={input.profile.dwell_ms}
+          cameraReady={input.cameraOn}
           onSelect={(tile, holdMs) => toggleTile(tile, holdMs > 0 ? "gaze" : "touch", holdMs)}
         />
       ) : (
@@ -731,6 +753,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </section>
       </div>
       )}
+
+      {input.status !== "error" ? inputError : null}
 
       {review ? (
         <ReviewDialog

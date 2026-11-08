@@ -8,7 +8,7 @@
  * tap a suggestion to review it → Approve & Speak → POST /speak audio and
  * POST /sentences with approved true. Nothing is spoken or saved before
  * that approval; Preview speaks without saving. "Now" is the time field,
- * not a tile. "Say my words" speaks the tile words and skips /suggest.
+ * not a tile. "Say my words" speaks the complete displayed sentence and skips /suggest.
  */
 import "./register-dom.ts";
 
@@ -491,7 +491,7 @@ describe("T4.3", { concurrency: false }, () => {
   });
 
   describe("milestone 1 uses real suggestions and audio", { concurrency: false }, () => {
-    test("Marcus's home links to Speak For Me, which shows the controls on the tile grid", async () => {
+    test("Marcus's home links to the three-category speaking board", async () => {
       const { default: ResidentHome } = await import("../app/resident/[id]/page.tsx");
       render(await ResidentHome({ params: Promise.resolve({ id: "marcus" }) }));
       assert.equal(
@@ -501,10 +501,12 @@ describe("T4.3", { concurrency: false }, () => {
       cleanup();
       const { default: Speak } = await import("../app/resident/[id]/speak/page.tsx");
       render(await Speak({ params: Promise.resolve({ id: "marcus" }) }));
-      screen.getByRole("heading", { name: "All pictures" });
-      screen.getByRole("button", { name: "coffee" });
-      screen.getByRole("button", { name: "Now" });
-      screen.getByRole("button", { name: "Help me say it" });
+      screen.getByRole("heading", { name: "Speak For Me" });
+      for (const category of ["Refreshments", "Entertainment", "Family"]) {
+        screen.getByRole("button", { name: category, exact: true });
+      }
+      assert.equal(document.querySelectorAll(".service-category").length, 3);
+      assert.equal(screen.queryByRole("button", { name: "bowling", exact: true }), null);
       screen.getByRole("button", { name: /say my words/i });
     });
 
@@ -677,7 +679,7 @@ describe("T4.3", { concurrency: false }, () => {
       assert.equal(screen.getByRole("button", { name: "bowling" }).getAttribute("aria-pressed"), "false");
     });
 
-    test("Say my words speaks the tile words, skips suggest, and logs them", async () => {
+    test("Say my words speaks the complete sentence, skips suggest, and logs it", async () => {
       const playback = watchPlayback();
       try {
         const pointer = await renderSpeak([QUIET]);
@@ -688,15 +690,15 @@ describe("T4.3", { concurrency: false }, () => {
         assert.equal(calls("/suggest").length, 0);
         assert.deepEqual(calls("/speak")[0]?.json, {
           resident_id: "marcus",
-          text: "coffee tea",
+          text: "I want coffee and tea now.",
         });
         assert.deepEqual(calls("/sentences")[0]?.json, {
           resident_id: "marcus",
           tiles: ["coffee", "tea"],
-          chosen_text: "coffee tea",
+          chosen_text: "I want coffee and tea now.",
           approved: true,
         });
-        const src = audioUrlFor("coffee tea");
+        const src = audioUrlFor("I want coffee and tea now.");
         assert.equal(document.querySelector("audio")?.getAttribute("src"), src);
         assert.ok(playback.played.includes(src) || document.querySelector("audio")?.autoplay);
       } finally {
