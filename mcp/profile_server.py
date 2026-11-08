@@ -33,8 +33,12 @@ def get_profile(resident: str) -> dict:
     if not r:
         return {"error": f"no resident '{resident}'"}
     name = r["first_name"]
-    confirmed = _facts(store.get_memories(resident, ("confirmed",)), name)
+    # Fetch once: this used to re-query confirmed memories once per fact per
+    # section (~26 round trips to Tiger Data, ~7-10 s per profile).
+    confirmed_rows = store.get_memories(resident, ("confirmed",))
+    confirmed = _facts(confirmed_rows, name)
     pending = _facts(store.get_memories(resident, ("pending",)), name)
+    typed = {(m["content"], m["type"]) for m in confirmed_rows}
     return {
         "resident": resident,
         "name": name,
@@ -42,15 +46,9 @@ def get_profile(resident: str) -> dict:
         "communication_style": r.get("communication_style"),
         "weekly_budget": float(r["weekly_budget"]) if r.get("weekly_budget") is not None else None,
         "tiles": r["tiles"],
-        "preferences": [f for f in confirmed if any(
-            m["content"] == f["content"] and m["type"] == "preference"
-            for m in store.get_memories(resident, ("confirmed",)))],
-        "routines": [f for f in confirmed if any(
-            m["content"] == f["content"] and m["type"] == "routine"
-            for m in store.get_memories(resident, ("confirmed",)))],
-        "recent_events": [f for f in confirmed if any(
-            m["content"] == f["content"] and m["type"] == "event"
-            for m in store.get_memories(resident, ("confirmed",)))],
+        "preferences": [f for f in confirmed if (f["content"], "preference") in typed],
+        "routines": [f for f in confirmed if (f["content"], "routine") in typed],
+        "recent_events": [f for f in confirmed if (f["content"], "event") in typed],
         "pending_patterns": pending,
         "store_mode": store.mode,
     }

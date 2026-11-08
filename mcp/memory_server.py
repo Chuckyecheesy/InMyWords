@@ -139,5 +139,56 @@ def confirm_memory(resident: str, memory: int, confirmed: bool) -> dict:
             "store_mode": store.mode}
 
 
+@mcp.tool
+def log_input_event(event: dict) -> dict:
+    """Save one gaze/gesture/touch OUTCOME event (GAZE_GESTURE_PLAN §7).
+    Fields: ts, resident_id, session_id, input_type (touch|gaze|gesture),
+    action (select|approve|cancel|custom), target, hold_ms, gesture,
+    confidence, outcome (confirmed|cancelled|timeout). Never video, never
+    raw gaze samples."""
+    store = get_store()
+    saved = store.log_input_events([event])
+    return {"ok": True, "saved": saved, "store_mode": store.mode}
+
+
+@mcp.tool
+def log_input_events(events: list[dict]) -> dict:
+    """Batch version of log_input_event — what POST /input-events uses
+    (the frontend queue flushes every 2 s)."""
+    store = get_store()
+    saved = store.log_input_events(events)
+    return {"ok": True, "saved": saved, "store_mode": store.mode}
+
+
+@mcp.tool
+def get_input_profile(resident: str) -> dict:
+    """How this resident communicates best, learned from input history
+    (last 14 days): preferred select method, preferred yes, dwell_ms,
+    confirmed rates, time-of-day notes, confidence. Plain arithmetic.
+    Labelled 'from input history' — never the resident's own words."""
+    store = get_store()
+    return dict(store.get_input_profile(resident), store_mode=store.mode)
+
+
+@mcp.tool
+def save_custom_gesture(resident: str, tile: str, samples: list[list[float]]) -> dict:
+    """G8: store a taught personal gesture — 5 normalized landmark samples
+    (63 floats each) for one tile. Re-teaching the same tile replaces it.
+    Landmarks only, never video."""
+    if not samples or any(len(s) != 63 for s in samples):
+        return {"error": "samples must be non-empty 63-float landmark arrays"}
+    store = get_store()
+    store.save_custom_gesture(resident, tile, samples)
+    return {"ok": True, "tile": tile, "samples": len(samples), "store_mode": store.mode}
+
+
+@mcp.tool
+def get_custom_gestures(resident: str) -> dict:
+    """G8: the resident's taught gestures for the recognition loop."""
+    store = get_store()
+    return {"resident": resident, "gestures": store.get_custom_gestures(resident),
+            "store_mode": store.mode}
+
+
 if __name__ == "__main__":
     mcp.run(transport="http", host="127.0.0.1", port=8102)

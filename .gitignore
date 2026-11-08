@@ -50,5 +50,10 @@ Thumbs.db
 
 # Build plan source docs are kept as .docx intentionally — see docs/ for markdown versions
 
+<<<<<<< HEAD
 # Seed-mode RAG vector cache (regenerated from db/seed by content hash)
 db/seed/.embeddings.json
+=======
+# MediaPipe model + WASM — fetched by web/scripts/fetch-vision-assets.mjs
+web/public/models/
+>>>>>>> origin/main

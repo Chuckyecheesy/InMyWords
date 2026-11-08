@@ -136,23 +136,44 @@ class PhotoBody(BaseModel):
 
 # ---------- residents ----------
 
+def resident_from_profile(resident_id: str, profile):
+    """Turn a profile-tool result into the public resident body.
+
+    Returns ("missing", message) when the resident does not exist, (body, None)
+    when the payload is usable, and (None, None) when it is not — the route
+    then serves the demo resident instead of answering 500.
+    """
+    if not isinstance(profile, dict):
+        return None, None
+    error = profile.get("error")
+    if error:
+        return "missing", str(error)
+    name = profile.get("name")
+    tiles = profile.get("tiles")
+    if not isinstance(name, str) or not name.strip() or not isinstance(tiles, list):
+        return None, None
+    return {
+        "id": resident_id,
+        "name": name,
+        "voice_id": profile.get("voice_id"),
+        "communication_style": profile.get("communication_style") or "",
+        "tiles": tiles,
+        # extra context beyond the frozen contract — additive, safe
+        "preferences": profile.get("preferences") or [],
+        "routines": profile.get("routines") or [],
+        "pending_patterns": profile.get("pending_patterns") or [],
+    }, None
+
+
 @app.get("/residents/{resident_id}")
 async def get_resident(resident_id: str):
     profile, live = await _mcp(mcp_client.get_profile(resident_id), None)
     if live:
-        if profile.get("error"):
-            raise HTTPException(404, profile["error"])
-        return {
-            "id": resident_id,
-            "name": profile["name"],
-            "voice_id": profile["voice_id"],
-            "communication_style": profile["communication_style"],
-            "tiles": profile["tiles"],
-            # extra context beyond the frozen contract — additive, safe
-            "preferences": profile["preferences"],
-            "routines": profile["routines"],
-            "pending_patterns": profile["pending_patterns"],
-        }
+        body, missing = resident_from_profile(resident_id, profile)
+        if body == "missing":
+            raise HTTPException(404, missing or f"No resident '{resident_id}'")
+        if body:
+            return body
     resident = mocks.RESIDENTS.get(resident_id)
     if not resident:
         raise HTTPException(404, f"No resident '{resident_id}'")
@@ -240,6 +261,21 @@ async def speak(body: SpeakBody, request: Request):
     e.g. "coffee now"; no AI involved. Cached by voice_id + text.
     """
     return await speak_approved(request, body.resident_id, body.text)
+
+
+@app.get("/agents/{kind}/session")
+async def agent_session(kind: str):
+    """Additive: a signed URL to start a Story (T1.4) or Coach (T1.6) voice session."""
+    if kind not in elevenlabs.AGENTS:
+        raise HTTPException(404, f"No agent '{kind}'")
+    agent = elevenlabs.agent_id(kind)
+    if not agent or not elevenlabs.configured():
+        raise HTTPException(503, "The voice guide isn't set up yet.")
+    try:
+        return {"signed_url": await elevenlabs.signed_url(agent)}
+    except elevenlabs.ElevenLabsError as exc:
+        print(f"[agent session] {exc}")
+        raise HTTPException(502, "Couldn't start the voice guide right now.") from exc
 
 
 @app.post("/sentences")
@@ -542,6 +578,68 @@ async def add_observation(body: ObservationBody, background: BackgroundTasks):
         mcp_client.add_observation(body.resident_id, body.staff_id, body.note), None)
     background.add_task(observe_event, body.note, "observation", body.resident_id)
     return {"ok": True, "id": result["id"]} if live else {"ok": True}
+
+
+# ---------- Gaze/gesture input (G5, GAZE_GESTURE_PLAN §7) ----------
+
+class InputEvent(BaseModel):
+    ts: str
+    resident_id: str
+    session_id: str | None = None
+    input_type: str   # touch | gaze | gesture
+    action: str       # select | approve | cancel | custom
+    target: str | None = None
+    hold_ms: int | None = None
+    gesture: str | None = None
+    confidence: float | None = None
+    outcome: str      # confirmed | cancelled | timeout
+
+
+class InputEventsBody(BaseModel):
+    events: list[InputEvent]
+
+
+@app.post("/input-events")
+async def input_events(body: InputEventsBody):
+    """Batched OUTCOME events from the browser input controller — never
+    video, never raw gaze samples (frontend flushes every 2 s / 20 events)."""
+    events = [e.model_dump() for e in body.events]
+    result, live = await _mcp(mcp_client.log_input_events(events), None)
+    return {"saved": result["saved"]} if live else {"saved": len(events)}
+
+
+class CustomGestureBody(BaseModel):
+    resident_id: str
+    tile: str
+    samples: list[list[float]]  # 5 × 63 normalized landmark floats
+
+
+@app.post("/custom-gestures")
+async def save_custom_gesture(body: CustomGestureBody):
+    """G8: save a taught personal gesture (landmarks only, never video)."""
+    result, live = await _mcp(
+        mcp_client.save_custom_gesture(body.resident_id, body.tile, body.samples), None)
+    if live and result.get("error"):
+        raise HTTPException(422, result["error"])
+    return {"ok": True, "tile": body.tile}
+
+
+@app.get("/custom-gestures/{resident_id}")
+async def custom_gestures(resident_id: str):
+    result, live = await _mcp(mcp_client.get_custom_gestures(resident_id), None)
+    return {"gestures": result["gestures"]} if live else {"gestures": []}
+
+
+@app.get("/input-profile/{resident_id}")
+async def input_profile(resident_id: str):
+    """How this resident communicates best (adaptive settings + the
+    'How I Communicate' Coach card). Labelled 'from input history'."""
+    result, live = await _mcp(mcp_client.get_input_profile(resident_id), None)
+    if live:
+        result.pop("store_mode", None)
+        return result
+    return {"resident_id": resident_id, "preferred_select": "touch", "preferred_yes": "touch",
+            "dwell_ms": 1000, "rates": {}, "notes": [], "events_counted": 0, "confidence": "low"}
 
 
 # ---------- Photos (T4.2) ----------

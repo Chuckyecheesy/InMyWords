@@ -1,6 +1,7 @@
 import { getResident } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { CoachChat } from "@/components/CoachChat";
+import { CoachVoice } from "@/components/CoachVoice";
 
 export const metadata = { title: "Coach" };
 
@@ -22,7 +23,13 @@ export default async function CoachPage({
         </p>
       </div>
 
+<<<<<<< HEAD
       <CoachChat residentName={resident.data.name} residentId={resident.data.id} />
+=======
+      <CoachChat residentName={resident.data.name} />
+
+      <CoachVoice residentId={id} residentName={resident.data.name} />
+>>>>>>> origin/main
     </div>
   );
 }

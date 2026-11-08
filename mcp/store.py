@@ -14,6 +14,11 @@ from __future__ import annotations
 import json
 import os
 import re
+<<<<<<< HEAD
+=======
+import threading
+from contextlib import contextmanager
+>>>>>>> origin/main
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -72,6 +77,16 @@ def _gemini_embed():
 _query_vec_cache: dict[str, list[float]] = {}
 
 
+def is_profile_overview_query(query: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9\s]", " ", (query or "").lower())
+    words = set(normalized.split())
+    return bool(
+        words & {"onboarding", "overview", "essentials", "introduce"}
+        or re.search(r"\bnew\s+staff\b", normalized)
+        or re.search(r"\bwhat\s+should\s+(?:new\s+)?staff\s+know\b", normalized)
+    )
+
+
 def embed_text(text, task_type="RETRIEVAL_QUERY"):
     """Best-effort embedding via Ahmed's wrapper (api/services/gemini.py).
     Returns None when the key is missing or the call fails — callers fall
@@ -107,6 +122,72 @@ def embed_texts(texts):
 
 def vector_literal(vec):
     return "[" + ",".join(f"{v:.8f}" for v in vec) + "]"
+
+
+def _window(hour: int) -> str:
+    if hour < 12:
+        return "morning"
+    if hour < 17:
+        return "afternoon"
+    return "evening"
+
+
+def build_input_profile(events, resident_id):
+    """Input-profile rules (GAZE_GESTURE_PLAN §4.6) over a list of event
+    dicts from the last 14 days. Plain arithmetic — no LLM. Shared by both
+    store backends so seed mode and Postgres agree exactly."""
+    from statistics import median
+
+    def rate(rows):
+        return (sum(1 for r in rows if r["outcome"] == "confirmed") / len(rows)) if rows else 0.0
+
+    by_type = {}
+    for e in events:
+        by_type.setdefault(e["input_type"], []).append(e)
+
+    rates = {t: round(rate(rows), 2) for t, rows in by_type.items()}
+
+    selects = [e for e in events if e["action"] == "select"]
+    select_types = {}
+    for e in selects:
+        select_types.setdefault(e["input_type"], []).append(e)
+    preferred_select = "touch"
+    best = -1.0
+    for t, rows in select_types.items():
+        if len(rows) >= 10 and rate(rows) > best:
+            best, preferred_select = rate(rows), t
+
+    approves = [e for e in events if e["action"] == "approve"]
+    approve_counts = {}
+    for e in approves:
+        key = e["gesture"] if (e["input_type"] == "gesture" and e.get("gesture")) else e["input_type"]
+        approve_counts[key] = approve_counts.get(key, 0) + 1
+    preferred_yes = max(approve_counts, key=approve_counts.get) if approve_counts else "touch"
+
+    gaze_holds = [e["hold_ms"] for e in selects
+                  if e["input_type"] == "gaze" and e["outcome"] == "confirmed" and e.get("hold_ms")]
+    dwell_ms = int(min(1500, max(600, median(gaze_holds) * 1.1))) if gaze_holds else 1000
+
+    notes = []
+    for t, rows in select_types.items():
+        overall = rate(rows)
+        for window in ("morning", "afternoon", "evening"):
+            in_window = [r for r in rows if _window(int(str(r["ts"])[11:13])) == window]
+            if len(in_window) >= 8 and (overall - rate(in_window)) >= 0.20:
+                notes.append(f"In the {window}, offer touch instead.")
+
+    n = len(events)
+    confidence = "high" if n > 50 else ("medium" if n >= 10 else "low")
+    return {
+        "resident_id": resident_id,
+        "preferred_select": preferred_select,
+        "preferred_yes": preferred_yes,
+        "dwell_ms": dwell_ms,
+        "rates": rates,
+        "notes": notes,
+        "events_counted": n,
+        "confidence": confidence,
+    }
 
 
 def source_label(source: str, name: str, date: str | None) -> str:
@@ -255,13 +336,17 @@ class SeedStore:
                 "id": m["id"], "update_reason": m.get("update_reason")}
 
     def search_facts(self, rid, query, limit=8):
+<<<<<<< HEAD
         """Coach retrieval (ask_about): memories + staff observations + EMH notes,
         ranked together by the hybrid RAG score."""
+=======
+>>>>>>> origin/main
         if is_profile_overview_query(query):
             memories = [
                 m for m in self.get_memories(rid, ("confirmed", "pending"))
                 if m["type"] in ("preference", "routine")
             ]
+<<<<<<< HEAD
             return [self._memory_fact(m) for m in memories[:16]]
 
         facts = [self._memory_fact(m) for m in self.get_memories(rid, ("confirmed", "pending"))]
@@ -277,6 +362,36 @@ class SeedStore:
             f.pop("score", None)  # keep the contract shape
             f.pop("similarity", None)
         return ranked
+=======
+            return [
+                {"content": m["content"], "source": m["source"],
+                 "date": m.get("source_date") or m["last_seen"][:10],
+                 "status": m["status"], "kind": "memory",
+                 "id": m["id"], "update_reason": m.get("update_reason")}
+                for m in memories[:16]
+            ]
+
+        words = recall_terms(query)
+        hits = []
+        for m in self.get_memories(rid, ("confirmed", "pending")):
+            text = m["content"].lower()
+            if any(w in text for w in words):
+                hits.append({"content": m["content"], "source": m["source"],
+                             "date": m.get("source_date") or m["last_seen"][:10],
+                             "status": m["status"], "kind": "memory",
+                             "id": m["id"], "update_reason": m.get("update_reason")})
+        for o in self.observations:
+            if o["resident_id"] == rid and any(w in o["note"].lower() for w in words):
+                hits.append({"content": o["note"], "source": "staff",
+                             "date": o["created_at"][:10], "status": "confirmed", "kind": "observation",
+                             "id": None, "update_reason": None})
+        for n in self.emh_notes:
+            if n["resident_id"] == rid and any(w in n["note"].lower() for w in words):
+                hits.append({"content": n["note"], "source": "emh",
+                             "date": n["created_at"][:10], "status": "confirmed", "kind": "emh_note",
+                             "id": None, "update_reason": None})
+        return hits[:limit]
+>>>>>>> origin/main
 
     def get_emh_notes(self, rid, since=None):
         notes = [n for n in self.emh_notes if n["resident_id"] == rid]
@@ -456,6 +571,38 @@ class SeedStore:
         m["last_seen"] = _now()
         return m
 
+    # ---- gaze/gesture input layer (G5) ----
+
+    def log_input_events(self, events):
+        if not hasattr(self, "_input_events"):
+            self._load_input_events()
+        self._input_events.extend(events)
+        return len(events)
+
+    def get_input_profile(self, rid):
+        if not hasattr(self, "_input_events"):
+            self._load_input_events()
+        recent = [e for e in self._input_events if e["resident_id"] == rid]
+        return build_input_profile(recent, rid)
+
+    def _load_input_events(self):
+        path = SEED_DIR / "input_events.json"
+        self._input_events = (json.loads(path.read_text(encoding="utf-8"))["input_events"]
+                              if path.exists() else [])
+
+    def save_custom_gesture(self, rid, tile_label, samples):
+        self._reload_runtime()
+        rows = self._runtime.setdefault("custom_gestures", [])
+        rows[:] = [g for g in rows if not (g["resident_id"] == rid and g["tile_label"] == tile_label)]
+        rows.append({"resident_id": rid, "tile_label": tile_label, "samples": samples})
+        self._save_runtime()
+        return True
+
+    def get_custom_gestures(self, rid):
+        self._reload_runtime()
+        return [{"tile_label": g["tile_label"], "samples": g["samples"]}
+                for g in self._runtime.get("custom_gestures", []) if g["resident_id"] == rid]
+
     # ---- actions layer (T2.6) ----
 
     def create_plan(self, rid, goal, steps, total_cost):
@@ -549,11 +696,32 @@ class PostgresStore:
         self._psycopg = psycopg
         self._dict_row = dict_row
         self.url = url
+        # One long-lived connection, reused by every query. Opening a TLS
+        # connection to Tiger Data per query cost ~0.25 s each.
+        self._db = None
+        self._lock = threading.Lock()
         with self._conn() as conn:  # fail fast if unreachable
             conn.execute("SELECT 1")
 
+    @contextmanager
     def _conn(self):
-        return self._psycopg.connect(self.url, row_factory=self._dict_row)
+        """Yield the shared connection (reconnecting if it dropped). Commits on
+        success, rolls back on error. Serialised: psycopg connections are not
+        safe to use from two threads at once."""
+        with self._lock:
+            if self._db is None or self._db.closed or self._db.broken:
+                self._db = self._psycopg.connect(
+                    self.url, row_factory=self._dict_row,
+                    keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3)
+            try:
+                yield self._db
+                self._db.commit()
+            except Exception:
+                try:
+                    self._db.rollback()
+                except Exception:
+                    self._db.close()  # broken; the next call reconnects
+                raise
 
     def _all(self, sql, params=()):
         with self._conn() as conn:
@@ -600,9 +768,12 @@ class PostgresStore:
             (rid, list(statuses)))
 
     def search_facts(self, rid, query, limit=8):
+<<<<<<< HEAD
         """Coach retrieval (ask_about). Memories come from the hybrid `recall`;
         staff observations and EMH notes have no embedding column, so they join
         on meaningful keywords only (stopwords dropped)."""
+=======
+>>>>>>> origin/main
         if is_profile_overview_query(query):
             return self._all(
                 """SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
@@ -615,6 +786,7 @@ class PostgresStore:
                    LIMIT %s""",
                 (rid, 16))
 
+<<<<<<< HEAD
         facts = [{"content": m["content"], "source": m["source"],
                   "date": str(m.get("source_date") or m["last_seen"])[:10],
                   "status": m["status"], "kind": "memory", "id": m["id"],
@@ -635,6 +807,27 @@ class PostgresStore:
                    LIMIT %s""",
                 tuple([rid, *words, rid, *words, room]))
         return facts
+=======
+        words = recall_terms(query)
+        if not words:
+            return []
+        memory_match = " OR ".join(["strpos(lower(content), %s) > 0"] * len(words))
+        note_match = " OR ".join(["strpos(lower(note), %s) > 0"] * len(words))
+        return self._all(
+            f"""SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
+                      status, 'memory' AS kind, id,
+                      NULL::text AS update_reason  -- no column yet; see db/schema.sql
+               FROM memories WHERE resident_id = %s AND status IN ('confirmed','pending')
+                 AND ({memory_match})
+               UNION ALL
+               SELECT note, 'staff', created_at::date::text, 'confirmed', 'observation', NULL::int, NULL::text
+               FROM observations WHERE resident_id = %s AND ({note_match})
+               UNION ALL
+               SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note', NULL::int, NULL::text
+               FROM emh_notes WHERE resident_id = %s AND ({note_match})
+               LIMIT %s""",
+            tuple([rid, *words, rid, *words, rid, *words, limit]))
+>>>>>>> origin/main
 
     def get_emh_notes(self, rid, since=None):
         if since:
@@ -872,6 +1065,47 @@ class PostgresStore:
         if since:
             return self._all(sql + " AND last_seen >= %s ORDER BY last_seen DESC", (rid, since))
         return self._all(sql + " ORDER BY last_seen DESC", (rid,))
+
+    # ---- gaze/gesture input layer (G5) ----
+
+    def log_input_events(self, events):
+        with self._conn() as conn:
+            for e in events:
+                conn.execute(
+                    """INSERT INTO input_events (ts, resident_id, session_id, input_type, action,
+                                                 target, hold_ms, gesture, confidence, outcome)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (e["ts"], e["resident_id"], e.get("session_id"), e["input_type"], e["action"],
+                     e.get("target"), e.get("hold_ms"), e.get("gesture"),
+                     e.get("confidence"), e["outcome"]))
+        return len(events)
+
+    def save_custom_gesture(self, rid, tile_label, samples):
+        with self._conn() as conn:
+            conn.execute(
+                """INSERT INTO custom_gestures (resident_id, tile_label, samples)
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (resident_id, tile_label)
+                   DO UPDATE SET samples = EXCLUDED.samples, created_at = now()""",
+                (rid, tile_label, json.dumps(samples)))
+        return True
+
+    def get_custom_gestures(self, rid):
+        return [{"tile_label": r["tile_label"], "samples": r["samples"]}
+                for r in self._all(
+                    "SELECT tile_label, samples FROM custom_gestures WHERE resident_id = %s", (rid,))]
+
+    def get_input_profile(self, rid):
+        # Raw 14-day window; the input_daily continuous aggregate serves the
+        # same counts pre-bucketed (prize story + dashboards). Raw keeps the
+        # profile correct even on plain Postgres or an unrefreshed aggregate.
+        rows = self._all(
+            "SELECT ts, resident_id, input_type, action, hold_ms, gesture, outcome "
+            "FROM input_events WHERE resident_id = %s AND ts >= now() - interval '14 days'",
+            (rid,))
+        for r in rows:
+            r["ts"] = str(r["ts"])
+        return build_input_profile(rows, rid)
 
     # ---- actions layer (T2.6) ----
 
