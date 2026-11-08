@@ -53,7 +53,7 @@ export function EntryPreview() {
           </button>
         ))}
       </div>
-      <blockquote className="entry-preview-quote">&ldquo;{active.sentence}&rdquo;</blockquote>
+      <blockquote className="entry-preview-quote" id="entry-preview-transcript">&ldquo;{active.sentence}&rdquo;</blockquote>
       <figcaption className="entry-preview-foot">
         <span className="chip-mono" data-tone="resident">
           <Check size={14} strokeWidth={3} aria-hidden="true" />
@@ -76,7 +76,7 @@ export function EntryPreview() {
           </span>
         </button>
       </figcaption>
-      <audio ref={audioRef} />
+      <audio ref={audioRef} aria-describedby="entry-preview-transcript" />
     </figure>
   );
 }

@@ -44,6 +44,13 @@ test.describe("T3.4 picture interview", () => {
     const chapters = page.locator("[data-chapter]");
     await expect(chapters).toHaveCount(7);
 
+    // The voice wiring registers showChoices after mount; under full-suite
+    // load that can land after the chapters render.
+    await page.waitForFunction(
+      () => Boolean((window as unknown as { showChoices?: unknown }).showChoices),
+      undefined,
+      { timeout: 15000 },
+    );
     const returned = page.evaluate(async () => {
       const tool = (window as unknown as {
         showChoices?: (input: {

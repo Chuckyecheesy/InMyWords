@@ -127,7 +127,7 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
 
   const modes = <div className="service-modes" role="group" aria-label="Input method">
         {([{ id: "touch", label: "Touch", Icon: MousePointer2 }, { id: "hand", label: "Hand", Icon: Hand }, { id: "gaze", label: "Eyes", Icon: Eye }] as const).map(({ id, label, Icon }) =>
-          <button type="button" key={id} className="btn" aria-pressed={mode === id} onClick={() => choose(id)}><Icon size={22} aria-hidden="true" />{label}</button>)}
+          <button type="button" key={id} className="btn" aria-label={label} aria-pressed={mode === id} onClick={() => choose(id)}><Icon size={22} aria-hidden="true" />{label}</button>)}
       </div>;
   return <section className="service-input" aria-label="Choose how to select">
     <div className="service-input-controls">
@@ -143,9 +143,13 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
       </button>}
     </div>
     {mode !== "touch" && <div className="service-input-feedback">
-      <video ref={preview} autoPlay playsInline muted className="service-camera" aria-label="Mirrored camera preview" hidden={!ready} />
+      <video ref={preview} autoPlay playsInline muted className="service-camera" aria-label="Mirrored camera preview" aria-describedby="service-camera-status" hidden={!ready} />
+      <button type="button" className="btn" data-size="sm" disabled={!enabled} aria-label="Stop camera"
+        onClick={() => { setCameraConsent(residentId, false); setEnabled(false); }}>
+        <CameraOff size={18} aria-hidden="true" /> Stop camera
+      </button>
       <div>
-        <p role="status" aria-live="polite">{!enabled ? "Camera off. Turn it on when you are ready." : !ready ? (error ? "Camera unavailable." : "Starting camera…") : mode === "hand" ? (point ? "Hand detected. Hold the pointer over a choice." : "Camera on. Show your hand with your index finger raised.") : calibrated ? (point ? "Camera on. Look at a choice and hold." : "Camera on. Looking for your eyes…") : "Camera on. Set up your eyes before selecting."}</p>
+        <p id="service-camera-status" role="status" aria-live="polite">{!enabled ? "Camera off. Turn it on when you are ready." : !ready ? (error ? "Camera unavailable." : "Starting camera…") : mode === "hand" ? (point ? "Hand detected. Hold the pointer over a choice." : "Camera on. Show your hand with your index finger raised.") : calibrated ? (point ? "Camera on. Look at a choice and hold." : "Camera on. Looking for your eyes…") : "Camera on. Set up your eyes before selecting."}</p>
         {!compact && <p className="note">Your camera stays on this device. No video is saved. Hold for one second to select.</p>}
         {mode === "gaze" && !calibrated && <Link href={`/resident/${residentId}/calibrate`} className="text-link">Set up my eyes</Link>}
       </div>
