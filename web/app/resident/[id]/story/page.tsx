@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getResident, getStory } from "@/lib/api";
-import { AudioPlayback } from "@/components/shared";
 import { storyImageUrl } from "@/lib/cloudinary";
+import { AudioPlayback } from "@/components/shared";
 
 export const metadata = { title: "Story" };
 
@@ -28,6 +29,11 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="story-page">
+      <p>
+        <Link className="big-button" href={`/resident/${id}/story/interview`}>
+          Answer with pictures
+        </Link>
+      </p>
       {chapters.length === 0 ? (
         <div className="story-empty">
           <h2>Your Story</h2>
@@ -35,19 +41,18 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
         </div>
       ) : (
         <>
-          <h1>Your Story</h1>
-          {chapters.map((chapter) => (
+          <h2>Your Story</h2>
+          {chapters.map((chapter) => {
+            const photoId = chapter.photo_ids?.[0];
+            const photoUrl = photoId ? storyImageUrl(photoId) : null;
+            return (
             <article key={chapter.id} className="story-chapter">
-              {/* Chapter photo (if available) */}
-              {chapter.photo_ids && chapter.photo_ids.length > 0 && storyImageUrl(chapter.photo_ids[0]) && (
+              {photoUrl ? (
                 <picture>
-                  <img
-                    className="story-chapter-photo"
-                    src={storyImageUrl(chapter.photo_ids[0])!}
-                    alt="Chapter illustration"
-                  />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img className="story-chapter-photo" src={photoUrl} alt="" />
                 </picture>
-              )}
+              ) : null}
 
               <div className="story-chapter-content">
                 <h2 className="story-chapter-title">
@@ -76,7 +81,8 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
                 )}
               </div>
             </article>
-          ))}
+            );
+          })}
         </>
       )}
     </div>

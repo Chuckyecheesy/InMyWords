@@ -37,11 +37,11 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self._saved = (elevenlabs.CACHE_DIR, elevenlabs.VOICES_FILE, elevenlabs._http,
-                       os.environ.get("ELEVENLABS_API_KEY"))
+                       os.environ.get("ELEVENLABS_ID"))
         elevenlabs.CACHE_DIR = Path(self.tmp.name) / "cache"
         elevenlabs.VOICES_FILE = Path(self.tmp.name) / "voices.json"
         elevenlabs._voice_overrides.clear()
-        os.environ["ELEVENLABS_API_KEY"] = "test-key"
+        os.environ["ELEVENLABS_ID"] = "test-key"
         self.fake = _FakeElevenLabs()
         elevenlabs._http = httpx.AsyncClient(base_url=elevenlabs.API, transport=httpx.MockTransport(self.fake))
 
@@ -49,9 +49,9 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
         await elevenlabs._http.aclose()
         elevenlabs.CACHE_DIR, elevenlabs.VOICES_FILE, elevenlabs._http, key = self._saved
         if key is None:
-            os.environ.pop("ELEVENLABS_API_KEY", None)
+            os.environ.pop("ELEVENLABS_ID", None)
         else:
-            os.environ["ELEVENLABS_API_KEY"] = key
+            os.environ["ELEVENLABS_ID"] = key
         elevenlabs._voice_overrides.clear()
         self.tmp.cleanup()
 
@@ -103,7 +103,7 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(elevenlabs.resident_voice("marcus", "from_profile"), "picked")
 
     def test_not_configured_without_key(self):
-        os.environ.pop("ELEVENLABS_API_KEY")
+        os.environ.pop("ELEVENLABS_ID")
         self.assertFalse(elevenlabs.configured())
 
 

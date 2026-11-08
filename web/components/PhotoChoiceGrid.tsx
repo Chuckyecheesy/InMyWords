@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, type ReactNode } from "react";
-import { BigButton } from "./shared";
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { tileImageUrl } from "@/lib/cloudinary";
 
 export interface ChoiceOption {
@@ -11,6 +10,11 @@ export interface ChoiceOption {
 
 const LONG_PRESS_MS = 600;
 
+/**
+ * Picture answers for the Story agent's show_choices tool.
+ * A tap selects. A 600ms press speaks the label and does not select.
+ * The caller confirms before the answer is saved.
+ */
 export function PhotoChoiceGrid({
   question,
   options,
@@ -23,95 +27,123 @@ export function PhotoChoiceGrid({
   onLongPress?: (label: string) => void;
 }) {
   const [selectedLabel, setSelectedLabel] = useState<string | null>(null);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressFired = useRef(false);
+  const questionKey = typeof question === "string" ? question : "";
+  const optionKey = options.map((option) => option.label).join("|");
 
-  function handlePointerDown(label: string) {
-    longPressFired.current = false;
-    longPressTimer.current = setTimeout(() => {
-      longPressFired.current = true;
-      onLongPress?.(label);
-    }, LONG_PRESS_MS);
-  }
-
-  function handlePointerUp() {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-  }
-
-  function handleClick(label: string) {
-    if (longPressFired.current) {
-      longPressFired.current = false;
-      return;
-    }
-    setSelectedLabel(label);
-    onChoice(label);
-  }
+  useEffect(() => {
+    setSelectedLabel(null);
+  }, [questionKey, optionKey]);
 
   return (
-    <div className="photo-choice-grid">
+    <div className="photo-choice-grid" data-testid="photo-choice-grid">
       <div className="choice-question">
-        <h3>{question}</h3>
+        <h2>{question}</h2>
       </div>
 
-      <div className="choice-options">
-        {options.map((option) => {
-          const photoUrl = option.photo_id ? tileImageUrl(option.photo_id, "calm") : null;
-          const contrastUrl = option.photo_id ? tileImageUrl(option.photo_id, "contrast") : null;
-          const isSelected = selectedLabel === option.label;
-
-          return (
-            <div
-              key={option.label}
-              className={`choice-option ${isSelected ? "is-selected" : ""}`}
-              onPointerDown={() => handlePointerDown(option.label)}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
-            >
-              <button
-                type="button"
-                className="choice-button"
-                aria-label={option.label}
-                onClick={() => handleClick(option.label)}
-              >
-                <picture>
-                  {photoUrl && (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        className="choice-img choice-img-calm"
-                        src={photoUrl}
-                        alt=""
-                      />
-                    </>
-                  )}
-                  {contrastUrl && (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        className="choice-img choice-img-contrast"
-                        src={contrastUrl}
-                        alt=""
-                      />
-                    </>
-                  )}
-                </picture>
-                <span className="choice-label">{option.label}</span>
-              </button>
-            </div>
-          );
-        })}
+      <div className="choice-options" role="group" aria-label="Picture answers">
+        {options.slice(0, 4).map((option) => (
+          <ChoiceTile
+            key={option.label}
+            option={option}
+            selected={selectedLabel === option.label}
+            onChoice={(label) => {
+              setSelectedLabel(label);
+              onChoice(label);
+            }}
+            onLongPress={onLongPress}
+          />
+        ))}
       </div>
 
-      {selectedLabel && (
+      {selectedLabel ? (
         <div className="choice-confirmation">
           <p>
             <strong>{selectedLabel}</strong> selected.
           </p>
-          <BigButton onClick={() => setSelectedLabel(null)} tone="neutral">
-            Choose Again
-          </BigButton>
+          <button
+            type="button"
+            className="big-button"
+            onClick={() => {
+              setSelectedLabel(null);
+              onChoice("");
+            }}
+          >
+            Choose again
+          </button>
         </div>
+      ) : (
+        <p className="note">Hold a picture to hear its name.</p>
       )}
     </div>
+  );
+}
+
+function ChoiceTile({
+  option,
+  selected,
+  onChoice,
+  onLongPress,
+}: {
+  option: ChoiceOption;
+  selected: boolean;
+  onChoice: (label: string) => void;
+  onLongPress?: (label: string) => void;
+}) {
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fired = useRef(false);
+  const calm = option.photo_id ? tileImageUrl(option.photo_id, "calm") : null;
+  const contrast = option.photo_id ? tileImageUrl(option.photo_id, "contrast") : null;
+
+  function clear() {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+  }
+
+  function onPointerDown(event: PointerEvent<HTMLButtonElement>) {
+    if (event.button !== 0 && event.pointerType === "mouse") return;
+    fired.current = false;
+    clear();
+    if (!onLongPress) return;
+    timer.current = setTimeout(() => {
+      fired.current = true;
+      onLongPress(option.label);
+    }, LONG_PRESS_MS);
+  }
+
+  return (
+    <button
+      type="button"
+      className={`choice-button${selected ? " is-selected" : ""}`}
+      aria-label={option.label}
+      aria-pressed={selected}
+      data-choice={option.label}
+      onPointerDown={onPointerDown}
+      onPointerUp={clear}
+      onPointerLeave={clear}
+      onPointerCancel={clear}
+      onClick={() => {
+        if (fired.current) {
+          fired.current = false;
+          return;
+        }
+        onChoice(option.label);
+      }}
+    >
+      {calm && contrast ? (
+        <picture>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="choice-img choice-img-calm" src={calm} alt="" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="choice-img choice-img-contrast" src={contrast} alt="" />
+        </picture>
+      ) : (
+        <span className="choice-letter" aria-hidden="true">
+          {option.label}
+        </span>
+      )}
+      <span className="choice-label">{option.label}</span>
+    </button>
   );
 }

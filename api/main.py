@@ -21,6 +21,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mocks
+from agents.story import LocalBooks, McpBooks, StoryError, local_books, narrate, record_answer, draft as draft_chapter
+from agents.story import gemini_phrase
 from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
 from services import elevenlabs, mcp_client
 from services.limits import allow
@@ -264,19 +266,66 @@ async def log_sentence(body: SentenceBody):
 
 # ---------- My Story ----------
 
+async def _story_books():
+    """Profile server when it answers, otherwise the in-process books."""
+    try:
+        await mcp_client.get_story("marcus")
+    except Exception as exc:
+        print(f"[story books] {type(exc).__name__}: {exc}")
+        return local_books
+    return McpBooks()
+
+
 @app.post("/story/answer")
-def story_answer(body: StoryAnswerBody):
-    return {"ok": True}
+async def story_answer(body: StoryAnswerBody):
+    books = await _story_books()
+    try:
+        return await record_answer(books, body.resident_id, body.chapter, body.question, body.answer)
+    except StoryError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/story/{resident_id}/answers")
+async def get_story_answers(resident_id: str, chapter: str = ""):
+    books = await _story_books()
+    if isinstance(books, LocalBooks):
+        rows = [row for row in books.rows
+                if row["resident_id"] == resident_id and (not chapter or row["chapter"] == chapter)]
+        return {"answers": rows}
+    result, live = await _mcp(mcp_client.get_story_answers(resident_id, chapter), None)
+    if live:
+        if result.get("error"):
+            raise HTTPException(404, result["error"])
+        return {"answers": result.get("answers", [])}
+    return {"answers": []}
 
 
 @app.post("/story/draft")
-def story_draft(body: StoryDraftBody):
-    return mocks.STORY_DRAFT
+async def story_draft(body: StoryDraftBody):
+    """Text only. Narration waits for /story/approve."""
+    books = await _story_books()
+    try:
+        return await draft_chapter(books, body.resident_id, body.chapter, generate=gemini_phrase)
+    except StoryError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/story/approve")
-def story_approve(body: StoryApproveBody):
-    return {"audio_url": "https://example.com/audio/mock_chapter.mp3"}
+async def story_approve(body: StoryApproveBody, request: Request):
+    """The resident said yes. This is the step that calls ElevenLabs."""
+    books = await _story_books()
+    try:
+        spoken = await narrate(books, body.chapter_id)
+    except StoryError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except elevenlabs.ElevenLabsError as exc:
+        print(f"[story approve] {exc}")
+        raise HTTPException(502, "Couldn't make the audio right now. The draft is still here.") from exc
+    if spoken.get("filename"):
+        audio_url = _audio_url(request, spoken["filename"])
+        await books.mark_approved(body.chapter_id, audio_url)
+        return {"audio_url": audio_url, "cached": spoken["cached"]}
+    return {"audio_url": spoken["audio_url"], "cached": spoken.get("cached", False)}
 
 
 @app.get("/story/{resident_id}")
