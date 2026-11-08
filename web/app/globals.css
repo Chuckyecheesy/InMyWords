@@ -932,10 +932,6 @@ textarea {
   font-size: var(--text-small);
 }
 
-.entry-preview-tile:first-child {
-  border-color: var(--accent);
-}
-
 .entry-preview-photo {
   position: relative;
   display: block;
