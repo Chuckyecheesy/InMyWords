@@ -133,17 +133,143 @@ const routines: Record<string, Highlight[]> = {
   ],
 };
 
-const coach: Record<string, CoachAnswer & { question: string }> = {
-  marcus: {
-    question: "What upsets Marcus?",
-    answer: "Loud rooms upset Marcus.",
-    sources: [{ type: "resident", date: null }],
-  },
-  dana: {
-    question: "What does Dana enjoy?",
-    answer: "Dana loves gardening, and her sister visits on Sundays.",
-    sources: [{ type: "resident", date: null }],
-  },
+const coach: Record<string, Array<{ question: string; answer: string; sources: Array<{ type: "resident" | "staff" | "emh" | "document" | "pattern"; date: string | null }> }>> = {
+  marcus: [
+    {
+      question: "What does Marcus like to do?",
+      answer: "Marcus enjoys bowling on Saturdays and watching the Raptors.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+        { type: "pattern", date: "2026-01-10T14:00:00Z" },
+      ],
+    },
+    {
+      question: "Does Marcus have a routine?",
+      answer: "Yes, Marcus goes bowling every Saturday afternoon at 2pm.",
+      sources: [
+        { type: "pattern", date: "2026-01-10T14:00:00Z" },
+        { type: "staff", date: "2026-01-15T09:00:00Z" },
+      ],
+    },
+    {
+      question: "What's Marcus's communication style?",
+      answer: "Marcus uses AAC tiles to communicate and responds to yes/no questions.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+        { type: "document", date: "2019-01-01T00:00:00Z" },
+      ],
+    },
+    {
+      question: "What upsets Marcus?",
+      answer: "Loud noises and rushed transitions upset Marcus.",
+      sources: [
+        { type: "staff", date: "2026-01-15T09:00:00Z" },
+        { type: "document", date: "2019-01-01T00:00:00Z" },
+      ],
+    },
+    {
+      question: "Does Marcus prefer tea or coffee?",
+      answer: "Marcus has switched to tea recently. He picked tea 5 times this week.",
+      sources: [
+        { type: "pattern", date: "2026-01-10T14:00:00Z" },
+        { type: "resident", date: "2026-01-15T14:23:00Z" },
+      ],
+    },
+    {
+      question: "Who's important to Marcus?",
+      answer: "His sister Lisa and his staff member Lisa are both very important to him.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+        { type: "staff", date: "2026-01-10T15:30:00Z" },
+      ],
+    },
+    {
+      question: "What's Marcus's story?",
+      answer: "Marcus's story covers his background, values, and what matters to him.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+      ],
+    },
+    {
+      question: "Does Marcus have any patterns?",
+      answer: "Yes, Marcus has tea after breakfast and goes to the park on sunny days.",
+      sources: [
+        { type: "pattern", date: "2026-01-10T14:00:00Z" },
+      ],
+    },
+    {
+      question: "Can Marcus go bowling?",
+      answer: "Yes, Marcus loves bowling. It costs $15 per session and he has budget for it.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+        { type: "staff", date: "2026-01-15T09:00:00Z" },
+      ],
+    },
+    {
+      question: "What's Marcus's weekly budget?",
+      answer: "Marcus has a weekly discretionary budget of $60.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+        { type: "document", date: "2019-01-01T00:00:00Z" },
+      ],
+    },
+    {
+      question: "Any recent observations about Marcus?",
+      answer: "Staff noted that Marcus seemed calm during the morning routine yesterday.",
+      sources: [
+        { type: "staff", date: "2026-01-15T09:00:00Z" },
+        { type: "emh", date: "2026-01-15T08:00:00Z" },
+      ],
+    },
+    {
+      question: "What's in Marcus's binder or records?",
+      answer: "The binder notes Marcus enjoys activities and prefers quiet spaces.",
+      sources: [
+        { type: "document", date: "2019-01-01T00:00:00Z" },
+      ],
+    },
+    {
+      question: "How does Marcus prefer to communicate?",
+      answer: "Marcus uses AAC tiles and responds to spoken questions with yes/no tiles.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+        { type: "document", date: "2019-01-01T00:00:00Z" },
+      ],
+    },
+    {
+      question: "What changed with Marcus this week?",
+      answer: "Marcus has shifted from coffee to tea, and staff noted increased calm.",
+      sources: [
+        { type: "pattern", date: "2026-01-10T14:00:00Z" },
+        { type: "staff", date: "2026-01-15T09:00:00Z" },
+      ],
+    },
+    {
+      question: "What should I know before my first shift?",
+      answer: "Marcus is communicative, follows routines, prefers calm settings, and has a solid support network. Ask if you're unsure.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+        { type: "staff", date: "2026-01-15T09:00:00Z" },
+      ],
+    },
+  ],
+  dana: [
+    {
+      question: "What does Dana like?",
+      answer: "Dana loves gardening and growing vegetables.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+      ],
+    },
+    {
+      question: "Who's important to Dana?",
+      answer: "Dana's sister visits on Sundays. They drink tea together.",
+      sources: [
+        { type: "resident", date: "2026-01-08T10:30:00Z" },
+        { type: "staff", date: "2026-01-15T09:00:00Z" },
+      ],
+    },
+  ],
 };
 
 const pending: Record<string, PendingMemory[]> = {

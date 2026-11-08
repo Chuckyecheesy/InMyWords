@@ -1,8 +1,8 @@
+import { getResident } from "@/lib/api";
+import { sampleEssentials } from "@/lib/mock";
 import { notFound } from "next/navigation";
-import { SourceChip } from "@/components/SourceChip";
-import { getResident, getStory } from "@/lib/api";
-import { sourceChip } from "@/lib/format";
-import { sampleEssentials, sampleRoutines } from "@/lib/mock";
+import Link from "next/link";
+import { BigButton } from "@/components/shared";
 
 export const metadata = { title: "Onboarding" };
 
@@ -14,68 +14,71 @@ export default async function OnboardingPage({
   const { id } = await params;
   const resident = await getResident(id);
   if (!resident) notFound();
-  const story = await getStory(id);
+
   const essentials = sampleEssentials(id);
-  const routines = sampleRoutines(id);
 
   return (
     <div className="stack">
-      <ol className="steps">
-        <li>
-          <a href="#essentials">Essentials</a>
-        </li>
-        <li>
-          <a href="#story">Story</a>
-        </li>
-        <li>
-          <a href="#routines">Routines</a>
-        </li>
-      </ol>
-      <section id="essentials" className="block">
-        <h2>Essentials</h2>
-        <p>{resident.data.communication_style}</p>
-        <p className="note">Sample facts for the demo.</p>
-        {essentials.map((fact) => {
-          const chip = sourceChip(fact.source, resident.data.name, fact.date);
-          return (
-            <article key={fact.text} className="fact">
-              <p>{fact.text}</p>
-              <SourceChip tone={chip.tone} label={chip.label} />
-            </article>
-          );
-        })}
+      <div className="onboarding-header">
+        <h1>Onboarding: {resident.data.name}</h1>
+        <p className="eyebrow">Quick essentials for your first shift (~2 minutes)</p>
+      </div>
+
+      <section className="block onboarding-section">
+        <h2>Key Facts</h2>
+        <div className="essentials-list">
+          {essentials.map((item, idx) => (
+            <div key={idx} className="essential-item">
+              <p>{item.text}</p>
+              <span className="essential-source">
+                {item.source === "resident"
+                  ? "In their words"
+                  : item.source === "document"
+                    ? `From records, ${item.date || "2019"}`
+                    : `${item.source} note`}
+              </span>
+            </div>
+          ))}
+        </div>
       </section>
-      <section id="story" className="block">
-        <h2>Story</h2>
-        {story.data.length === 0 ? (
-          <p>No chapters yet.</p>
-        ) : (
-          story.data.map((chapter) => (
-            <article key={chapter.id} className="fact">
-              <h3>{chapter.title}</h3>
-              <p>{chapter.text}</p>
-              <p className="eyebrow">{chapter.status === "approved" ? "Approved" : "Draft"}</p>
-            </article>
-          ))
-        )}
+
+      <section className="block onboarding-section">
+        <h2>Learn More</h2>
+        <div className="onboarding-links">
+          <Link href={`/staff/${id}/coach`} className="onboarding-link">
+            <BigButton tone="neutral">
+              💬 Ask the Coach Questions
+            </BigButton>
+          </Link>
+
+          <Link href={`/resident/${id}/story`} className="onboarding-link">
+            <BigButton tone="neutral">
+              📖 Read Their Story
+            </BigButton>
+          </Link>
+
+          <Link href={`/staff/handoff?resident=${id}`} className="onboarding-link">
+            <BigButton tone="neutral">
+              🔄 View Handoff Items
+            </BigButton>
+          </Link>
+        </div>
       </section>
-      <section id="routines" className="block">
-        <h2>Routines</h2>
-        <p className="note">Sample facts for the demo.</p>
-        {routines.length === 0 ? (
-          <p>No routines yet.</p>
-        ) : (
-          routines.map((fact) => {
-            const chip = sourceChip(fact.source, resident.data.name, fact.date);
-            return (
-              <article key={fact.text} className="fact">
-                <p>{fact.text}</p>
-                <SourceChip tone={chip.tone} label={chip.label} />
-              </article>
-            );
-          })
-        )}
+
+      <section className="block onboarding-section">
+        <h2>Quick Tips</h2>
+        <ul className="tips-list">
+          <li>Ask the Coach any questions — it knows this person well</li>
+          <li>Every answer shows where the information came from</li>
+          <li>Read their story to understand what matters to them</li>
+          <li>Check the Handoff for recent events or changes</li>
+          <li>When in doubt, ask the person or a senior staff member</li>
+        </ul>
       </section>
+
+      <div className="onboarding-footer">
+        <p>✓ Essentials complete. You're ready for your first shift!</p>
+      </div>
     </div>
   );
 }
