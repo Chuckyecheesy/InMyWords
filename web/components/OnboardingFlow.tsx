@@ -194,7 +194,7 @@ export function OnboardingFlow({
             </div>
             <FactList items={profile.communication} name={name} />
             <HowICommunicateCard residentId={residentId} name={name} />
-            <h3>How Speak For Me works</h3>
+            <h3>How My Words works</h3>
             <ol className="flow-demo">
               <li>
                 <strong>

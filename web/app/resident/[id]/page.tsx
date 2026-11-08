@@ -25,7 +25,7 @@ export default async function ResidentHomePage({
   const base = `/resident/${id}`;
 
   const features = [
-    { href: `${base}/speak`, kind: "speak", title: "Speak For Me", text: "Talk using pictures." },
+    { href: `${base}/speak`, kind: "speak", title: "My Words", text: "Tell people what I want." },
     { href: `${base}/planner`, kind: "planner", title: "My Planner", text: "Choose when staff visit me." },
     { href: `${base}/choice`, kind: "choice", title: "My Choices", text: "Look at options and decide." },
   ] as const;
@@ -34,12 +34,12 @@ export default async function ResidentHomePage({
     <div className="home">
       <header className="home-hero">
         <div className="home-heading">
+          <time className="home-date" dateTime={new Date().toISOString()}>
+            {TODAY.format(new Date())}
+          </time>
           <h1>{greeting()}, {name}</h1>
           <p className="lead">What would you like to do today?</p>
         </div>
-        <time className="home-date" dateTime={new Date().toISOString()}>
-          {TODAY.format(new Date())}
-        </time>
       </header>
 
       <nav className="feature-grid" aria-label="What would you like to do?">

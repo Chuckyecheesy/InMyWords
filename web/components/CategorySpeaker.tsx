@@ -151,7 +151,7 @@ export function CategorySpeaker({ residentId }: { residentId: string }) {
   }
 
   return <div className="service-page simple-speak" ref={region}>
-    <header className="simple-speak-heading"><h1>Speak For Me</h1><p>Choose a picture. Then say your sentence.</p></header>
+    <header className="simple-speak-heading"><h1>My Words</h1><p>Choose a picture. Then say your sentence.</p></header>
     <ServiceInput residentId={residentId} region={region} screen="speak" disabled={busy || !loaded} defaultMode="gaze" compact onSelect={(target, mode) => void activate(target, mode)} />
     <div className="service-category-grid" aria-label="Three communication categories">
       {SERVICE_CATEGORIES.map((category) => <button type="button" className="service-category" key={category.id} data-service-target={category.id} aria-pressed={selected.includes(category.id)} disabled={busy || !loaded} onClick={() => void activate(category.id)}>

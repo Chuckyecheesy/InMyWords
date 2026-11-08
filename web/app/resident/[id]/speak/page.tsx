@@ -4,7 +4,7 @@ import { ImagePlus, Keyboard, MessageSquareText, Sparkles } from "lucide-react";
 import { CategorySpeaker } from "@/components/CategorySpeaker";
 import { getResident } from "@/lib/api";
 
-export const metadata = { title: "Speak For Me" };
+export const metadata = { title: "My Words" };
 
 export default async function SpeakPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
