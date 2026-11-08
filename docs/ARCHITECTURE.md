@@ -6,13 +6,13 @@ One shared data layer behind four MCP servers. Agents never touch the database �
 flowchart LR
     subgraph Client
         WEB["Next.js app<br/>(tablet-first)"]
-        EL["ElevenLabs Agents<br/>Story Interviewer · Coach voice"]
+        EL["ElevenLabs Agents<br/>Planner approvals · Coach voice"]
         CD["Claude Desktop<br/>(stretch demo)"]
     end
 
     subgraph Backend["FastAPI backend (api/)"]
         API["routes<br/>main.py"]
-        AGENTS["agents/<br/>voice · coach · story · choice ·<br/>action · handoff · memory subagents"]
+        AGENTS["agents/<br/>voice · coach · planner · choice ·<br/>action · handoff · memory subagents"]
         GEM["services/gemini.py<br/>structured JSON + 768-d embeddings"]
         TTS["services/elevenlabs.py<br/>TTS cached by voice+text"]
     end
@@ -27,7 +27,7 @@ flowchart LR
     DB[("Tiger Data<br/>Postgres + pgvector(768)")]
     BOOK["mock-booking :8200"]
     CLOUD["Cloudinary<br/>tile recipe"]
-    GCAL["Google Calendar<br/>(stretch, dual-write)"]
+    GCAL["Google Calendar MCP<br/>(planner staff visits, dual-write;<br/>manual-import fallback)"]
     EMAIL["Email (send_message)"]
 
     WEB -->|lib/api.ts| API
