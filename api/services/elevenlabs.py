@@ -71,10 +71,21 @@ def configured() -> bool:
     return api_key() is not None
 
 
+_own: tuple[httpx.AsyncClient, asyncio.AbstractEventLoop] | None = None
+
+
 def _client() -> httpx.AsyncClient:
-    global _http
-    if _http is None:
+    # The pool is tied to the event loop it was opened on. uvicorn has one loop,
+    # but scripts and tests call asyncio.run() more than once, and reusing the
+    # old pool there fails with "Event loop is closed". So a pool we opened is
+    # replaced on a new loop. A client set on _http from outside (test mocks)
+    # is left alone.
+    global _http, _own
+    loop = asyncio.get_running_loop()
+    stale = _own is not None and _http is _own[0] and _own[1] is not loop
+    if _http is None or stale:
         _http = httpx.AsyncClient(base_url=API, timeout=httpx.Timeout(20.0, connect=5.0))
+        _own = (_http, loop)
     return _http
 
 

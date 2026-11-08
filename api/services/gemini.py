@@ -54,6 +54,7 @@ FEATURE_MODELS = {
     "memory": (STEADY_MODEL, FLASH_MODEL),
     "memory_easy": (LITE_MODEL, STEADY_MODEL),
     "photo": (STEADY_MODEL, FLASH_MODEL),  # T4.2 photo checker (vision)
+    "action": (LITE_MODEL, STEADY_MODEL),  # T4.7 Action agent: lite measured 1-5s, 5/5 goals
 }
 EMBED_MODEL = "gemini-embedding-001"
 
@@ -73,6 +74,8 @@ _COACH_SOURCES = ["resident", "staff", "emh", "document", "pattern"]
 _MEMORY_SOURCES = ["resident", "staff", "emh", "document", "inferred", "pattern"]
 _OBSERVER_SOURCES = ["inferred", "staff"]
 _ONLINE_STEPS = ["send_message", "add_to_calendar", "book_activity", "next_bus"]
+# Action agent proposer: the four allowlisted tools (agents/action.py ALLOWED_STEPS).
+_PLAN_STEPS = ["book_activity", "add_to_calendar", "send_message", "create_staff_task"]
 # Item kinds the staff handoff screen keeps (web/lib/api.ts normalizeHandoff).
 _HANDOFF_TYPES = ["emh", "checklist", "observation", "choice", "task", "memory"]
 _DATE = {"type": "string", "format": "date", "pattern": r"^\d{4}-\d{2}-\d{2}$"}
@@ -228,6 +231,30 @@ SCHEMAS: dict[str, dict] = {
         ),
     },
     "action": {
+        "steps": _object(
+            "Action agent step proposer. Steps from the allowlist only. "
+            "No costs or totals: code prices every step. Empty strings for fields a step does not use.",
+            {
+                "steps": {
+                    "type": "array",
+                    "items": _object(
+                        "One proposed step.",
+                        {
+                            "step": {"type": "string", "enum": _PLAN_STEPS},
+                            "detail": {"type": "string"},
+                            "activity": {"type": "string"},
+                            "time": {"type": "string"},
+                            "title": {"type": "string"},
+                            "contact": {"type": "string"},
+                            "text": {"type": "string"},
+                            "task": {"type": "string"},
+                        },
+                        ["step", "detail", "activity", "time", "title", "contact", "text", "task"],
+                    ),
+                },
+            },
+            ["steps"],
+        ),
         "plan": _object(
             "Action agent. Steps from the allowlist only. "
             "create_staff_task is staff_tasks, not an online step. "
@@ -353,6 +380,20 @@ EXAMPLES: dict[str, dict] = {
         },
     },
     "action": {
+        "steps": {
+            "steps": [
+                {"step": "book_activity", "detail": "Bowling at KW Bowl, Saturday 2:00pm",
+                 "activity": "bowling", "time": "2026-11-14T14:00:00", "title": "",
+                 "contact": "", "text": "", "task": ""},
+                {"step": "send_message", "detail": "Email Lisa about Saturday bowling",
+                 "activity": "", "time": "", "title": "", "contact": "lisa",
+                 "text": "Marcus is going bowling on Saturday at 2pm. Would you like to join?",
+                 "task": ""},
+                {"step": "create_staff_task", "detail": "Drive Marcus to KW Bowl",
+                 "activity": "", "time": "2026-11-14T13:30:00", "title": "", "contact": "",
+                 "text": "", "task": "Drive Marcus to KW Bowl"},
+            ],
+        },
         "plan": {
             "online_steps": [
                 {
