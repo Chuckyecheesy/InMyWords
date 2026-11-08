@@ -119,6 +119,14 @@ class ConsolidatorTests(unittest.TestCase):
         self.assertEqual(out["action"], "seen_again")
         self.assertEqual(propose.calls, [])
 
+    def test_topic_widens_the_recall_query(self):
+        seen = []
+        consolidate(dict(self.CAND, topic="drinks"), resident_id="marcus",
+                    recall=lambda **k: seen.append(k["query"]) or [],
+                    contradicts=lambda c, m: False,
+                    remember=Recorder(), propose_update=Recorder())
+        self.assertIn("drinks", seen[0])
+
     def test_new_fact_is_remembered_as_pending_candidate(self):
         remember, propose = Recorder(), Recorder()
         out = consolidate(self.CAND, resident_id="marcus",

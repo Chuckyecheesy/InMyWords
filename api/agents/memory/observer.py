@@ -23,7 +23,7 @@ def observation_prompt(text: str, kind: str) -> str:
         "Extract only what it states. Never invent a fact or a quote.\n"
         "Return JSON only: "
         '{"candidates": [{"type": "preference" | "event" | "routine", '
-        '"content": "one plain sentence", "evidence": "verbatim quote"}]}\n'
+        '"content": "one plain sentence", "evidence": "verbatim quote", "topic": "one or two general words, e.g. drinks"}]}\n'
         "Leave candidates empty if nothing fits.\n\n"
         f"Input:\n{text}"
     )
@@ -55,6 +55,9 @@ def observe(text: str, *, kind: str, resident_id: str, extract, remember) -> lis
             "source": source,
             "evidence": evidence,
         }
+        topic = str(item.get("topic", "")).strip()
+        if topic:
+            record["topic"] = topic
         remember(**record)
         saved.append(record)
     return saved

@@ -8,7 +8,11 @@ memory server bumps times_seen. Anything else is remembered as a candidate.
 
 def consolidate(candidate: dict, *, resident_id: str, recall, contradicts,
                 remember, propose_update, threshold: float = 0.9) -> dict:
-    found = recall(resident_id=resident_id, query=candidate["content"]) or []
+    # Memory search is keyword-based today, so "tea" alone never finds
+    # "coffee". The general topic ("drinks") bridges that gap and goes first,
+    # because the search only reads the first few words.
+    query = f"{candidate.get('topic', '')} {candidate['content']}".strip()
+    found = recall(resident_id=resident_id, query=query) or []
 
     for memory in found:
         if memory.get("status") == "confirmed" and contradicts(candidate, memory):
