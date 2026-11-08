@@ -23,13 +23,20 @@ export function EntryPreview() {
       </div>
       <blockquote className="entry-preview-quote">&ldquo;Can I get a double-double from Tim&apos;s?&rdquo;</blockquote>
       <figcaption className="entry-preview-foot">
-        <span className="badge" data-tone="resident">
+        <span className="chip-mono" data-tone="resident">
           <Check size={14} strokeWidth={3} aria-hidden="true" />
           Approved by Marcus
         </span>
         <span className="entry-preview-voice">
           <Volume2 size={18} aria-hidden="true" />
           Spoken in Marcus&apos;s own voice
+          <span className="voice-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+            <span />
+            <span />
+          </span>
         </span>
       </figcaption>
     </figure>

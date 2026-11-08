@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Camera, HandMetal, Sparkles } from "lucide-react";
 import { getCustomGestures, saveCustomGesture } from "@/lib/api";
 import { hasCameraConsent } from "@/lib/input/consent";
 import { normalizeLandmarks, type GestureSample } from "@/lib/input/custom-gestures";
@@ -14,7 +15,7 @@ import {
   stopGestures,
 } from "@/lib/input/gestures";
 import type { Resident, Tile } from "@/lib/types";
-import { BigButton, TileButton } from "./shared";
+import { TileButton } from "./shared";
 
 const SAMPLES_NEEDED = 5;
 
@@ -102,78 +103,131 @@ export function TeachGesture({ resident }: { resident: Resident }) {
     setTryHits([]);
   }
 
+  const step = !tile ? 1 : !saved ? 2 : 3;
+
   if (consent === false) {
     return (
       <div className="stack calibrate-page">
-        <h1>Teach a gesture</h1>
-        <p>Turn on “Use my eyes and hands” on the home screen first.</p>
-        <Link prefetch={false} href={`/resident/${resident.id}`} className="tile tile-button">
-          <span className="tile-label">Back to my tiles</span>
-        </Link>
+        <header className="page-head">
+          <p className="eyebrow">My gestures</p>
+          <h1>Teach a gesture</h1>
+        </header>
+        <div className="card card-pad setup-card">
+          <span className="setup-icon" aria-hidden="true">
+            <HandMetal size={34} />
+          </span>
+          <p className="lead">Turn on “Use my eyes and hands” on the home screen first.</p>
+          <Link
+            prefetch={false}
+            href={`/resident/${resident.id}/speak`}
+            className="btn"
+            data-variant="primary"
+            data-size="lg"
+          >
+            Back to my tiles
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="stack calibrate-page">
-      <h1>Teach a gesture</h1>
+      <header className="page-head">
+        <p className="eyebrow">My gestures</p>
+        <h1>Teach a gesture</h1>
+        <p className="lead">Your own hand shape can say a tile for you.</p>
+      </header>
+
+      <ol className="teach-steps" aria-label="Steps">
+        <li data-state={step === 1 ? "active" : "done"}>
+          <span className="teach-step-num" aria-hidden="true">{step > 1 ? "✓" : "1"}</span>
+          Pick a picture
+        </li>
+        <li data-state={step === 2 ? "active" : step > 2 ? "done" : "todo"}>
+          <span className="teach-step-num" aria-hidden="true">{step > 2 ? "✓" : "2"}</span>
+          Show your hand
+        </li>
+        <li data-state={step === 3 ? "active" : "todo"}>
+          <span className="teach-step-num" aria-hidden="true">3</span>
+          Try it
+        </li>
+      </ol>
 
       {!tile ? (
-        <>
-          <p>Pick the tile your gesture should say.</p>
+        <section className="card card-pad" aria-label="Pick a picture">
+          <p className="lead">Pick the picture your gesture should say.</p>
           <div className="tile-grid">
             {resident.tiles.slice(0, 8).map((candidate) => (
               <TileButton key={candidate.id} tile={candidate} onSelect={setTile} />
             ))}
           </div>
-        </>
+        </section>
       ) : !saved ? (
-        <>
-          <p>
-            Make your hand shape for <strong>{tile.label}</strong> and hold it.
-            Capture it {SAMPLES_NEEDED} times.
+        <section className="card card-pad setup-card" aria-label="Show your hand">
+          <span className="setup-icon" aria-hidden="true">
+            <HandMetal size={34} />
+          </span>
+          <p className="lead">
+            Make your hand shape for <strong>{tile.label}</strong> and hold it up.
           </p>
-          <p className="note" role="status">
-            {samples.length} of {SAMPLES_NEEDED} captured
-            {cameraOn ? "" : " — starting camera…"}
-          </p>
+          <div className="sample-dots" role="status" aria-label={`${samples.length} of ${SAMPLES_NEEDED} captured`}>
+            {Array.from({ length: SAMPLES_NEEDED }, (_, i) => (
+              <span key={i} className="sample-dot" data-done={i < samples.length} aria-hidden="true">
+                {i < samples.length ? "✓" : i + 1}
+              </span>
+            ))}
+          </div>
+          {!cameraOn ? <p className="note">Starting camera…</p> : null}
           {message ? <p className="note">{message}</p> : null}
-          <div className="speak-actions">
-            <BigButton tone="approve" onClick={capture} disabled={!cameraOn}>
-              Capture {samples.length + 1 > SAMPLES_NEEDED ? "" : samples.length + 1}
-            </BigButton>
-            <BigButton
-              tone="neutral"
+          <div className="setup-actions">
+            <button type="button" className="btn" data-variant="primary" data-size="xl" onClick={capture} disabled={!cameraOn}>
+              <Camera size={24} aria-hidden="true" />
+              Capture
+            </button>
+            <button
+              type="button"
+              className="btn"
+              data-variant="soft"
+              data-size="xl"
               disabled={samples.length < SAMPLES_NEEDED}
               onClick={() => void save()}
             >
               Save gesture
-            </BigButton>
-            <BigButton tone="reject" onClick={() => { setTile(null); reset(); }}>
+            </button>
+            <button type="button" className="btn" data-variant="ghost" data-size="lg" onClick={() => { setTile(null); reset(); }}>
               Start over
-            </BigButton>
+            </button>
           </div>
-        </>
+        </section>
       ) : (
-        <>
-          <p>
-            Saved! Try it — make your <strong>{tile.label}</strong> shape and hold it
-            for half a second.
+        <section className="card card-pad setup-card" aria-label="Try it">
+          <span className="setup-icon" data-tone="success" aria-hidden="true">
+            <Sparkles size={34} />
+          </span>
+          <p className="lead">
+            Saved! Make your <strong>{tile.label}</strong> shape and hold it for half a second.
           </p>
-          <p className="note" role="status" aria-live="polite">
+          <p className="note try-status" role="status" aria-live="polite" data-hit={tryHits.length > 0}>
             {tryHits.length === 0
               ? "Waiting for your gesture…"
               : `Recognised: ${tryHits.join(", ")}`}
           </p>
-          <div className="speak-actions">
-            <BigButton tone="neutral" onClick={() => { setTile(null); reset(); }}>
+          <div className="setup-actions">
+            <button type="button" className="btn" data-variant="soft" data-size="xl" onClick={() => { setTile(null); reset(); }}>
               Teach another
-            </BigButton>
-            <Link prefetch={false} href={`/resident/${resident.id}`} className="tile tile-button slim">
-              <span className="tile-label">Done</span>
+            </button>
+            <Link
+              prefetch={false}
+              href={`/resident/${resident.id}/speak`}
+              className="btn"
+              data-variant="primary"
+              data-size="xl"
+            >
+              Done
             </Link>
           </div>
-        </>
+        </section>
       )}
     </div>
   );

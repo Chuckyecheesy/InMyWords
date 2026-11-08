@@ -2,6 +2,7 @@
 
 import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { CameraOff, Eye, Hand, Sparkles } from "lucide-react";
 import { hasCameraConsent } from "@/lib/input/consent";
 import {
   clearCalibration,
@@ -35,6 +36,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   const distances = useRef<number[]>([]);
   const [result, setResult] = useState<"good" | "okay" | "retry" | null>(null);
   const [starting, setStarting] = useState(false);
+  const [cameraError, setCameraError] = useState(false);
 
   useEffect(() => {
     if (!hasCameraConsent(id)) setPhase("consent");
@@ -43,12 +45,18 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
 
   async function begin() {
     setStarting(true);
-    clearCalibration();
-    await startGaze();
-    setStarting(false);
-    setPhase("calibrating");
-    setTargetIndex(0);
-    setTaps(0);
+    setCameraError(false);
+    try {
+      clearCalibration();
+      await startGaze();
+      setPhase("calibrating");
+      setTargetIndex(0);
+      setTaps(0);
+    } catch {
+      setCameraError(true);
+    } finally {
+      setStarting(false);
+    }
   }
 
   function tapTarget() {
@@ -94,14 +102,22 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   if (phase === "consent") {
     return (
       <div className="stack calibrate-page">
-        <h1>Set up my eyes</h1>
-        <p>
-          Turn on “Use my eyes and hands” on the home screen first. The camera stays on this
-          tablet. No video is saved.
-        </p>
-        <Link prefetch={false} href={`/resident/${id}`} className="tile tile-button">
-          <span className="tile-label">Back to my tiles</span>
-        </Link>
+        <header className="page-head">
+          <p className="eyebrow">My eyes</p>
+          <h1>Set up my eyes</h1>
+        </header>
+        <div className="card card-pad setup-card">
+          <span className="setup-icon" aria-hidden="true">
+            <CameraOff size={34} />
+          </span>
+          <p className="lead">
+            Turn on &ldquo;Use my eyes and hands&rdquo; on the home screen first. The camera
+            stays on this tablet. No video is saved.
+          </p>
+          <Link href={`/resident/${id}/speak`} className="btn" data-variant="primary" data-size="lg">
+            Back to my tiles
+          </Link>
+        </div>
       </div>
     );
   }
@@ -109,11 +125,46 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   if (phase === "intro") {
     return (
       <div className="stack calibrate-page">
-        <h1>Set up my eyes</h1>
-        <p>Look at each star, then tap it 5 times. It takes about a minute.</p>
-        <button type="button" className="tile tile-button" onClick={() => void begin()} disabled={starting}>
-          <span className="tile-label">{starting ? "Starting camera…" : "Start"}</span>
-        </button>
+        <header className="page-head">
+          <p className="eyebrow">My eyes</p>
+          <h1>Set up my eyes</h1>
+          <p className="lead">It takes about a minute. Sit comfortably, an arm&rsquo;s length away.</p>
+        </header>
+        <div className="card card-pad setup-card">
+          <ol className="setup-steps">
+            <li>
+              <span className="setup-step-icon" aria-hidden="true">⭐</span>
+              <strong>Look</strong>
+              <span>at each star</span>
+            </li>
+            <li>
+              <span className="setup-step-icon" aria-hidden="true">👆</span>
+              <strong>Tap it</strong>
+              <span>5 times</span>
+            </li>
+            <li>
+              <span className="setup-step-icon" aria-hidden="true">✨</span>
+              <strong>Quick check</strong>
+              <span>5 circles</span>
+            </li>
+          </ol>
+          <button
+            type="button"
+            className="btn"
+            data-variant="primary"
+            data-size="xl"
+            onClick={() => void begin()}
+            disabled={starting}
+          >
+            <Eye size={24} aria-hidden="true" />
+            {starting ? "Starting camera…" : "Start"}
+          </button>
+          {cameraError ? (
+            <p className="note" role="status">
+              The camera could not start. Check permissions, then try again.
+            </p>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -122,12 +173,20 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
     const pos = POSITIONS[targetIndex];
     return (
       <div className="calibrate-stage">
-        <p className="calibrate-count" role="status">
-          Star {targetIndex + 1} of {POSITIONS.length} — tap {TAPS_PER_TARGET - taps} more
-        </p>
+        <div className="calibrate-hud card" role="status">
+          <span className="calibrate-hud-label">
+            Star {targetIndex + 1} of {POSITIONS.length}
+          </span>
+          <span className="tap-dots" aria-hidden="true">
+            {Array.from({ length: TAPS_PER_TARGET }, (_, i) => (
+              <span key={i} className="tap-dot" data-done={i < taps} />
+            ))}
+          </span>
+          <span className="calibrate-hud-hint">tap {TAPS_PER_TARGET - taps} more</span>
+        </div>
         <button
           type="button"
-          className="calibrate-target"
+          className="calibrate-target pulse-slow"
           style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
           onClick={tapTarget}
           aria-label={`Calibration star ${targetIndex + 1}, look at it and tap`}
@@ -141,12 +200,15 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   if (phase === "checking") {
     return (
       <div className="calibrate-stage">
-        <p className="calibrate-count" role="status">
-          Check {checkIndex + 1} of {CHECK_POINTS} — look at the circle, then tap it
-        </p>
+        <div className="calibrate-hud card" role="status">
+          <span className="calibrate-hud-label">
+            Check {checkIndex + 1} of {CHECK_POINTS}
+          </span>
+          <span className="calibrate-hud-hint">look at the circle, then tap it</span>
+        </div>
         <button
           type="button"
-          className="calibrate-target check"
+          className="calibrate-target check pulse-slow"
           style={{ left: `${checkTarget.x * 100}%`, top: `${checkTarget.y * 100}%` }}
           onClick={measureCheckPoint}
           aria-label="Accuracy check point"
@@ -159,23 +221,33 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="stack calibrate-page">
-      <h1>
-        {result === "good" ? "Good! 🎉" : result === "okay" ? "Okay 👍" : "Let’s try again"}
-      </h1>
-      <p>
-        {result === "retry"
-          ? "Sit 50–70 cm from the screen with light on your face, then try again."
-          : "Your eyes are ready. Calibration lasts until this tablet is closed."}
-      </p>
-      <div className="speak-actions">
-        {result === "retry" ? (
-          <button type="button" className="tile tile-button" onClick={() => void begin()}>
-            <span className="tile-label">Try again</span>
-          </button>
-        ) : null}
-        <Link prefetch={false} href={`/resident/${id}`} className="tile tile-button">
-          <span className="tile-label">Back to my tiles</span>
-        </Link>
+      <div className="card card-pad setup-card result-card" data-result={result ?? "okay"}>
+        <span className="setup-icon" aria-hidden="true">
+          {result === "retry" ? <Hand size={34} /> : <Sparkles size={34} />}
+        </span>
+        <h1>
+          {result === "good" ? "Lovely!" : result === "okay" ? "That works" : "Let’s try again"}
+        </h1>
+        <p className="lead">
+          {result === "retry"
+            ? "Sit 50–70 cm from the screen with light on your face, then try again."
+            : "Your eyes are ready. This lasts until the tablet is closed."}
+        </p>
+        <div className="setup-actions">
+          {result === "retry" ? (
+            <button type="button" className="btn" data-variant="primary" data-size="xl" onClick={() => void begin()}>
+              Try again
+            </button>
+          ) : null}
+          <Link
+            href={`/resident/${id}/speak`}
+            className="btn"
+            data-variant={result === "retry" ? "soft" : "primary"}
+            data-size="xl"
+          >
+            Back to my tiles
+          </Link>
+        </div>
       </div>
     </div>
   );

@@ -16,14 +16,14 @@ test.use({
 test("TC1: camera off — everything works by touch, no indicator, no eye grid", async ({
   page,
 }) => {
-  await page.goto("/resident/marcus");
+  await page.goto("/resident/marcus/speak");
   await expect(page.getByRole("button", { name: "Use my eyes and hands" })).toBeVisible();
   await expect(page.getByText("Camera on")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Eye grid" })).toHaveCount(0);
 
-  // Touch flow untouched: tap a tile, it lands in the sentence.
+  // Touch flow untouched: tap a tile, it lands in the composer sentence.
   await page.getByRole("button", { name: "coffee", exact: true }).click();
-  await expect(page.locator(".sentence")).toContainText("coffee");
+  await expect(page.locator(".composer-sentence")).toContainText("coffee");
 });
 
 test("calibration screen is gated on consent", async ({ page }) => {
@@ -37,12 +37,13 @@ test("teach-a-gesture screen is gated on consent", async ({ page }) => {
   await expect(page.getByText("Turn on “Use my eyes and hands”")).toBeVisible();
 });
 
-test("G7: How I Communicate card leads onboarding Essentials with the source label", async ({
+test("G7: How I Communicate card sits in the onboarding communication step", async ({
   page,
 }) => {
   await page.goto("/staff/marcus/onboarding");
-  await expect(page.getByText("How Marcus communicates")).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText("input history")).toBeVisible();
+  // The card lives on the "How they communicate" step after the redesign.
+  await page.getByRole("button", { name: /how they communicate/i }).click();
+  await expect(page.getByText("From Marcus's input history")).toBeVisible({ timeout: 20_000 });
 });
 
 test("consent on: eye-grid toggle appears; camera path degrades without crashing", async ({
@@ -54,7 +55,7 @@ test("consent on: eye-grid toggle appears; camera path degrades without crashing
   await page.addInitScript(() => {
     window.localStorage.setItem("imw-camera-consent-marcus", "yes");
   });
-  await page.goto("/resident/marcus");
+  await page.goto("/resident/marcus/speak");
 
   await expect(page.getByRole("button", { name: "Eye grid" })).toBeVisible();
   await page.getByRole("button", { name: "Eye grid" }).click();
@@ -65,7 +66,7 @@ test("consent on: eye-grid toggle appears; camera path degrades without crashing
 
   // Touch still works ON the gaze grid (every tile stays tappable).
   await page.getByRole("button", { name: "coffee", exact: true }).click();
-  await expect(page.locator(".sentence")).toContainText("coffee");
+  await expect(page.locator(".composer-sentence")).toContainText("coffee");
 
   // Give WebGazer + MediaPipe time against the fake camera, then the only
   // hard requirement: no uncaught errors — consent on a camera-less box

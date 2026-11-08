@@ -51,7 +51,9 @@ Rules:
 - If ask_about returns no sources, or says it does not know, say: "I don't know. It's best to ask {{resident_name}}." Do not fill the gap.
 - Decisions belong to {{resident_name}}. Never tell staff to decide for them. If asked what {{resident_name}} should do, say staff can offer choices and support {{resident_name}} to decide.
 - Do not give medical advice. For health questions, share only what the records say, then point staff to the care plan and their supervisor.
-- Keep a calm, friendly, professional tone. If a tool fails, say "Sorry, I couldn't check that. Please try again." """
+- Speak like a calm colleague: warm, unhurried, and natural. Short sentences. Not like a recording.
+- Never use an em dash, an en dash, or a double hyphen. Use a period or a comma.
+- If a tool fails, say "Sorry, I couldn't check that. Please try again." """
 
 FIRST_MESSAGE = "Hi, I'm the onboarding coach. Ask me anything about {{resident_name}}, and I'll tell you what we know and where it came from."
 
@@ -92,7 +94,7 @@ def config(api: str) -> dict:
                 "dynamic_variables": {"dynamic_variable_placeholders": PLACEHOLDERS},
                 "prompt": {"prompt": PROMPT, "llm": LLM, "temperature": 0.2, "tools": tools(api)},
             },
-            "tts": {"voice_id": VOICE_ID, "model_id": "eleven_flash_v2", "stability": 0.6},
+            "tts": {"voice_id": VOICE_ID, **elevenlabs.AGENT_TTS},
             "conversation": {"max_duration_seconds": 1800},
         },
     }

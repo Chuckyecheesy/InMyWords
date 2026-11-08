@@ -129,7 +129,10 @@ cd $REMOTE
 /opt/inmywords-venv/bin/pip install -q -r api/requirements.txt -r mcp/requirements.txt fastmcp
 cd web
 npm ci --no-audit --no-fund --loglevel=error
-set -a; . /etc/inmywords.env; set +a
+# Parse dotenv values as data; never execute the secrets file as shell code.
+env_exports=\$(/opt/inmywords-venv/bin/python $REMOTE/api/scripts/shell_env.py /etc/inmywords.env)
+eval \"\$env_exports\"
+unset env_exports
 if cloud=\$(cd $REMOTE/api && /opt/inmywords-venv/bin/python -m scripts.print_cloud_name); then
   export CLOUDINARY_CLOUD_NAME=\"\$cloud\"
   export NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=\"\$cloud\"
@@ -156,7 +159,9 @@ ln -sfn /var/lib/inmywords/runtime.json $REMOTE/db/seed/.runtime.json"
 step "Uploading demo photos through the Cloudinary API"
 # Uses the cloud name, key, and secret already on the VM. Prints public ids only.
 ssh_root "set -eo pipefail
-set -a; . /etc/inmywords.env; set +a
+env_exports=\$(/opt/inmywords-venv/bin/python $REMOTE/api/scripts/shell_env.py /etc/inmywords.env)
+eval \"\$env_exports\"
+unset env_exports
 cd $REMOTE/api
 /opt/inmywords-venv/bin/python -m scripts.upload_demo_photos" \
   || echo "WARNING: Cloudinary upload did not finish. Tiles use the last photos that reached the cloud." >&2
@@ -263,16 +268,19 @@ write_caddy() {  # $1 = tls | plain
   local conf
   if [ "$1" = tls ]; then
     conf="$DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:3000
 }
 
 $API_DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:8000
 }
 
 $BOOKING_DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:8200
 }
@@ -283,16 +291,19 @@ http://$HOST {
 "
   else
     conf="http://$DOMAIN, http://$HOST {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:3000
 }
 
 http://$API_DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:8000
 }
 
 http://$BOOKING_DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:8200
 }

@@ -14,6 +14,7 @@ import {
 import { ObservationForm } from "@/components/ObservationForm";
 import { Badge, FactList, SourceBadge, SourceLegend } from "@/components/ui";
 import { getProfile, getResident, getStory } from "@/lib/api";
+import { forSpeech } from "@/lib/format";
 
 export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,7 +32,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
         <section className="profile-hero" aria-label={`In ${name}'s words`}>
           <div className="stack-sm">
             <p className="eyebrow">In {name}&apos;s words</p>
-            <p className="profile-quote">&ldquo;{p.summary.text}&rdquo;</p>
+            <p className="profile-quote">&ldquo;{forSpeech(p.summary.text)}&rdquo;</p>
             <div>
               <SourceBadge source={p.summary.source} name={name} date={p.summary.date} />
             </div>

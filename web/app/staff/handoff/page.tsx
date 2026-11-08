@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { LoadingNotice } from "@/components/LoadingNotice";
 import { CircleCheck, CircleX, Eye, History, UserRound } from "lucide-react";
 import { DataBanner } from "@/components/DataBanner";
 import { handoffKind } from "@/components/HandoffBits";
@@ -33,11 +35,7 @@ export default async function HandoffPage({
   );
   const person = people.find((item) => item.data.id === requested?.toLowerCase()) ?? people[0];
   if (!person) return null;
-  const handoff = await getHandoff(DEMO_STAFF.id, person.data.id);
-  const sample = person.origin === "sample" || handoff.origin === "sample";
-  const name = person.data.name;
-  const kinds = handoff.data.map(handoffKind);
-  const count = (keys: string[]) => kinds.filter((kind) => keys.includes(kind.key)).length;
+  const sample = person.origin === "sample";
 
   return (
     <>
@@ -47,7 +45,7 @@ export default async function HandoffPage({
 
       {sample ? (
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <DataBanner>Sample data — the API didn&apos;t answer, so this is the demo handoff.</DataBanner>
+          <DataBanner>Sample data — the API didn&apos;t answer, so these are the demo residents.</DataBanner>
         </div>
       ) : null}
 
@@ -64,7 +62,34 @@ export default async function HandoffPage({
         ))}
       </nav>
       <StaffNav id={person.data.id} />
+      <Suspense
+        key={person.data.id}
+        fallback={<LoadingNotice message="Loading updates since your last shift…" />}
+      >
+        <HandoffItems residentId={person.data.id} residentName={person.data.name} />
+      </Suspense>
+    </>
+  );
+}
 
+async function HandoffItems({
+  residentId,
+  residentName: name,
+}: {
+  residentId: string;
+  residentName: string;
+}) {
+  const handoff = await getHandoff(DEMO_STAFF.id, residentId);
+  const kinds = handoff.data.map(handoffKind);
+  const count = (keys: string[]) => kinds.filter((kind) => keys.includes(kind.key)).length;
+
+  return (
+    <>
+      {handoff.origin === "sample" ? (
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <DataBanner>Sample data — the API didn&apos;t answer, so this is the demo handoff.</DataBanner>
+        </div>
+      ) : null}
       {handoff.data.length === 0 ? (
         <EmptyState icon={<History size={30} />} title="Nothing new since the last shift">
           No checklist changes, notes or patterns for {name}.

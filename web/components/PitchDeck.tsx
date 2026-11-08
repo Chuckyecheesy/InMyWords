@@ -9,14 +9,16 @@ export function PitchDeck() {
   const slide = PITCH_SLIDES[index];
 
   return (
-    <section className="block" data-testid="pitch-deck" aria-label="Pitch deck">
-      <p className="eyebrow">
+    <section className="block entry-stage pitch-stage" data-testid="pitch-deck" aria-label="Pitch deck">
+      <p className="kicker">
         Slide {index + 1} of {PITCH_SLIDES.length}
       </p>
-      <p className="eyebrow">{slide.kicker}</p>
+      <p className="kicker kicker-accent">{slide.kicker}</p>
       <h2>{slide.title}</h2>
       {slide.lines.map((line) => (
-        <p key={line}>{line}</p>
+        <p key={line} className="pitch-line">
+          {line}
+        </p>
       ))}
       <div className="speak-actions">
         <BigButton disabled={index === 0} onClick={() => setIndex((current) => current - 1)}>

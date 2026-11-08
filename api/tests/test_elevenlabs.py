@@ -70,7 +70,26 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
         req = self.fake.calls[0]
         self.assertEqual(req.url.path, "/v1/text-to-speech/voice_abc")
         self.assertEqual(req.headers["xi-api-key"], "test-key")
-        self.assertEqual(json.loads(req.content), {"text": "coffee now", "model_id": elevenlabs.TTS_MODEL})
+        self.assertEqual(
+            json.loads(req.content),
+            {"text": "coffee now", "model_id": elevenlabs.TTS_MODEL, "voice_settings": elevenlabs.VOICE_SETTINGS},
+        )
+
+    async def test_em_dash_becomes_a_sentence_and_shares_the_cache(self):
+        dashed, cached1 = await elevenlabs.synthesize("v1", "Loud rooms are hard for me — quiet helps.")
+        plain, cached2 = await elevenlabs.synthesize("v1", "Loud rooms are hard for me. Quiet helps.")
+        body = json.loads(self.fake.calls[0].content)
+        self.assertEqual(body["text"], "Loud rooms are hard for me. Quiet helps.")
+        self.assertEqual(body["voice_settings"]["speed"], 0.8)
+        self.assertLess(body["voice_settings"]["stability"], 0.5)
+        self.assertEqual(dashed, plain)
+        self.assertEqual((cached1, cached2), (False, True))
+        self.assertEqual(len(self.fake.calls), 1)
+
+    async def test_hyphenated_words_stay(self):
+        await elevenlabs.synthesize("v1", "I want a double-double.")
+        body = json.loads(self.fake.calls[0].content)
+        self.assertEqual(body["text"], "I want a double-double.")
 
     async def test_whitespace_shares_cache_but_voice_does_not(self):
         a, _ = await elevenlabs.synthesize("v1", "coffee   now ")

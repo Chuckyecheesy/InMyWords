@@ -121,7 +121,8 @@ SCHEMAS: dict[str, dict] = {
     "story": {
         "draft": _object(
             "My Story chapter draft. 3 to 5 first-person sentences. "
-            "Use only the interview answers. Do not add facts.",
+            "Use only the interview answers. Do not add facts. "
+            "No em dashes or en dashes.",
             {"text": {"type": "string"}},
             ["text"],
         ),
@@ -152,6 +153,7 @@ SCHEMAS: dict[str, dict] = {
         "answer": _object(
             "Onboarding Coach. 1 to 3 plain sentences grounded in the supplied facts. "
             "If none of the facts answer the question, say so in answer and leave sources empty. "
+            "No em dashes or en dashes. "
             "Source type pattern means a noticed pattern, not the resident's words.",
             {
                 "answer": {"type": "string"},

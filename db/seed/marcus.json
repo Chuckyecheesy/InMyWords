@@ -24,7 +24,7 @@
   "story_chapters": [
     {
       "chapter_key": "about_me",
-      "text": "I'm Marcus. I'm 34. I love the Raptors and bowling on Saturdays. My coffee order is a double-double from Tim's. Loud rooms are hard for me — quiet helps.",
+      "text": "I'm Marcus. I'm 34. I love the Raptors and bowling on Saturdays. My coffee order is a double-double from Tim's. Loud rooms are hard for me. Quiet helps.",
       "photo_ids": ["story/marcus_portrait", "story/marcus_bowling"],
       "status": "draft"
     },

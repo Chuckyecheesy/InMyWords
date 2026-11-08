@@ -26,7 +26,8 @@ _SYSTEM = (
     "Write one short neutral line for each option. "
     "Do not recommend, compare, or rank them. "
     "Do not write prices, dollars, or money left. "
-    "Include the option called not decided yet, and let the person wait."
+    "Include the option called not decided yet, and let the person wait. "
+    "Use periods and commas. Never use an em dash, an en dash, or a double hyphen."
 )
 
 

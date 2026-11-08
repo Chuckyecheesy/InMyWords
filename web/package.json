@@ -9,7 +9,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --import ./test/resolve-ts.mjs --test lib/cloudinary.test.ts && node --import tsx --test --test-concurrency=1 test/custom-gestures.test.ts test/gaze-input.test.ts test/t1-4.test.ts test/t3-4.test.tsx test/t4-3.test.tsx test/t4-5-staff.test.tsx test/t4-5.test.tsx test/t4-6.test.tsx test/t4-6-frontend.test.tsx test/t4-7.test.tsx test/t4-7-a11y.test.tsx test/t4-7-undo.test.tsx",
+    "test": "node --experimental-strip-types --import ./test/resolve-ts.mjs --test lib/cloudinary.test.ts && node --import tsx --test --test-concurrency=1 test/custom-gestures.test.ts test/gaze-input.test.ts test/t1-4.test.ts test/t3-4.test.tsx test/t4-3.test.tsx test/loading.test.tsx test/t4-5-staff.test.tsx test/t4-5.test.tsx test/t4-6.test.tsx test/t4-6-frontend.test.tsx test/t4-7.test.tsx test/t4-7-a11y.test.tsx test/t4-7-undo.test.tsx",
     "e2e": "playwright test"
   },
   "dependencies": {
