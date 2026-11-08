@@ -601,7 +601,7 @@ export function WeekView({
                 >
                   {placed.map(({ visit: v, top, height, lane, lanes }) => {
                     const hoursTall = (height / 100) * hours.length;
-                    const short = hoursTall < 0.9; // under ~an hour: one line
+                    const short = hoursTall < 0.9; // under ~an hour: title only
                     const roomy = hoursTall >= 3; // room for time, title and label
                     return (
                       <article
@@ -621,21 +621,19 @@ export function WeekView({
                         }${v.google_synced ? `, on ${staffName(staff, v.staff)}'s calendar` : ""}`}
                       >
                         {short ? (
-                          // Under an hour there is room for one line: the title. The time is
-                          // where it sits on the grid, and the full range is in aria-label.
                           <span className="visit-what">{what(v)}</span>
                         ) : (
                           <>
-                            <strong className="visit-time">
-                              <span>{clock(v.starts_at)}–</span>
-                              <span>{clock(v.ends_at)}</span>
-                            </strong>
                             <span className="visit-what">
                               {what(v)}
                               {v.google_synced ? (
                                 <CalendarCheck className="visit-synced-icon" size={20} aria-hidden="true" />
                               ) : null}
                             </span>
+                            <strong className="visit-time">
+                              <span>{clock(v.starts_at)}–</span>
+                              <span>{clock(v.ends_at)}</span>
+                            </strong>
                             {v.status === "pending" && !v.read_only ? (
                               <span className="visit-status">Waiting for {staffName(staff, v.staff)}</span>
                             ) : null}

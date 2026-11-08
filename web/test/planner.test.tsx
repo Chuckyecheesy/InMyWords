@@ -225,6 +225,20 @@ describe("My week", () => {
     assert.equal(container.querySelector(".cal-event .visit-label")?.textContent, "In Dana's words");
   });
 
+  test("one-hour visits put the meeting name before its time", () => {
+    const { container } = planner({
+      initialVisits: [visit("2026-11-09", {
+        staff: "jordan",
+        starts_at: "2026-11-09T10:00:00-05:00",
+        ends_at: "2026-11-09T11:00:00-05:00",
+        status: "pending",
+      })],
+    });
+    const block = container.querySelector(".visit-block") as HTMLElement;
+    assert.equal(block.firstElementChild?.textContent, "Meeting with Jordan");
+    assert.match(block.getAttribute("aria-label") ?? "", /10:00a\.m\.–11:00a\.m\., Meeting with Jordan.*waiting for Jordan/);
+  });
+
   test("a short event shows its title (its time is its place on the grid)", () => {
     const { container } = planner({
       initialVisits: [visit("2026-11-09", { read_only: true, title: "Breakfast", source: "staff",
