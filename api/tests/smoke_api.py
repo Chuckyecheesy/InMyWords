@@ -26,7 +26,9 @@ def hit(method, path, body=None, expect_keys=()):
     req = urllib.request.Request(url, data=data, method=method,
                                  headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        # 60s: live Gemini endpoints (/suggest, /story/draft, /coach/ask) can
+        # take 10-20s each; demo-critical latency is tracked separately.
+        with urllib.request.urlopen(req, timeout=60) as resp:
             payload = json.loads(resp.read().decode())
         missing = [k for k in expect_keys if k not in payload]
         if missing:
@@ -43,7 +45,7 @@ def hit(method, path, body=None, expect_keys=()):
 
 print("residents + speak-for-me")
 hit("GET", "/residents/marcus", expect_keys=("name", "voice_id", "tiles", "communication_style"))
-hit("PUT", "/residents/marcus/voice", {"voice_id": "voice_marcus_1"}, ("ok",))
+hit("PUT", "/residents/marcus/voice", {"voice_id": "kH3DRVrsOPrpd0ciIeWk"}, ("ok",))  # real ElevenLabs voice (James's T1.1)
 hit("POST", "/suggest", {"resident_id": "marcus", "tiles": ["coffee", "now"], "time": "morning"},
     ("options",))
 hit("POST", "/speak", {"resident_id": "marcus", "text": "Can I get a double-double?"}, ("audio_url",))
