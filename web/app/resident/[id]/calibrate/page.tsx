@@ -99,7 +99,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
           Turn on “Use my eyes and hands” on the home screen first. The camera stays on this
           tablet. No video is saved.
         </p>
-        <Link href={`/resident/${id}`} className="tile tile-button">
+        <Link prefetch={false} href={`/resident/${id}`} className="tile tile-button">
           <span className="tile-label">Back to my tiles</span>
         </Link>
       </div>
@@ -173,7 +173,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
             <span className="tile-label">Try again</span>
           </button>
         ) : null}
-        <Link href={`/resident/${id}`} className="tile tile-button">
+        <Link prefetch={false} href={`/resident/${id}`} className="tile tile-button">
           <span className="tile-label">Back to my tiles</span>
         </Link>
       </div>

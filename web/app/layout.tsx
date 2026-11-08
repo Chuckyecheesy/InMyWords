@@ -1,20 +1,27 @@
 import type { Metadata } from "next";
-import { Atkinson_Hyperlegible, Bricolage_Grotesque } from "next/font/google";
+import { Atkinson_Hyperlegible_Next, Instrument_Serif } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
-const body = Atkinson_Hyperlegible({
+// Atkinson Hyperlegible Next: designed for low-vision readers; clear
+// letterforms suit AAC labels. Instrument Serif gives My Story its voice.
+const body = Atkinson_Hyperlegible_Next({
   subsets: ["latin"],
-  weight: ["400", "700"],
   variable: "--font-body",
   display: "swap",
 });
 
-const display = Bricolage_Grotesque({
+const serif = Instrument_Serif({
   subsets: ["latin"],
-  variable: "--font-display",
+  weight: "400",
+  style: ["normal", "italic"],
+  variable: "--font-serif",
   display: "swap",
 });
+
+export const viewport = {
+  themeColor: "#f8f7f4",
+};
 
 export const metadata: Metadata = {
   title: {
@@ -32,7 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${body.variable} ${display.variable}`}
+      className={`${body.variable} ${serif.variable}`}
       suppressHydrationWarning
     >
       <head>

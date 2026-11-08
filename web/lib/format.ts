@@ -59,15 +59,15 @@ export function sourceChip(
   type: SourceType,
   residentName: string,
   date: string | null,
+  author?: string,
 ): { tone: ChipTone; label: string } {
   switch (type) {
     case "resident":
       return { tone: "resident", label: `In ${residentName}'s words` };
-    case "staff":
-      return {
-        tone: "staff",
-        label: date ? `Staff note, ${formatDay(date)}` : "Staff note",
-      };
+    case "staff": {
+      const who = author ? `Staff note · ${author}` : "Staff note";
+      return { tone: "staff", label: date ? `${who}, ${formatDay(date)}` : who };
+    }
     case "emh":
       return {
         tone: "emh",
@@ -128,10 +128,14 @@ export function choiceStanding(
 const CHAPTER_TITLES: Record<string, string> = {
   about_me: "About me",
   where_im_from: "Where I'm from",
+  growing_up: "Growing up",
   people: "People who matter",
+  people_who_matter: "People who matter",
+  family: "My family",
+  favourite_places: "My favourite places",
   things_i_love: "Things I love",
   what_helps: "What upsets me and what helps",
-  my_day: "My day",
+  my_day: "My daily life",
   what_i_want: "What I want next",
 };
 
@@ -141,6 +145,8 @@ export function chapterTitle(key: string): string {
 
 const CATEGORY_LABELS: Record<string, string> = {
   drinks: "Drinks",
+  "food & drink": "Food & drink",
+  answers: "Answers",
   activities: "Activities",
   people: "People",
   places: "Places",
@@ -151,4 +157,30 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 export function categoryLabel(category: string): string {
   return CATEGORY_LABELS[category] ?? category.slice(0, 1).toUpperCase() + category.slice(1);
+}
+
+/** "Good morning" in the home's time zone, so server and client agree. */
+export function greeting(now = new Date()): string {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Toronto",
+      hour: "numeric",
+      hourCycle: "h23",
+    }).format(now),
+  );
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+export function initials(name: string): string {
+  return name.trim().slice(0, 1).toUpperCase() || "?";
+}
+
+/** Plain arithmetic for the choice card. Null when there is no budget. */
+export function budgetLeft(cost: number, weeklyBudget: number | null): string | null {
+  if (weeklyBudget == null) return null;
+  const left = weeklyBudget - cost;
+  if (left >= 0) return `You'd have ${money(left)} left this week.`;
+  return `That's ${money(Math.abs(left))} more than this week's money.`;
 }

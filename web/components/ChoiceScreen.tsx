@@ -4,11 +4,12 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { createChoice, decideChoice, planActions, speak, type ActionPlan, type AgentNote } from "@/lib/api";
 import { choicePrompt, NOT_DECIDED_LABEL, NOT_DECIDED_VALUE } from "@/lib/choice-prompts";
 import { DeliveredPhoto } from "@/components/DeliveredPhoto";
-import { tileImageUrl } from "@/lib/cloudinary";
+import { Check, Clock, RotateCcw, Volume2, Wallet } from "lucide-react";
 import { choiceStanding, consequence, money } from "@/lib/format";
 import type { ChoiceOption, ChoiceResult } from "@/lib/types";
 import { ApprovalCard } from "./ApprovalCard";
-import { BigButton } from "./shared";
+import { OptionArt } from "./ChapterArt";
+import { ThinkingDots } from "./ui";
 
 const LONG_PRESS_MS = 600;
 
@@ -128,79 +129,178 @@ export function ChoiceScreen({
     setChosen(decided ? null : option.label);
   }
 
-  if (!prompt) return <p>No choice is open.</p>;
+  if (!prompt) {
+    return (
+      <div className="empty">
+        <h2>No choices waiting</h2>
+        <p>When there is something to decide, it will be here.</p>
+      </div>
+    );
+  }
+
+  const options = choice?.options ?? [];
+  const real = options.filter((option) => option.label.toLowerCase() !== NOT_DECIDED_LABEL);
+  const later = options.find((option) => option.label.toLowerCase() === NOT_DECIDED_LABEL);
 
   return (
-    <div className="stack">
-      <section className="block">
-        <h2>{choice?.question ?? prompt.question}</h2>
-        {choice?.weekly_budget != null ? (
-          <p>Weekly budget {money(choice.weekly_budget)}.</p>
-        ) : null}
-        {loading ? <p role="status">Thinking…</p> : null}
-        {error ? <p className="note">{error}</p> : null}
-        <div className="choice-options" role="group" aria-label="Choices">
-          {(choice?.options ?? []).map((option) => {
-            const calm = option.photo ? tileImageUrl(option.photo, "calm") : null;
-            const contrast = option.photo ? tileImageUrl(option.photo, "contrast") : null;
-            const selected = chosen === option.label || (status === "not_yet_decided" && option.label.toLowerCase() === NOT_DECIDED_LABEL);
-            return (
+    <div className="choice-board">
+      <header className="choice-q">
+        <div className="stack-sm">
+          <p className="eyebrow">My Choices</p>
+          <h1>{choice?.question ?? prompt.question}</h1>
+          {choice?.weekly_budget != null ? (
+            <p className="lead">
+              <Wallet size={24} aria-hidden="true" className="inline-icon" />
+              <span>Weekly budget {money(choice.weekly_budget)}.</span>
+            </p>
+          ) : null}
+        </div>
+      </header>
+
+      {loading ? (
+        <p className="suggestions-head" role="status">
+          <ThinkingDots /> Thinking…
+        </p>
+      ) : null}
+      {error ? (
+        <div className="callout" data-tone="error" role="alert">
+          <div className="callout-body">{error}</div>
+        </div>
+      ) : null}
+
+      {status ? (
+        <div className="decision" data-tone={status === "chosen" ? undefined : "later"}>
+          <span className="decision-mark" aria-hidden="true">
+            {status === "chosen" ? <Check size={56} strokeWidth={2.5} /> : <Clock size={52} strokeWidth={2.2} />}
+          </span>
+          <h2 className="decision-title" data-testid="choice-standing">
+            {choiceStanding(status, residentName, chosen)}
+          </h2>
+          <p className="lead">
+            {status === "chosen"
+              ? "Saved to " + residentName + "'s choices."
+              : "That's okay. This choice is saved for later."}
+          </p>
+          <div className="row">
+            <button
+              type="button"
+              className="btn"
+              data-variant="secondary"
+              data-size="xl"
+              data-longpress="own"
+              onPointerDown={(event) => hold(event, "Undo")}
+              onClick={() => {
+                if (pressed.current) {
+                  pressed.current = false;
+                  return;
+                }
+                setStatus(null);
+                setChosen(null);
+                setPlan(null);
+              }}
+            >
+              <RotateCcw size={22} aria-hidden="true" />
+              Undo
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="option-grid" role="group" aria-label="Choices">
+            {real.map((option) => (
+              <article key={option.label} className="option-card" data-picked={chosen === option.label ? "" : undefined}>
+                <button
+                  type="button"
+                  className="option-select"
+                  data-longpress="own"
+                  aria-label={option.label}
+                  aria-pressed={chosen === option.label}
+                  data-choice={option.label}
+                  disabled={busy || loading}
+                  onPointerDown={(event) => hold(event, option.label)}
+                  onClick={() => {
+                    if (pressed.current) {
+                      pressed.current = false;
+                      return;
+                    }
+                    void pick(option);
+                  }}
+                >
+                  {option.photo ? (
+                    <span className="art option-photo">
+                      <DeliveredPhoto publicId={option.photo} mode="story" className="tile-img" />
+                    </span>
+                  ) : (
+                    <OptionArt label={option.label} />
+                  )}
+                  <span className="option-body">
+                    <span className="option-title">
+                      <span className="option-name">{option.label}</span>
+                      <span className="price">{money(option.cost)}</span>
+                    </span>
+                    {option.consequence ? <span className="option-line">{phraseOf(option.consequence)}</span> : null}
+                    <span className="option-line">{consequence(option.cost, choice?.weekly_budget ?? null)}</span>
+                    <span className="option-cta">Tap to choose</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="btn option-hear"
+                  data-variant="secondary"
+                  data-size="lg"
+                  data-longpress="own"
+                  aria-label={`Hear about ${option.label}`}
+                  onPointerDown={(event) => hold(event, `Hear about ${option.label}`)}
+                  onClick={() => {
+                    if (pressed.current) {
+                      pressed.current = false;
+                      return;
+                    }
+                    void hear(
+                      [option.label, option.consequence ? phraseOf(option.consequence) : "", consequence(option.cost, choice?.weekly_budget ?? null)]
+                        .filter(Boolean)
+                        .join(". "),
+                    );
+                  }}
+                >
+                  <Volume2 size={22} aria-hidden="true" />
+                  Hear this
+                </button>
+              </article>
+            ))}
+          </div>
+          {later ? (
+            <div className="not-ready">
               <button
-                key={option.label}
                 type="button"
-                className={`choice-button${selected ? " is-selected" : ""}`}
-                aria-label={option.label}
-                aria-pressed={selected}
-                data-choice={option.label}
+                className="btn"
+                data-variant="secondary"
+                data-size="xl"
+                data-choice={later.label}
+                data-longpress="own"
                 disabled={busy || loading}
-                onPointerDown={(event) => hold(event, option.label)}
+                onPointerDown={(event) => hold(event, later.label)}
                 onClick={() => {
                   if (pressed.current) {
                     pressed.current = false;
                     return;
                   }
-                  void pick(option);
+                  void pick(later);
                 }}
               >
-                {calm && contrast ? (
-                  <picture>
-                    <DeliveredPhoto publicId={option.photo ?? ""} mode="calm" className="choice-img choice-img-calm" />
-                    <DeliveredPhoto publicId={option.photo ?? ""} mode="contrast" className="choice-img choice-img-contrast" />
-                  </picture>
-                ) : (
-                  <span className="choice-letter" aria-hidden="true">
-                    {option.label.slice(0, 1)}
-                  </span>
-                )}
-                <span className="choice-label">{option.label}</span>
-                {option.consequence ? <span className="note">{phraseOf(option.consequence)}</span> : null}
-                <span className="note">{consequence(option.cost, choice?.weekly_budget ?? null)}</span>
+                <Clock size={24} aria-hidden="true" />
+                Not decided yet — I&apos;m not ready
               </button>
-            );
-          })}
-        </div>
-        {status ? (
-          <p className="eyebrow" data-testid="choice-standing">
-            {choiceStanding(status, residentName, chosen)}
-          </p>
-        ) : null}
-        {status === "chosen" && !plan && !error ? (
-          <p role="status">The agents are looking this up.</p>
-        ) : null}
-        {plan && plan.agents.length > 0 ? <AgentShowcase agents={plan.agents} /> : null}
-        {status ? (
-          <BigButton
-            onLongPress={hear}
-            onClick={() => {
-              setStatus(null);
-              setChosen(null);
-              setPlan(null);
-            }}
-          >
-            Undo
-          </BigButton>
-        ) : null}
-      </section>
+            </div>
+          ) : null}
+        </>
+      )}
+      {status === "chosen" && !plan && !error ? (
+        <p className="suggestions-head" role="status">
+          <ThinkingDots /> The agents are looking this up.
+        </p>
+      ) : null}
+      {plan && plan.agents.length > 0 ? <AgentShowcase agents={plan.agents} /> : null}
       {plan ? <ApprovalCard residentId={residentId} plan={plan} /> : null}
     </div>
   );

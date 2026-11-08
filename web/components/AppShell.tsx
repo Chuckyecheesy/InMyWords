@@ -1,7 +1,9 @@
 import Link from "next/link";
-import { ContrastToggle } from "./ContrastToggle";
-import { TextSizeToggle } from "./TextSizeToggle";
+import { ArrowLeft } from "lucide-react";
+import { DisplayMenu } from "./DisplayMenu";
+import { WordmarkMark } from "./ui";
 
+/** Plain shell for utility pages (not found, task board). */
 export function AppShell({
   title,
   eyebrow,
@@ -18,30 +20,33 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <div className="r-app">
       <a className="skip" href="#main">
         Skip to content
       </a>
-      <header className="topbar">
+      <header className="r-topbar">
         <Link href="/" className="wordmark">
+          <WordmarkMark />
           In My Words
         </Link>
-        <div className="topbar-actions">
-          <TextSizeToggle />
-          <ContrastToggle />
+        <div className="r-tools">
+          <DisplayMenu />
         </div>
       </header>
-      <main id="main" className="main">
+      <main id="main" className="r-main">
         {backHref ? (
-          <Link href={backHref} className="back-link">
+          <Link href={backHref} className="crumb">
+            <ArrowLeft size={18} aria-hidden="true" />
             {backLabel ?? "Back"}
           </Link>
         ) : null}
-        {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1>{title}</h1>
-        {lede ? <p className="lede">{lede}</p> : null}
+        <div className="page-head">
+          {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+          <h1>{title}</h1>
+          {lede ? <p className="lead">{lede}</p> : null}
+        </div>
         {children}
       </main>
-    </>
+    </div>
   );
 }
