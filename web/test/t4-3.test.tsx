@@ -354,9 +354,12 @@ describe("T4.3", { concurrency: false }, () => {
 
         const again = audioUrlFor("again");
         const before = playback.played.length;
-        rerender(createElement(AudioPlayback, { src: again, autoPlay: true, label: "Hear it" }));
+        rerender(createElement(AudioPlayback, { src: again, autoPlay: true, label: "Hear it", transcript: "I like Saturday bowling." }));
         assert.ok(playback.played.slice(before).includes(again), "autoPlay starts playback on mount");
         screen.getByRole("button", { name: "Hear it" });
+        screen.getByRole("button", { name: "Stop" });
+        const said = screen.getByText("I like Saturday bowling.");
+        assert.equal(document.querySelector("audio")?.getAttribute("aria-describedby"), said.id);
       } finally {
         playback.stop();
       }

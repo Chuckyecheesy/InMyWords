@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { TILE_RECIPE, tileImageUrl, unsignedUploadFields } from "./cloudinary.ts";
+import { TILE_RECIPE, storyImageUrl, tileImageUrl, unsignedUploadFields } from "./cloudinary.ts";
 
 test("a calm tile url uses the frozen recipe and strips a leading slash", () => {
   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = "inmywords";
@@ -55,4 +55,15 @@ test("unsigned upload fields refuse a missing preset or cloud name", () => {
   assert.throws(() =>
     unsignedUploadFields({ cloudName: "", uploadPreset: "staff_photos" }),
   );
+});
+
+test("a story image url uses the configured cloud, not a hardcoded one", () => {
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = "my-cloud";
+  assert.equal(
+    storyImageUrl("story/marcus_portrait"),
+    "https://res.cloudinary.com/my-cloud/image/upload/c_fill,g_auto,w_800,h_400/story/marcus_portrait.jpg",
+  );
+  delete process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  delete process.env.CLOUDINARY_CLOUD_NAME;
+  assert.equal(storyImageUrl("story/marcus_portrait"), null);
 });

@@ -215,15 +215,19 @@ export function CoachChat({
       </div>
 
       <div className="coach-input">
-        <input
-          type="text"
-          placeholder="Ask about Marcus..."
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          onKeyPress={(e) => e.key === "Enter" && handleAsk()}
-          disabled={isLoading}
-          className="coach-input-field"
-        />
+        <label className="coach-field" htmlFor="coach-question">
+          Ask a question
+          <input
+            id="coach-question"
+            type="text"
+            placeholder={`Ask about ${residentName}...`}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyPress={(e) => e.key === "Enter" && handleAsk()}
+            disabled={isLoading}
+            className="coach-input-field"
+          />
+        </label>
         <BigButton
           onClick={handleAsk}
           disabled={!question.trim() || isLoading}

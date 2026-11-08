@@ -52,5 +52,8 @@ def bookings_page():
 
 
 if __name__ == "__main__":
+    import os
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8200)
+    # Local default :8200; on Railway bind the public $PORT.
+    uvicorn.run(app, host="0.0.0.0" if os.environ.get("PORT") else "127.0.0.1",
+                port=int(os.environ.get("PORT", 8200)))

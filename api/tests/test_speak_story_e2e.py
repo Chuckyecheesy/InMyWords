@@ -46,34 +46,26 @@ class SpeakStorySplitTest(unittest.TestCase):
                 "/speak",
                 json={"resident_id": "marcus", "text": "Can I get a double-double?"},
             )
-            story = self.client.post("/story/approve", json={"chapter_id": 1})
+            story = self.client.post("/story/approve", json={"chapter_id": 99999})
             chapters = self.client.get("/story/marcus")
         self.assertEqual(speak.status_code, 200)
         self.assertIn("mock_marcus", speak.json()["audio_url"])
-        self.assertIn("mock_chapter", story.json()["audio_url"])
+        self.assertEqual(story.status_code, 422)
         self.assertIn("example.com", chapters.json()["chapters"][0]["audio_url"])
         self.assertIsNone(chapters.json()["chapters"][1]["audio_url"])
         self.assertEqual(self.spoken, [])
 
-    def test_live_voice_narrates_story_without_reusing_the_speak_line(self):
+    def test_live_voice_speaks_the_approved_line_and_not_the_chapter(self):
         with patch.object(elevenlabs, "configured", return_value=True):
             speak = self.client.post(
                 "/speak",
                 json={"resident_id": "marcus", "text": "Can I get a double-double?"},
             )
-            approved = self.client.post("/story/approve", json={"chapter_id": 1})
-            chapters = self.client.get("/story/marcus")
+            approved = self.client.post("/story/approve", json={"chapter_id": 99999})
         self.assertEqual(speak.status_code, 200, speak.text)
         self.assertTrue(speak.json()["audio_url"].endswith("/audio/speak-1.mp3"))
-        self.assertTrue(approved.json()["audio_url"].endswith(".mp3"))
-        self.assertNotEqual(speak.json()["audio_url"], approved.json()["audio_url"])
-        self.assertEqual(self.spoken[0], "Can I get a double-double?")
-        self.assertTrue(self.spoken[1].startswith("I'm Marcus."))
-        approved_chapter = chapters.json()["chapters"][0]
-        draft = chapters.json()["chapters"][1]
-        self.assertIn("/audio/", approved_chapter["audio_url"])
-        self.assertIsNone(draft["audio_url"])
-        self.assertTrue(self.spoken[2].startswith("I'm Marcus."))
+        self.assertEqual(approved.status_code, 422)
+        self.assertEqual(self.spoken, ["Can I get a double-double?"])
 
     def test_tiles_stay_the_inventory_and_coffee_does_not_become_tea(self):
         resident = self.client.get("/residents/marcus")

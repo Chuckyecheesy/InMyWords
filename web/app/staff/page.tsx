@@ -18,7 +18,6 @@ export default async function StaffPage() {
     <AppShell
       eyebrow="Staff"
       title="Who are you here for?"
-      showBoard
       backHref="/"
       backLabel="Home"
     >

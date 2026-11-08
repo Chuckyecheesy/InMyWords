@@ -8,7 +8,6 @@ export function AppShell({
   lede,
   backHref,
   backLabel,
-  showBoard = false,
   children,
 }: {
   title: string;
@@ -16,7 +15,6 @@ export function AppShell({
   lede?: string;
   backHref?: string;
   backLabel?: string;
-  showBoard?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -29,11 +27,6 @@ export function AppShell({
           In My Words
         </Link>
         <div className="topbar-actions">
-          {showBoard ? (
-            <Link href="/tasks" className="text-link">
-              Task board
-            </Link>
-          ) : null}
           <TextSizeToggle />
           <ContrastToggle />
         </div>

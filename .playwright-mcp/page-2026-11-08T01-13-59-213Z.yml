@@ -1,0 +1,63 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - link "In My Words" [ref=e4] [cursor=pointer]:
+      - /url: /
+    - generic [ref=e5]:
+      - button "Larger text" [ref=e6] [cursor=pointer]
+      - button "High contrast" [ref=e7] [cursor=pointer]
+  - main [ref=e8]:
+    - link "Home" [ref=e9] [cursor=pointer]:
+      - /url: /
+    - paragraph [ref=e10]: Resident
+    - heading "Marcus" [level=1] [ref=e11]
+    - paragraph [ref=e12]: Single words and gestures. Picture tiles. Needs quiet to focus.
+    - navigation "Resident" [ref=e13]:
+      - link "Tiles" [ref=e14] [cursor=pointer]:
+        - /url: /resident/marcus
+      - link "Story" [ref=e15] [cursor=pointer]:
+        - /url: /resident/marcus/story
+      - link "Choice" [ref=e16] [cursor=pointer]:
+        - /url: /resident/marcus/choice
+      - link "Confirm" [ref=e17] [cursor=pointer]:
+        - /url: /resident/marcus/confirm
+      - link "Voice" [ref=e18] [cursor=pointer]:
+        - /url: /resident/marcus/voice
+    - generic [ref=e19]:
+      - region "Sentence" [ref=e20]:
+        - heading "Sentence" [level=2] [ref=e21]
+        - paragraph [ref=e22]: No sentence yet.
+      - generic [ref=e23]:
+        - button "Help me say it" [disabled] [ref=e24] [cursor=pointer]
+        - button "Speak tiles only" [disabled] [ref=e25] [cursor=pointer]
+        - button "now" [ref=e26] [cursor=pointer]
+      - generic [ref=e27]:
+        - heading "Activities" [level=2] [ref=e28]
+        - generic [ref=e29]:
+          - button "bowling" [ref=e30] [cursor=pointer]
+          - button "Raptors" [ref=e33] [cursor=pointer]
+          - button "music" [ref=e36] [cursor=pointer]
+      - generic [ref=e39]:
+        - heading "People" [level=2] [ref=e40]
+        - button "Lisa" [ref=e42] [cursor=pointer]
+      - generic [ref=e45]:
+        - heading "Places" [level=2] [ref=e46]
+        - generic [ref=e47]:
+          - button "park" [ref=e48] [cursor=pointer]
+          - button "bus" [ref=e51] [cursor=pointer]
+      - generic [ref=e54]:
+        - heading "Feelings" [level=2] [ref=e55]
+        - generic [ref=e56]:
+          - button "quiet" [ref=e57] [cursor=pointer]
+          - button "help" [ref=e60] [cursor=pointer]
+      - generic [ref=e63]:
+        - heading "Food & drink" [level=2] [ref=e64]
+        - generic [ref=e65]:
+          - button "coffee" [ref=e66] [cursor=pointer]
+          - button "tea" [ref=e69] [cursor=pointer]
+      - generic [ref=e72]:
+        - heading "Answers" [level=2] [ref=e73]
+        - generic [ref=e74]:
+          - button "yes" [ref=e75] [cursor=pointer]
+          - button "no" [ref=e78] [cursor=pointer]

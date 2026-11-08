@@ -1,6 +1,6 @@
 """T1.1: design 3 voices each for Marcus and Dana, save them, write voices.json.
 
-Run from api/ (needs ELEVENLABS_API_KEY in the repo-root .env):
+Run from api/ (needs ELEVENLABS_ID in the repo-root .env):
 
     python -m scripts.design_voices            # both residents
     python -m scripts.design_voices marcus     # just one
@@ -74,7 +74,7 @@ async def design(resident_id: str) -> dict:
 
 async def main(targets: list[str]) -> None:
     if not elevenlabs.configured():
-        sys.exit("ELEVENLABS_API_KEY is not set. Add it to the repo-root .env first.")
+        sys.exit("ELEVENLABS_ID is not set. Add it to the repo-root .env first.")
     unknown = [t for t in targets if t not in RESIDENTS]
     if unknown:
         sys.exit(f"Unknown resident(s): {', '.join(unknown)}. Known: {', '.join(RESIDENTS)}")

@@ -10,7 +10,7 @@ RESIDENTS = {
     "marcus": {
         "id": "marcus",
         "name": "Marcus",
-        "voice_id": "voice_marcus_1",
+        "voice_id": "kH3DRVrsOPrpd0ciIeWk",
         "communication_style": "Single words and gestures. Picture tiles. Needs quiet to focus.",
         "tiles": [
             {"id": 1, "label": "coffee", "category": "food & drink", "cloudinary_id": "tiles/marcus_coffee", "times_used": 48},
@@ -30,7 +30,7 @@ RESIDENTS = {
     "dana": {
         "id": "dana",
         "name": "Dana",
-        "voice_id": "voice_dana_1",
+        "voice_id": "HTTgQl5PH22smEaufnZl",
         "communication_style": "Picture tiles and some short phrases. Manages a weekly budget with support.",
         "tiles": [
             {"id": 21, "label": "garden", "category": "activities", "cloudinary_id": "tiles/dana_garden", "times_used": 35},

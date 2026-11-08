@@ -43,14 +43,14 @@ async function fetchJson(path: string): Promise<unknown | null> {
 
 async function sendJson<T>(
   path: string,
-  body: unknown,
-  method: "POST" | "PUT" = "POST",
+  body?: unknown,
+  method: "POST" | "PUT" | "GET" = "POST",
 ): Promise<MutationResult<T>> {
   try {
     const response = await fetch(`${apiBaseUrl()}${path}`, {
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers: method === "GET" ? undefined : { "Content-Type": "application/json" },
+      body: method === "GET" ? undefined : JSON.stringify(body),
       cache: "no-store",
     });
     if (!response.ok) {
@@ -289,15 +289,29 @@ export function saveStoryAnswer(input: {
   question: string;
   answer: string;
 }) {
-  return sendJson<{ ok: boolean }>("/story/answer", input);
+  return sendJson<{ ok: boolean; id?: number }>("/story/answer", input);
+}
+
+export function getStoryAnswers(residentId: string, chapter?: string) {
+  const params = new URLSearchParams();
+  if (chapter) params.set("chapter", chapter);
+  const query = params.size ? `?${params}` : "";
+  return sendJson<{ answers: { question: string; answer: string; chapter?: string }[] }>(
+    `/story/${encodeURIComponent(residentId)}/answers${query}`,
+    undefined,
+    "GET",
+  );
 }
 
 export function draftStory(input: { resident_id: string; chapter: string }) {
-  return sendJson<{ text: string }>("/story/draft", input);
+  return sendJson<{ text: string; chapter_id: number; status: string; audio_url: string | null }>(
+    "/story/draft",
+    input,
+  );
 }
 
-export function approveStory(input: { chapter_id: string }) {
-  return sendJson<{ audio_url: string }>("/story/approve", input);
+export function approveStory(input: { chapter_id: number }) {
+  return sendJson<{ audio_url: string; cached?: boolean }>("/story/approve", input);
 }
 
 export function askCoach(input: { resident_id: string; question: string }) {
