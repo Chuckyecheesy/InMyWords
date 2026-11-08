@@ -161,6 +161,8 @@ Group=app
 WorkingDirectory=$3
 EnvironmentFile=/etc/inmywords.env
 Environment=PYTHONUNBUFFERED=1
+# fastmcp and npm write caches under $HOME; ProtectHome hides /home, so use the state dir.
+Environment=HOME=/var/lib/inmywords
 $5
 ExecStart=$4
 Restart=always
