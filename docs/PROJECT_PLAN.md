@@ -54,7 +54,7 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 
 **My Planner** *(replaced My Story, Nov 8 — see §2.5)*
 - The resident inputs their own routine in plain, picture-and-time terms: who they want to see (a staff member), what time, how long, and which days. One choice at a time, big tiles, no typing required.
-- A weekly calendar (7 days a week) shows staff **visit hours** as blocks the resident can read at a glance. Example: Dana says "meet staff at 1:00pm for 2 hours" → the grid shows a **1:00–3:00 Meeting** block, repeating every day of the week.
+- A weekly calendar (7 days a week) shows staff **visit hours** as blocks the resident can read at a glance. Example: Dana says "meet staff at 1:00pm for 2 hours" → the grid shows a **1:00p.m.–3:00p.m. Meeting** block, repeating every day of the week.
 - A Gemini **Planner subagent** turns the routine into appointments and books them on staff's calendar through a **Google Calendar MCP** server. If the MCP path doesn't work, a manually imported Google Calendar is rendered onto the UI instead (same grid, same blocks).
 - Nothing is booked silently: the subagent proposes the slots on an approval card, the resident approves, **then** it books (product rules 1 and 5). The routine the resident typed is "in Dana's words"; any slot the subagent suggests on its own is "pattern noticed" until she confirms it.
 
@@ -100,7 +100,7 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 
 **What the resident does**
 - Opens My Planner, picks a person to see (staff photo tiles), a start time, a length (e.g. 2 hours), and the day(s). Defaults to **7 days a week** (a daily recurring visit) unless the resident narrows it.
-- Sees the weekly grid fill with visit blocks. Example routine "1:00pm, 2 hours, every day" → a **1:00–3:00 Meeting** block on every day, starting Nov 8, 2026.
+- Sees the weekly grid fill with visit blocks. Example routine "1:00pm, 2 hours, every day" → a **1:00p.m.–3:00p.m. Meeting** block on every day, starting Nov 8, 2026.
 
 **What the Planner subagent does**
 - Reads the resident's routine (through the MCP servers, never the DB directly — rule 4) and turns it into a set of calendar events with explicit start/end times. Time math is **plain code, not the LLM** (rule 6); the LLM only phrases the proposal ("Meet staff at 1:00, finish by 3:00, every day this week?").
@@ -374,7 +374,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Tiffany (T2) publishes mo
 | Time | Beat | What happens | Driver |
 |---|---|---|---|
 | 0:00 | Hook | "Imagine learning about someone from a binder written years ago, by someone else." | T1 |
-| 0:20 | Planner | Dana sets "meet staff at 1:00, 2 hours, every day." The grid fills with 1:00–3:00 blocks; one approval books the staff visit on the shared calendar. "Her routine, her call." | T3 |
+| 0:20 | Planner | Dana sets "meet staff at 1:00pm, 2 hours, every day." The grid fills with 1:00p.m.–3:00p.m. blocks; one approval books the staff visit on the shared calendar. "Her routine, her call." | T3 |
 | 0:45 | Speak | coffee + now → "Can I get a double-double from Tim's?" → approve → spoken. | T3 |
 | 1:10 | Choice + Action | Marcus picks bowling. One approval card: book lane, add to calendar, text Lisa. He approves. Staff task for the ride appears. | T3 |
 | 1:40 | Memory | Coach: "Marcus has been choosing tea lately (pattern noticed)." Marcus taps yes; now "in Marcus's words." | T4 |

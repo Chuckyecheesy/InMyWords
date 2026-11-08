@@ -201,7 +201,7 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 **T2.2 — Seed data (hours 1–3)**
 
 - Marcus: 12 tiles (coffee, tea, bowling, Raptors, park, music, bus, quiet, Lisa, help, yes, no); a seeded routine + its visit_events; preferences (double-double, quiet spaces, bowling Saturdays, live basketball goal).
-- Dana: 12 tiles (garden, sister, groceries, tea, walk, money, TV, help, yes, no, etc.); a seeded routine (meet staff 1:00pm, 2h, daily → 1:00–3:00 visit_events for 7 days from Nov 8, 2026); weekly budget $60.
+- Dana: 12 tiles (garden, sister, groceries, tea, walk, money, TV, help, yes, no, etc.); a seeded routine (meet staff 1:00p.m., 2h, daily → 1:00p.m.–3:00p.m. visit_events for 7 days from Nov 8, 2026); weekly budget $60.
 - 2 weeks of EMH notes, checklist entries with reasons ("grocery shopping: didn't happen, bus cancelled"), significant events.
 - 2 weeks of memory history including a visible pattern: Marcus picked tea 5 times this week after months of coffee.
 - 3 staff (one new staff "Jordan" with no prior shifts), 2 homes, 1 manager.
@@ -294,7 +294,7 @@ You own everything the resident directly uses — the prompts AND the screens: S
 **T3.5 — Planner subagent + My Planner screens (hours 7–9)**
 
 - `POST /planner/plan`: expand a saved routine into proposed visit_events — **recurrence math in plain code**, Gemini only phrases the proposal. Ready by hour 9 for T1's readback.
-- My Planner screens: routine-input screen, then a weekly grid (7 days) showing visit blocks (e.g. 1:00–3:00), with an approval card before booking.
+- My Planner screens: routine-input screen, then a weekly grid (7 days) showing visit blocks (e.g. 1:00p.m.–3:00p.m.), with an approval card before booking.
 - Planner subagent books via the Google Calendar MCP (T2's `book_staff_visit`); manual-import fallback renders the same grid.
 - Sleep hours 9–12; up for **Milestone 2**.
 - ✅ Done when: a routine set by taps shows blocks on the weekly grid and an approved booking lands on the calendar.
@@ -415,7 +415,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 **T4.4 — My Planner screens (hours 6–10)**
 
 - PhotoChoiceGrid: a question plus 2–4 big photo tiles; reused by the planner to pick a staff person and days (with T1/T3).
-- Routine-input screen (person, start time, length, days — default all 7) and a weekly visit grid (7 days) showing blocks like 1:00–3:00.
+- Routine-input screen (person, start time, length, days — default all 7) and a weekly visit grid (7 days) showing blocks like 1:00p.m.–3:00p.m.
 - Approval card before any booking; booking goes via T2's `book_staff_visit` (Google Calendar MCP), with the manual-import fallback rendering the same grid.
 - ✅ Done when: a routine set by taps shows on the weekly grid and an approved visit lands on the calendar.
 
@@ -485,7 +485,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 
 **Milestone 2 (hour 12)**
 
-1. Set a routine by taps only ("meet staff 1:00pm, 2h, every day"). See 1:00–3:00 blocks on the weekly grid. Approve the booking; the staff visit lands on the calendar and the confirmation plays.
+1. Set a routine by taps only ("meet staff 1:00p.m., 2h, every day"). See 1:00p.m.–3:00p.m. blocks on the weekly grid. Approve the booking; the staff visit lands on the calendar and the confirmation plays.
 2. Switch to staff (Jordan). Ask the Coach "What upsets Marcus?" Answer has a source badge.
 3. Ask something unknown. Coach says "I don't know, ask Marcus."
 

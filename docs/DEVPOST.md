@@ -28,7 +28,7 @@ Keeping the resident in charge meant every path had a gate: suggestions are not 
 
 ## Accomplishments
 
-Marcus can go from tiles to a spoken sentence and from "bowling" to one approval card. Dana sets a routine and her 1:00–3:00 staff visit books itself across the week — her call, on her calendar. The tea-versus-coffee contradiction stays a question until he taps yes.
+Marcus can go from tiles to a spoken sentence and from "bowling" to one approval card. Dana sets a routine and her 1:00p.m.–3:00p.m. staff visit books itself across the week — her call, on her calendar. The tea-versus-coffee contradiction stays a question until he taps yes.
 
 ## What's next
 
