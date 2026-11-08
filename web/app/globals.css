@@ -512,6 +512,17 @@ a {
   width: min(100%, 240px);
 }
 
+.photo-review ul {
+  margin: 0 0 var(--space-2);
+  padding-left: 1.2em;
+}
+
+.photo-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .board {
   width: 100%;
   display: grid;
@@ -934,7 +945,7 @@ a {
   display: inline-block;
   padding: var(--space-1) var(--space-2);
   border-radius: calc(var(--radius) / 2);
-  font-size: calc(var(--text-body) * 0.9);
+  font-size: var(--text-body);
   font-weight: 600;
   white-space: nowrap;
   background: var(--paper-alt);
@@ -1066,7 +1077,7 @@ a {
 
 .essential-source {
   display: inline-block;
-  font-size: calc(var(--text-body) * 0.85);
+  font-size: var(--text-body);
   color: var(--text-muted);
   font-style: italic;
 }
@@ -1240,7 +1251,7 @@ a {
 
 .routine-source {
   display: inline-block;
-  font-size: calc(var(--text-body) * 0.85);
+  font-size: var(--text-body);
   color: var(--text-muted);
   font-style: italic;
 }

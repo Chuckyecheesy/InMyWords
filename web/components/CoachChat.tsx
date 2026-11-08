@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { BigButton, AudioPlayback } from "./shared";
+import { askCoach } from "@/lib/api";
+import { formatDay, formatYear } from "@/lib/format";
+import { BigButton } from "./shared";
 
 export interface Source {
-  type: "resident" | "staff" | "emh" | "document" | "pattern";
+  type: "resident" | "staff" | "emh" | "document" | "inferred" | "pattern";
   date: string;
   confidence?: number;
+  update_reason?: string | null;
 }
 
 export interface CoachAnswer {
@@ -15,25 +18,8 @@ export interface CoachAnswer {
 }
 
 export function SourceChip({ source }: { source: Source }) {
-  const formatDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      const month = date.toLocaleDateString("en-US", { month: "short" });
-      const day = date.getDate();
-      return `${month} ${day}`;
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const formatDocumentDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return date.getFullYear().toString();
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatDate = formatDay;
+  const formatDocumentDate = formatYear;
 
   let label = "";
   switch (source.type) {
@@ -49,6 +35,7 @@ export function SourceChip({ source }: { source: Source }) {
     case "document":
       label = `From records, ${formatDocumentDate(source.date)}`;
       break;
+    case "inferred":
     case "pattern":
       label = "Pattern noticed";
       break;
@@ -57,6 +44,7 @@ export function SourceChip({ source }: { source: Source }) {
   return (
     <span className="source-chip" data-type={source.type}>
       📌 {label}
+      {source.update_reason ? ` ⚠️ May have changed. ${source.update_reason}.` : ""}
     </span>
   );
 }
@@ -111,8 +99,10 @@ export function CoachChatMessage({
 
 export function CoachChat({
   residentName = "Marcus",
+  residentId = residentName.toLowerCase(),
 }: {
   residentName?: string;
+  residentId?: string;
 }) {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState<
@@ -128,61 +118,20 @@ export function CoachChat({
     setMessages((prev) => [...prev, { question: currentQuestion }]);
     setIsLoading(true);
 
-    // Simulate API call to POST /coach/ask
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Mock responses for demo
-    const responses: Record<string, CoachAnswer> = {
-      "What does Marcus like?": {
-        answer: "Marcus enjoys bowling on Saturdays and watching the Raptors.",
-        sources: [
-          { type: "resident", date: "2026-01-08T10:30:00Z" },
-          { type: "pattern", date: "2026-01-10T14:00:00Z" },
-        ],
-      },
-      "What upsets Marcus?": {
-        answer: "Loud noises and rushed transitions upset Marcus.",
-        sources: [
-          { type: "staff", date: "2026-01-15T09:00:00Z" },
-          { type: "document", date: "2019-01-01T00:00:00Z" },
-        ],
-      },
-      "Does Marcus prefer tea or coffee?": {
-        answer:
-          "Marcus has switched to tea recently. He picked tea 5 times this week.",
-        sources: [
-          { type: "pattern", date: "2026-01-10T14:00:00Z" },
-          { type: "resident", date: "2026-01-15T14:23:00Z" },
-        ],
-      },
-      "Who is important to Marcus?": {
-        answer: "His sister Lisa and his staff member Lisa are both very important to him.",
-        sources: [
-          { type: "resident", date: "2026-01-08T10:30:00Z" },
-          { type: "staff", date: "2026-01-10T15:30:00Z" },
-        ],
-      },
-      "What is Marcus's weekly budget?": {
-        answer: "Marcus has a weekly discretionary budget of $60.",
-        sources: [
-          { type: "resident", date: "2026-01-08T10:30:00Z" },
-          { type: "document", date: "2019-01-01T00:00:00Z" },
-        ],
-      },
-    };
-
-    const response =
-      responses[currentQuestion] ||
-      responses[
-        Object.keys(responses).find(
-          (key) =>
-            currentQuestion.toLowerCase().includes(key.split(" ").slice(0, 3).join(" ").toLowerCase()) ||
-            key.toLowerCase().includes(currentQuestion.toLowerCase().split(" ").slice(0, 3).join(" "))
-        ) || ""
-      ] || {
-        answer: `I don't know the answer to that. It's best to ask ${residentName}.`,
-        sources: [],
-      };
+    const result = await askCoach({ resident_id: residentId, question: currentQuestion });
+    const response: CoachAnswer = result.ok
+      ? {
+          answer: result.data.answer,
+          sources: result.data.sources.map((src) => ({
+            type: src.type,
+            date: src.date ?? "",
+            update_reason: src.update_reason,
+          })),
+        }
+      : {
+          answer: `I can't reach the Coach right now. It's best to ask ${residentName}.`,
+          sources: [],
+        };
 
     setMessages((prev) => [
       ...prev.slice(0, -1),

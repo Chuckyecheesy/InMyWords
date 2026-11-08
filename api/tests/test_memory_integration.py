@@ -45,7 +45,8 @@ def tool(t):
 
 
 def server_recall(resident_id, query, **_):
-    out = tool(memory_server.recall)(resident=resident_id, query=query)
+    # broad, like wiring.mcp_recall: the consolidator needs every on-topic memory
+    out = tool(memory_server.recall)(resident=resident_id, query=query, broad=True)
     return out["memories"]
 
 

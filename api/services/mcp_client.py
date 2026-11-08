@@ -43,7 +43,14 @@ def _loop_state() -> dict:
     loop = asyncio.get_running_loop()
     state = _per_loop.get(loop)
     if state is None:
-        state = _per_loop[loop] = {"sessions": {}, "lock": asyncio.Lock()}
+        state = _per_loop[loop] = {
+            "sessions": {},
+            "lock": asyncio.Lock(),
+            # One call at a time per server. The streamable session is one
+            # connection; overlapping calls mix their replies and the route
+            # then 500s. Opening Marcus fires several of these at once.
+            "calls": {},
+        }
     return state
 
 
@@ -82,7 +89,20 @@ def _unpack(result):
     return json.loads(text)
 
 
+def _call_lock(server: str) -> asyncio.Lock:
+    state = _loop_state()
+    lock = state["calls"].get(server)
+    if lock is None:
+        lock = state["calls"][server] = asyncio.Lock()
+    return lock
+
+
 async def _call(server: str, tool: str, args: dict):
+    async with _call_lock(server):
+        return await _call_locked(server, tool, args)
+
+
+async def _call_locked(server: str, tool: str, args: dict):
     try:
         client = await _session(server)
     except Exception:
@@ -109,6 +129,10 @@ async def _call(server: str, tool: str, args: dict):
 
 async def get_profile(resident):
     return await _call("profile", "get_profile", {"resident": resident})
+
+async def save_tile(resident, label, cloudinary_id, category=""):
+    return await _call("profile", "save_tile", {"resident": resident, "label": label,
+                                                "cloudinary_id": cloudinary_id, "category": category or ""})
 
 async def get_story(resident):
     return await _call("profile", "get_story", {"resident": resident})
@@ -166,8 +190,11 @@ async def remember(resident, event, source="inferred", mem_type="event", source_
         payload["source_date"] = source_date
     return await _call("memory", "remember", payload)
 
-async def recall(resident, query, mem_type=""):
-    return await _call("memory", "recall", {"resident": resident, "query": query, "type": mem_type})
+async def recall(resident, query, mem_type="", broad=False):
+    args = {"resident": resident, "query": query, "type": mem_type}
+    if broad:  # additive arg; omitted by default so the contract call is unchanged
+        args["broad"] = True
+    return await _call("memory", "recall", args)
 
 async def get_routines(resident):
     return await _call("memory", "get_routines", {"resident": resident})
@@ -201,6 +228,9 @@ async def get_custom_gestures(resident):
 
 async def plan_actions(resident, goal):
     return await _call("actions", "plan_actions", {"resident": resident, "goal": goal})
+
+async def save_plan(resident, goal, steps):
+    return await _call("actions", "save_plan", {"resident": resident, "goal": goal, "steps": steps})
 
 async def approve_plan(resident, plan_id):
     return await _call("actions", "approve_plan", {"resident": resident, "plan_id": plan_id})

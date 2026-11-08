@@ -99,7 +99,8 @@ def _run(coro):
 
 
 def mcp_recall(resident_id, query, **_):
-    return _run(mcp_client.recall(resident_id, query)).get("memories", [])
+    # broad: the consolidator needs every on-topic memory to check for contradictions
+    return _run(mcp_client.recall(resident_id, query, broad=True)).get("memories", [])
 
 
 def mcp_remember(resident_id, type, content, source, **_):

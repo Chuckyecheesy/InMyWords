@@ -53,6 +53,7 @@ FEATURE_MODELS = {
     "story": (STEADY_MODEL, FLASH_MODEL),
     "memory": (STEADY_MODEL, FLASH_MODEL),
     "memory_easy": (LITE_MODEL, STEADY_MODEL),
+    "photo": (STEADY_MODEL, FLASH_MODEL),  # T4.2 photo checker (vision)
 }
 EMBED_MODEL = "gemini-embedding-001"
 
@@ -477,11 +478,14 @@ def generate_json(
     client=None,
     attempts: int = 2,
     timeout_ms: int = 20000,
+    images: list[tuple[bytes, str]] | None = None,
 ) -> dict:
     """Return JSON that validates against `schema`.
 
     One retry is included when the first answer fails validation.
     `client` is the google-genai client. Tests pass a fake; callers omit it.
+    `images` (additive, T4.2 photo checker): [(bytes, mime_type)] sent before
+    the prompt so the model can look at them. Text-only callers are unchanged.
     """
     if not prompt or not prompt.strip():
         raise ValueError("prompt is empty")
@@ -499,7 +503,11 @@ def generate_json(
         config["system_instruction"] = system
 
     last_error = "no response"
-    contents = prompt
+    parts = []
+    if images:
+        from google.genai import types
+        parts = [types.Part.from_bytes(data=data, mime_type=mime) for data, mime in images]
+    contents = parts + [prompt] if parts else prompt
     for _attempt in range(max(1, attempts)):
         response = gen.models.generate_content(
             model=model or os.environ.get("GEMINI_MODEL", FLASH_MODEL),
@@ -515,12 +523,13 @@ def generate_json(
             if not errors:
                 return data
             last_error = "; ".join(_error_text(err) for err in errors[:5])
-        contents = (
+        retry = (
             prompt
             + "\n\nYour previous answer failed validation: "
             + last_error
             + "\nReturn only JSON that matches the schema."
         )
+        contents = parts + [retry] if parts else retry
     raise GeminiSchemaError(last_error)
 
 

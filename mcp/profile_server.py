@@ -239,5 +239,21 @@ def add_observation(resident: str, staff: str, note: str) -> dict:
     return {"id": obs_id, "source": "staff", "store_mode": store.mode}
 
 
+@mcp.tool
+def save_tile(resident: str, label: str, cloudinary_id: str, category: str = "") -> dict:
+    """Staff photo -> picture tile (T4.2). A tile with the same label gets the
+    new photo instead of a duplicate. Additive tool; the photo agent calls it
+    only after its checks (and staff confirmation when the photo looked wrong)."""
+    label = (label or "").strip()
+    cloudinary_id = (cloudinary_id or "").strip().strip("/")
+    if not label or not cloudinary_id:
+        return {"error": "a tile needs a label and a cloudinary_id"}
+    store = get_store()
+    if not store.get_resident(resident):
+        return {"error": f"unknown resident '{resident}'"}
+    tile, replaced = store.save_tile(resident, label, category.strip() or None, cloudinary_id)
+    return {"resident": resident, "tile": tile, "replaced": replaced, "store_mode": store.mode}
+
+
 if __name__ == "__main__":
     mcp.run(transport="http", host="127.0.0.1", port=8101)

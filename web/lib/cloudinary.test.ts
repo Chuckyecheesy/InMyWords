@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { TILE_RECIPE, demoPhotoUrl, storyImageUrl, tileImageUrl, unsignedUploadFields } from "./cloudinary.ts";
+import { TILE_RECIPE, demoPhotoUrl, photoSources, storyImageUrl, tileImageUrl, unsignedUploadFields } from "./cloudinary.ts";
 
 test("a calm tile url uses the frozen recipe and strips a leading slash", () => {
   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = "inmywords";
@@ -62,6 +62,21 @@ test("unsigned upload fields refuse a missing preset or cloud name", () => {
   assert.throws(() =>
     unsignedUploadFields({ cloudName: "", uploadPreset: "staff_photos" }),
   );
+});
+
+test("a tile asks for the saved file before Cloudinary", () => {
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = "inmyword";
+  const sources = photoSources("tiles/marcus_coffee", "calm");
+  assert.deepEqual(sources, [
+    "/demo/tiles/marcus_coffee.jpg",
+    tileImageUrl("tiles/marcus_coffee", "calm"),
+  ]);
+  assert.equal(photoSources("", "calm").length, 0);
+  delete process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  delete process.env.CLOUDINARY_CLOUD_NAME;
+  assert.deepEqual(photoSources("tiles/marcus_coffee", "story"), [
+    "/demo/tiles/marcus_coffee.jpg",
+  ]);
 });
 
 test("a demo photo url points at the saved file", () => {

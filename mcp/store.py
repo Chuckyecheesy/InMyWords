@@ -19,6 +19,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+from retrieval import DUPLICATE_SIM, VectorCache, cosine, keyword_hits, neutralize, query_terms, recency_scores, select
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SEED_DIR = REPO_ROOT / "db" / "seed"
 
@@ -37,17 +39,17 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def recall_terms(query: str, limit: int = 8) -> list[str]:
-    """Plain words for memory search. Letters and digits only, so a tile
-    cannot become a regular expression."""
-    words: list[str] = []
-    for raw in (query or "")[:500].lower().split():
-        word = "".join(ch for ch in raw if ch.isalnum() or ch in "-'")
-        if len(word) > 2:
-            words.append(word[:40])
-        if len(words) == limit:
-            break
-    return words
+def recall_terms(query: str, limit: int = 8, ignore=()) -> list[str]:
+    """Meaningful words for literal matching (stopwords dropped). See retrieval.py."""
+    return query_terms(query, limit, ignore)
+
+
+def _name_words(resident) -> tuple:
+    """The resident's id and first name: present in most of their facts, so
+    useless (and noisy) as keywords."""
+    if not resident:
+        return ()
+    return (resident.get("id"), resident.get("first_name"))
 
 
 def is_profile_overview_query(query: str) -> bool:
@@ -60,21 +62,48 @@ def is_profile_overview_query(query: str) -> bool:
     )
 
 
+def _gemini_embed():
+    import sys
+    api_dir = str(REPO_ROOT / "api")
+    if api_dir not in sys.path:
+        sys.path.insert(0, api_dir)
+    from services.gemini import embed
+    return embed
+
+
+_query_vec_cache: dict[str, list[float]] = {}
+
+
 def embed_text(text, task_type="RETRIEVAL_QUERY"):
     """Best-effort embedding via Ahmed's wrapper (api/services/gemini.py).
     Returns None when the key is missing or the call fails — callers fall
-    back to keyword ranking."""
-    if not os.environ.get("GEMINI_API_KEY"):
+    back to keyword ranking. Query embeddings are cached (a repeated Coach
+    question costs no extra call, which protects the 4s latency budget)."""
+    if not os.environ.get("GEMINI_API_KEY") or not (text or "").strip():
         return None
+    key = (text or "").strip().lower()
+    if task_type == "RETRIEVAL_QUERY" and key in _query_vec_cache:
+        return _query_vec_cache[key]
     try:
-        import sys
-        api_dir = str(REPO_ROOT / "api")
-        if api_dir not in sys.path:
-            sys.path.insert(0, api_dir)
-        from services.gemini import embed
-        return embed(text, task_type=task_type)
+        vec = _gemini_embed()(text, task_type=task_type)
     except Exception as exc:
         print(f"[store] embed skipped ({type(exc).__name__})")
+        return None
+    if task_type == "RETRIEVAL_QUERY":
+        if len(_query_vec_cache) >= 256:
+            _query_vec_cache.pop(next(iter(_query_vec_cache)))
+        _query_vec_cache[key] = vec
+    return vec
+
+
+def embed_texts(texts):
+    """Batch document embeddings (one call). None on any failure."""
+    if not os.environ.get("GEMINI_API_KEY") or not texts:
+        return None
+    try:
+        return _gemini_embed()(list(texts), task_type="RETRIEVAL_DOCUMENT")
+    except Exception as exc:
+        print(f"[store] batch embed skipped ({type(exc).__name__})")
         return None
 
 
@@ -191,6 +220,9 @@ class SeedStore:
         self.emh_checklist = emh["emh_checklist"]
         self.emh_events = emh["emh_events"]
         self.memories = [dict(m, id=i + 1) for i, m in enumerate(read("memories.json")["memories"])]
+        # Seed-mode RAG: document vectors cached on disk by content hash
+        # (gitignored), so recall is semantic even without the database.
+        self._vectors = VectorCache(SEED_DIR / ".embeddings.json", embed_texts)
         # In-memory writes (lost on restart — fine for pre-DB development)
         self.sentences, self.choices, self.observations, self.story_answers = [], [], [], []
         # Action-related writes persist to a shared runtime file so the
@@ -225,7 +257,39 @@ class SeedStore:
         r = self.residents.get(rid)
         if not r:
             return None
-        return dict(r, tiles=self.tiles.get(rid, []))
+        return dict(r, tiles=self._tiles_for(rid))
+
+    def _tiles_for(self, rid):
+        """Seed tiles plus staff-added photo tiles. Added tiles live in the
+        shared runtime file so every server process sees them."""
+        self._reload_runtime()
+        tiles = [dict(t) for t in self.tiles.get(rid, [])]
+        for added in self._runtime.get("tiles_added", []):
+            if added["resident_id"] != rid:
+                continue
+            same = next((t for t in tiles if t["label"].lower() == added["label"].lower()), None)
+            if same:
+                same.update(cloudinary_id=added["cloudinary_id"],
+                            category=added.get("category") or same.get("category"))
+            else:
+                tiles.append({"id": added["id"], "label": added["label"],
+                              "category": added.get("category"),
+                              "cloudinary_id": added["cloudinary_id"], "times_used": 0})
+        return tiles
+
+    def save_tile(self, rid, label, category, cloudinary_id):
+        """Add a photo tile, or give an existing tile (same label) its new photo.
+        Returns (tile, replaced)."""
+        existing = next((t for t in self._tiles_for(rid) if t["label"].lower() == label.lower()), None)
+        added = self._runtime.setdefault("tiles_added", [])
+        added[:] = [a for a in added if not (a["resident_id"] == rid and a["label"].lower() == label.lower())]
+        new_id = existing["id"] if existing else 1000 + len(added) + sum(len(v) for v in self.tiles.values())
+        added.append({"id": new_id, "resident_id": rid, "label": existing["label"] if existing else label,
+                      "category": category or (existing or {}).get("category"),
+                      "cloudinary_id": cloudinary_id})
+        self._save_runtime()
+        tile = next(t for t in self._tiles_for(rid) if t["label"].lower() == label.lower())
+        return tile, existing is not None
 
     def get_story(self, rid):
         return [c for c in self.chapters if c["resident_id"] == rid]
@@ -233,40 +297,54 @@ class SeedStore:
     def get_memories(self, rid, statuses=("confirmed",)):
         return [m for m in self.memories if m["resident_id"] == rid and m["status"] in statuses]
 
+    def _rank(self, rid, rows, texts, query, limit, dates=None, broad=False):
+        """Hybrid rank of `rows` (parallel to `texts`) for `query`. See retrieval.select."""
+        if not rows:
+            return []
+        names = _name_words(self.get_resident(rid))
+        words = recall_terms(query, ignore=names)
+        qvec = embed_text(neutralize(query, names), task_type="RETRIEVAL_QUERY")
+        dvecs = self._vectors.vectors(texts) if qvec is not None else [None] * len(texts)
+        rec = recency_scores([{"d": d} for d in dates], "d") if dates else [0.0] * len(rows)
+        scored = [
+            {"row": r, "sim": cosine(qvec, v) if (qvec is not None and v is not None) else None,
+             "kw": keyword_hits(t, words), "recency": rc}
+            for r, t, v, rc in zip(rows, texts, dvecs, rec)
+        ]
+        return [dict(x["row"], score=x.get("score"),
+                     similarity=round(x["sim"], 3) if x["sim"] is not None else None)
+                for x in select(scored, limit, broad)]
+
+    @staticmethod
+    def _memory_fact(m):
+        return {"content": m["content"], "source": m["source"],
+                "date": m.get("source_date") or str(m["last_seen"])[:10],
+                "status": m["status"], "kind": "memory",
+                "id": m["id"], "update_reason": m.get("update_reason")}
+
     def search_facts(self, rid, query, limit=8):
+        """Coach retrieval (ask_about): memories + staff observations + EMH notes,
+        ranked together by the hybrid RAG score."""
         if is_profile_overview_query(query):
             memories = [
                 m for m in self.get_memories(rid, ("confirmed", "pending"))
                 if m["type"] in ("preference", "routine")
             ]
-            return [
-                {"content": m["content"], "source": m["source"],
-                 "date": m.get("source_date") or m["last_seen"][:10],
-                 "status": m["status"], "kind": "memory",
-                 "id": m["id"], "update_reason": m.get("update_reason")}
-                for m in memories[:16]
-            ]
+            return [self._memory_fact(m) for m in memories[:16]]
 
-        words = recall_terms(query)
-        hits = []
-        for m in self.get_memories(rid, ("confirmed", "pending")):
-            text = m["content"].lower()
-            if any(w in text for w in words):
-                hits.append({"content": m["content"], "source": m["source"],
-                             "date": m.get("source_date") or m["last_seen"][:10],
-                             "status": m["status"], "kind": "memory",
-                             "id": m["id"], "update_reason": m.get("update_reason")})
-        for o in self.observations:
-            if o["resident_id"] == rid and any(w in o["note"].lower() for w in words):
-                hits.append({"content": o["note"], "source": "staff",
-                             "date": o["created_at"][:10], "status": "confirmed", "kind": "observation",
-                             "id": None, "update_reason": None})
-        for n in self.emh_notes:
-            if n["resident_id"] == rid and any(w in n["note"].lower() for w in words):
-                hits.append({"content": n["note"], "source": "emh",
-                             "date": n["created_at"][:10], "status": "confirmed", "kind": "emh_note",
-                             "id": None, "update_reason": None})
-        return hits[:limit]
+        facts = [self._memory_fact(m) for m in self.get_memories(rid, ("confirmed", "pending"))]
+        facts += [{"content": o["note"], "source": "staff", "date": o["created_at"][:10],
+                   "status": "confirmed", "kind": "observation", "id": None, "update_reason": None}
+                  for o in self.observations if o["resident_id"] == rid]
+        facts += [{"content": n["note"], "source": "emh", "date": n["created_at"][:10],
+                   "status": "confirmed", "kind": "emh_note", "id": None, "update_reason": None}
+                  for n in self.emh_notes if n["resident_id"] == rid]
+        ranked = self._rank(rid, facts, [f["content"] for f in facts], query, limit,
+                            dates=[f["date"] for f in facts])
+        for f in ranked:
+            f.pop("score", None)  # keep the contract shape
+            f.pop("similarity", None)
+        return ranked
 
     def get_emh_notes(self, rid, since=None):
         notes = [n for n in self.emh_notes if n["resident_id"] == rid]
@@ -374,19 +452,29 @@ class SeedStore:
     # ---- memory layer (T2.5) ----
 
     def remember(self, rid, mem_type, content, source, source_date=None):
-        """Save a candidate memory. Near-duplicates bump times_seen instead."""
+        """Save a candidate memory. Near-duplicates (same words, or the same
+        fact reworded: cosine >= DUPLICATE_SIM) bump times_seen instead."""
+        def merge(m):
+            m["times_seen"] += 1
+            m["last_seen"] = _now()
+            if source_date and not m.get("source_date"):
+                m["source_date"] = source_date
+            return {"id": m["id"], "merged": True, "times_seen": m["times_seen"], "status": m["status"]}
+
+        same = [m for m in self.memories if m["resident_id"] == rid and m["type"] == mem_type]
         new_words = set(content.lower().split())
-        for m in self.memories:
-            if m["resident_id"] != rid or m["type"] != mem_type:
-                continue
+        for m in same:
             old_words = set(m["content"].lower().split())
             overlap = len(new_words & old_words) / max(len(new_words | old_words), 1)
             if overlap >= 0.6:
-                m["times_seen"] += 1
-                m["last_seen"] = _now()
-                if source_date and not m.get("source_date"):
-                    m["source_date"] = source_date
-                return {"id": m["id"], "merged": True, "times_seen": m["times_seen"], "status": m["status"]}
+                return merge(m)
+        if same:
+            new_vec, *old_vecs = self._vectors.vectors([content] + [m["content"] for m in same])
+            if new_vec is not None:
+                best = max(((cosine(new_vec, v), m) for v, m in zip(old_vecs, same) if v is not None),
+                           default=(0.0, None), key=lambda p: p[0])
+                if best[0] >= DUPLICATE_SIM:
+                    return merge(best[1])
         mem = {"id": max((m["id"] for m in self.memories), default=0) + 1, "resident_id": rid,
                "type": mem_type, "content": content, "source": source, "source_date": source_date,
                "times_seen": 1, "first_seen": _now(), "last_seen": _now(), "status": "pending"}
@@ -394,23 +482,15 @@ class SeedStore:
         return {"id": mem["id"], "merged": False, "times_seen": 1, "status": "pending",
                 "source": source, "source_date": source_date}
 
-    def recall(self, rid, query, mem_type=None, limit=6):
-        """Keyword + recency ranking. TODO(after T3.1): add vector similarity —
-        same output shape, so callers won't change."""
-        words = recall_terms(query)
-        scored = []
+    def recall(self, rid, query, mem_type=None, limit=6, broad=False):
+        """Hybrid RAG: semantic similarity + keyword + recency (retrieval.py).
+        Dismissed memories are never candidates."""
         pool = [m for m in self.memories
                 if m["resident_id"] == rid and m["status"] in ("confirmed", "pending")
                 and (mem_type is None or m["type"] == mem_type)]
-        pool.sort(key=lambda m: str(m["last_seen"]), reverse=True)
-        for rank, m in enumerate(pool):
-            keyword = sum(w in m["content"].lower() for w in words)
-            recency = 1.0 / (rank + 1)
-            score = keyword * 2 + recency
-            if keyword > 0:
-                scored.append((score, m))
-        scored.sort(key=lambda pair: pair[0], reverse=True)
-        return [m for _, m in scored[:limit]]
+        ranked = self._rank(rid, pool, [m["content"] for m in pool], query, limit,
+                            dates=[str(m["last_seen"]) for m in pool], broad=broad)
+        return [{k: v for k, v in m.items() if k != "score"} for m in ranked]
 
     def get_pending(self, rid):
         return [m for m in self.memories if m["resident_id"] == rid and m["status"] == "pending"]
@@ -614,6 +694,24 @@ class PostgresStore:
             "WHERE resident_id = %s ORDER BY times_used DESC", (rid,))
         return r
 
+    def save_tile(self, rid, label, category, cloudinary_id):
+        """Add a photo tile, or give an existing tile (same label) its new photo.
+        Returns (tile, replaced)."""
+        existing = self._one(
+            "SELECT id FROM tiles WHERE resident_id = %s AND lower(label) = lower(%s) ORDER BY id LIMIT 1",
+            (rid, label))
+        if existing:
+            tile = self._one(
+                "UPDATE tiles SET cloudinary_id = %s, category = coalesce(%s, category) WHERE id = %s "
+                "RETURNING id, label, category, cloudinary_id, times_used",
+                (cloudinary_id, category, existing["id"]))
+            return tile, True
+        tile = self._one(
+            "INSERT INTO tiles (resident_id, label, category, cloudinary_id) VALUES (%s,%s,%s,%s) "
+            "RETURNING id, label, category, cloudinary_id, times_used",
+            (rid, label, category, cloudinary_id))
+        return tile, False
+
     def get_story(self, rid):
         return self._all("SELECT * FROM story_chapters WHERE resident_id = %s ORDER BY id", (rid,))
 
@@ -623,6 +721,9 @@ class PostgresStore:
             (rid, list(statuses)))
 
     def search_facts(self, rid, query, limit=8):
+        """Coach retrieval (ask_about). Memories come from the hybrid `recall`;
+        staff observations and EMH notes have no embedding column, so they join
+        on meaningful keywords only (stopwords dropped)."""
         if is_profile_overview_query(query):
             return self._all(
                 """SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
@@ -635,25 +736,26 @@ class PostgresStore:
                    LIMIT %s""",
                 (rid, 16))
 
-        words = recall_terms(query)
-        if not words:
-            return []
-        memory_match = " OR ".join(["strpos(lower(content), %s) > 0"] * len(words))
-        note_match = " OR ".join(["strpos(lower(note), %s) > 0"] * len(words))
-        return self._all(
-            f"""SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
-                      status, 'memory' AS kind, id,
-                      NULL::text AS update_reason  -- no column yet; see db/schema.sql
-               FROM memories WHERE resident_id = %s AND status IN ('confirmed','pending')
-                 AND ({memory_match})
-               UNION ALL
-               SELECT note, 'staff', created_at::date::text, 'confirmed', 'observation', NULL::int, NULL::text
-               FROM observations WHERE resident_id = %s AND ({note_match})
-               UNION ALL
-               SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note', NULL::int, NULL::text
-               FROM emh_notes WHERE resident_id = %s AND ({note_match})
-               LIMIT %s""",
-            tuple([rid, *words, rid, *words, rid, *words, limit]))
+        facts = [{"content": m["content"], "source": m["source"],
+                  "date": str(m.get("source_date") or m["last_seen"])[:10],
+                  "status": m["status"], "kind": "memory", "id": m["id"],
+                  "update_reason": m.get("update_reason")}
+                 for m in self.recall(rid, query, limit=limit)]
+        words = recall_terms(query, ignore=_name_words(self.get_resident(rid)))
+        room = limit - len(facts)
+        if words and room > 0:
+            note_match = " OR ".join(["strpos(lower(note), %s) > 0"] * len(words))
+            facts += self._all(
+                f"""SELECT note AS content, 'staff' AS source, created_at::date::text AS date,
+                          'confirmed' AS status, 'observation' AS kind, NULL::int AS id,
+                          NULL::text AS update_reason
+                   FROM observations WHERE resident_id = %s AND ({note_match})
+                   UNION ALL
+                   SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note', NULL::int, NULL::text
+                   FROM emh_notes WHERE resident_id = %s AND ({note_match})
+                   LIMIT %s""",
+                tuple([rid, *words, rid, *words, room]))
+        return facts
 
     def get_emh_notes(self, rid, since=None):
         if since:
@@ -734,25 +836,37 @@ class PostgresStore:
     # ---- memory layer (T2.5) ----
 
     def remember(self, rid, mem_type, content, source, source_date=None):
-        # Near-duplicate check: word-overlap in SQL is clumsy; fetch same-type
-        # memories and reuse the SeedStore overlap rule in Python.
+        # Near-duplicate check, same rule as SeedStore: word overlap first,
+        # then meaning (pgvector cosine >= DUPLICATE_SIM, same resident + type).
         new_words = set(content.lower().split())
-        for m in self._all("SELECT id, content, status, source_date FROM memories WHERE resident_id = %s AND type = %s",
-                           (rid, mem_type)):
-            old_words = set(m["content"].lower().split())
-            overlap = len(new_words & old_words) / max(len(new_words | old_words), 1)
-            if overlap >= 0.6:
-                if source_date and not m.get("source_date"):
-                    row = self._one(
-                        "UPDATE memories SET times_seen = times_seen + 1, last_seen = now(), "
-                        "source_date = %s WHERE id = %s RETURNING id, times_seen, status",
-                        (source_date, m["id"]))
-                else:
-                    row = self._one(
-                        "UPDATE memories SET times_seen = times_seen + 1, last_seen = now() "
-                        "WHERE id = %s RETURNING id, times_seen, status", (m["id"],))
-                return {"id": row["id"], "merged": True, "times_seen": row["times_seen"], "status": row["status"]}
         vec = embed_text(content, task_type="RETRIEVAL_DOCUMENT")
+        same = self._all("SELECT id, content, status, source_date FROM memories WHERE resident_id = %s AND type = %s",
+                         (rid, mem_type))
+        dup = None
+        for m in same:
+            old_words = set(m["content"].lower().split())
+            if len(new_words & old_words) / max(len(new_words | old_words), 1) >= 0.6:
+                dup = m
+                break
+        if dup is None and vec is not None and same:
+            near = self._one(
+                "SELECT id, content, status, source_date, 1 - (embedding <=> %s::vector) AS sim "
+                "FROM memories WHERE resident_id = %s AND type = %s AND embedding IS NOT NULL "
+                "ORDER BY embedding <=> %s::vector LIMIT 1",
+                (vector_literal(vec), rid, mem_type, vector_literal(vec)))
+            if near and near["sim"] >= DUPLICATE_SIM:
+                dup = near
+        if dup is not None:
+            if source_date and not dup.get("source_date"):
+                row = self._one(
+                    "UPDATE memories SET times_seen = times_seen + 1, last_seen = now(), "
+                    "source_date = %s WHERE id = %s RETURNING id, times_seen, status",
+                    (source_date, dup["id"]))
+            else:
+                row = self._one(
+                    "UPDATE memories SET times_seen = times_seen + 1, last_seen = now() "
+                    "WHERE id = %s RETURNING id, times_seen, status", (dup["id"],))
+            return {"id": row["id"], "merged": True, "times_seen": row["times_seen"], "status": row["status"]}
         if vec is not None:
             new_id = self._insert(
                 "INSERT INTO memories (resident_id, type, content, source, source_date, status, embedding) "
@@ -766,44 +880,68 @@ class PostgresStore:
         return {"id": new_id, "merged": False, "times_seen": 1, "status": "pending",
                 "source": source, "source_date": source_date}
 
-    def recall(self, rid, query, mem_type=None, limit=6):
-        # Vector similarity + literal substrings + recency, in one database —
-        # the Tiger Data story. Falls back to keyword-only when the query
-        # can't be embedded. Same output shape either way.
-        words = recall_terms(query)
-        qvec = embed_text(query, task_type="RETRIEVAL_QUERY")
+    def recall(self, rid, query, mem_type=None, limit=6, broad=False):
+        # Hybrid RAG in one database (the Tiger Data story): pgvector cosine
+        # similarity + literal keyword hits are computed in SQL, then the shared
+        # retrieval.select applies the calibrated relevance cut. Rows without an
+        # embedding yet still qualify on keywords. Same output shape as before.
+        names = _name_words(self.get_resident(rid))
+        words = recall_terms(query, ignore=names)
+        qvec = embed_text(neutralize(query, names), task_type="RETRIEVAL_QUERY")
+        if qvec is not None:  # Gemini is reachable: heal any NULL embeddings first
+            self._backfill_embeddings(rid)
         type_clause = "AND type = %s" if mem_type else ""
         type_params = [mem_type] if mem_type else []
-
-        if qvec is not None:
-            score = (" + ".join(["(strpos(lower(content), %s) > 0)::int"] * len(words))
-                     if words else "0")
-            lit = vector_literal(qvec)
-            params = tuple([lit] + words + [rid] + type_params + [limit])
-            return self._all(
-                f"""SELECT * FROM (
-                      SELECT m.*,
-                             coalesce(1 - (embedding <=> %s::vector), 0) AS sim,
-                             ({score}) AS kw
-                      FROM memories m
-                      WHERE resident_id = %s AND status IN ('confirmed','pending') {type_clause}
-                    ) q
-                    WHERE sim > 0.3 OR kw > 0
-                    ORDER BY sim * 3 + kw DESC, last_seen DESC LIMIT %s""",
-                params)
-
-        if not words:
+        kw_sql = (" + ".join(["(strpos(lower(content), %s) > 0)::int"] * len(words))
+                  if words else "0")
+        if qvec is None and not words:
             return []
-        score = " + ".join(["(strpos(lower(content), %s) > 0)::int"] * len(words))
-        match = " OR ".join(["strpos(lower(content), %s) > 0"] * len(words))
-        params = tuple(words + [rid] + type_params + words + [limit])
-        return self._all(
-            f"""SELECT *, ({score}) AS kw
-                FROM memories
+        sim_sql = "1 - (embedding <=> %s::vector)" if qvec is not None else "NULL::float"
+        sim_params = [vector_literal(qvec)] if qvec is not None else []
+        rows = self._all(
+            f"""SELECT m.*, {sim_sql} AS sim, ({kw_sql}) AS kw
+                FROM memories m
                 WHERE resident_id = %s AND status IN ('confirmed','pending') {type_clause}
-                  AND ({match})
-                ORDER BY kw DESC, last_seen DESC LIMIT %s""",
-            params)
+                ORDER BY coalesce({sim_sql}, 0) + 0.08 * ({kw_sql}) DESC, last_seen DESC
+                LIMIT 50""",
+            tuple(sim_params + words + [rid] + type_params + sim_params + words))
+        if qvec is None:
+            for r in rows:
+                r["sim"] = None
+        rec = recency_scores(rows)
+        for r, rc in zip(rows, rec):
+            r["recency"] = rc
+            r.pop("embedding", None)  # never ship 768 floats to an agent
+        picked = select(rows, limit, broad)
+        return [{**{k: v for k, v in r.items() if k not in ("sim", "kw", "recency", "score")},
+                 "similarity": round(r["sim"], 3) if r.get("sim") is not None else None}
+                for r in picked]
+
+    _backfill_failed_at = 0.0
+
+    def _backfill_embeddings(self, rid, batch=32):
+        """Self-heal: embed this resident's memories saved while Gemini was down
+        (remember inserts them with a NULL embedding). Without this they stay
+        keyword-only until someone runs db/reset.py. One batched call; after a
+        failure, waits 60s before trying again so a Gemini outage can't slow
+        every recall."""
+        import time
+        if time.monotonic() - PostgresStore._backfill_failed_at < 60:
+            return
+        missing = self._all(
+            "SELECT id, content FROM memories WHERE resident_id = %s AND embedding IS NULL "
+            "ORDER BY id LIMIT %s", (rid, batch))
+        if not missing:
+            return
+        vecs = embed_texts([m["content"] for m in missing])
+        if vecs is None or len(vecs) != len(missing):
+            PostgresStore._backfill_failed_at = time.monotonic()
+            return
+        with self._conn() as conn:
+            for m, v in zip(missing, vecs):
+                conn.execute("UPDATE memories SET embedding = %s::vector WHERE id = %s",
+                             (vector_literal(v), m["id"]))
+        print(f"[store] backfilled {len(missing)} memory embeddings for {rid}")
 
     def get_pending(self, rid):
         return self._all(

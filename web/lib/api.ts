@@ -8,6 +8,7 @@ import {
   sampleStory,
 } from "./mock";
 import type {
+  ActionPlan as ActionPlanShape,
   ActivityItem,
   ChoiceResult,
   CoachAnswer,
@@ -20,6 +21,7 @@ import type {
   StoryChapter,
   Tile,
 } from "./types";
+export type ActionPlan = ActionPlanShape;
 
 function apiBaseUrl(): string {
   const configured = (process.env.API_BASE_URL ?? "").replace(/\/$/, "");
@@ -164,6 +166,8 @@ function normalizeMemory(value: unknown, index: number): PendingMemory | null {
     content,
     source,
     source_date: text(row.source_date) ?? text(row.date),
+    times_seen: typeof row.times_seen === "number" ? row.times_seen : null,
+    update_reason: text(row.update_reason),
   };
 }
 
@@ -342,26 +346,6 @@ export function decideChoice(choiceId: string, chosen: string) {
   );
 }
 
-export type ActionStep = {
-  step: string;
-  detail: string;
-  cost: number;
-};
-
-export type StaffTaskStep = {
-  task: string;
-  due: string | null;
-};
-
-export type ActionPlan = {
-  plan_id: number;
-  goal: string;
-  online_steps: ActionStep[];
-  staff_tasks: StaffTaskStep[];
-  total_cost: number;
-  status: string;
-};
-
 function normalizePlan(value: unknown): ActionPlan | null {
   const row = record(value);
   if (!row) return null;
@@ -377,7 +361,7 @@ function normalizePlan(value: unknown): ActionPlan | null {
     plan_id: planId,
     goal,
     total_cost: total,
-    status: text(row.status) ?? "proposed",
+    status: "proposed",
     online_steps: steps.flatMap((item) => {
       const step = record(item);
       const name = step ? text(step.step) : null;
@@ -482,12 +466,27 @@ export type SavedPhoto = {
   resident_id: string;
   cloudinary_id: string;
   label: string | null;
+  /** From the photo subagents (agents/photos). */
+  status?: "saved" | "needs_review" | "saved_offline";
+  /** saved: the tile as stored (a same-label tile gets the new photo). */
+  tile?: { id: number | string; label: string; category: string | null; cloudinary_id: string };
+  replaced?: boolean;
+  /** false when the photo check couldn't run; the staff label was used. */
+  checked?: boolean;
+  /** What the checker saw in the photo. */
+  shows?: string | null;
+  /** needs_review: why staff should look before saving. */
+  reasons?: string[];
+  category?: string;
+  reason?: string;
 };
 
 export async function savePhoto(input: {
   resident_id: string;
   public_id: string;
   label: string;
+  /** Staff chose "Save anyway" after a needs_review answer. */
+  confirmed?: boolean;
 }): Promise<MutationResult<SavedPhoto>> {
   try {
     const response = await fetch(`${apiBaseUrl()}/media/photos`, {
