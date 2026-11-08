@@ -1,80 +1,190 @@
-"""ElevenLabs TTS wrapper (T1.2 real path).
+"""ElevenLabs voice service (James, T1). Everything the resident is heard saying.
 
-One function, used by POST /speak.
+    await synthesize(voice_id, text) -> (filename, cached)   TTS, cached on disk
+    resident_voice(resident_id, profile_voice_id) -> voice_id
+    await design_previews(description, text) -> [ {generated_voice_id, audio_bytes} ]
+    await save_designed_voice(name, description, generated_voice_id) -> voice_id
 
-    speak_to_file(text, voice_id) -> Path   cached mp3 on disk, cached by
-                                             voice_id + text so a repeat
-                                             tap/approval is instant and
-                                             costs nothing twice.
+Product rule: this module only turns text into audio. It is the caller's job
+to call it ONLY after the resident approved the text (the /speak route is
+hit from the approval card's ✅). Nothing here decides what gets said.
 
-Mock-first: if ELEVENLABS_API_KEY is not set, or the request fails, callers
-get None and main.py falls back to the mock URL. No exception reaches the
-route — speaking must never crash the Speak For Me screen.
+Cache: one mp3 per (model, voice_id, normalized text) in CACHE_DIR, served by
+main.py at /audio/<file>. A repeated sentence never hits ElevenLabs again,
+which keeps "approve → audio" instant and saves credits.
+
+Env (repo-root .env):
+    ELEVENLABS_API_KEY            required for live audio; without it /speak stays in mock mode
+    ELEVENLABS_TTS_MODEL          optional, default eleven_flash_v2_5 (low latency)
+    ELEVENLABS_FALLBACK_VOICE_ID  optional (alias ELEVENLABS_DEFAULT_VOICE_ID), used before
+                                  voices.json / profile has a voice
+    AUDIO_CACHE_DIR               optional, default api/audio-cache (gitignored)
+
+Run from api/ like the rest of the backend:
+    from services import elevenlabs
 """
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import hashlib
+import json
 import os
 from pathlib import Path
 
-import requests
+import httpx
+from dotenv import load_dotenv
 
-DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"  # Sarah — used until a resident voice is picked
-MODEL_ID = "eleven_flash_v2_5"
-AUDIO_DIR = Path(__file__).resolve().parents[1] / "static" / "audio"
+_REPO = Path(__file__).resolve().parents[2]
+load_dotenv(_REPO / ".env")
+
+API = "https://api.elevenlabs.io/v1"
+TTS_MODEL = os.environ.get("ELEVENLABS_TTS_MODEL", "eleven_flash_v2_5")
+VOICE_DESIGN_MODEL = "eleven_multilingual_ttv_v2"
+OUTPUT_FORMAT = "mp3_44100_128"
+CACHE_DIR = Path(os.environ.get("AUDIO_CACHE_DIR", _REPO / "api" / "audio-cache"))
+# Written by scripts/design_voices.py. Voice IDs are not secrets, so it is committed.
+VOICES_FILE = Path(__file__).with_name("voices.json")
+# An ElevenLabs stock voice ("Sarah", as picked on main in 5164b06), so /speak works
+# before our designed voices exist. ELEVENLABS_DEFAULT_VOICE_ID is main's name for it.
+FALLBACK_VOICE = (os.environ.get("ELEVENLABS_FALLBACK_VOICE_ID")
+                  or os.environ.get("ELEVENLABS_DEFAULT_VOICE_ID")
+                  or "EXAVITQu4vr4xnSDxMaL")
+
+_http: httpx.AsyncClient | None = None  # one pooled client: skips a TLS handshake per request
+_locks: dict[str, asyncio.Lock] = {}  # one in-flight generation per cache key
+_voice_overrides: dict[str, str] = {}  # set by PUT /residents/{id}/voice until T2 persists it
 
 
 class ElevenLabsError(Exception):
-    pass
+    """ElevenLabs could not return audio."""
 
 
-def _load_env() -> None:
-    path = Path(__file__).resolve().parents[2] / ".env"
-    if not path.is_file():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        text = line.strip()
-        if not text or text.startswith("#") or "=" not in text:
-            continue
-        key, value = text.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+def api_key() -> str | None:
+    return os.environ.get("ELEVENLABS_API_KEY") or None
 
 
-def _cache_path(text: str, voice_id: str) -> Path:
-    digest = hashlib.sha256(f"{voice_id}:{text}".encode("utf-8")).hexdigest()[:24]
-    return AUDIO_DIR / f"{digest}.mp3"
+def configured() -> bool:
+    return api_key() is not None
 
 
-def speak_to_file(text: str, voice_id: str | None = None) -> Path | None:
-    """Return a cached mp3 path for `text`, fetching it from ElevenLabs if needed.
+def _client() -> httpx.AsyncClient:
+    global _http
+    if _http is None:
+        _http = httpx.AsyncClient(base_url=API, timeout=httpx.Timeout(20.0, connect=5.0))
+    return _http
 
-    Returns None (never raises) if the key is missing or the call fails, so
-    the caller can fall back to the mock URL.
-    """
-    text = (text or "").strip()
-    if not text:
-        return None
-    _load_env()
-    key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+
+def _headers() -> dict:
+    key = api_key()
     if not key:
-        return None
-    voice = (voice_id or os.environ.get("ELEVENLABS_DEFAULT_VOICE_ID") or DEFAULT_VOICE_ID).strip()
+        raise ElevenLabsError("ELEVENLABS_API_KEY is not set (add it to the repo-root .env)")
+    return {"xi-api-key": key}
 
-    AUDIO_DIR.mkdir(parents=True, exist_ok=True)
-    path = _cache_path(text, voice)
-    if path.is_file() and path.stat().st_size > 0:
-        return path  # cached by voice_id + text — no repeat API cost
 
-    try:
-        response = requests.post(
-            f"https://api.elevenlabs.io/v1/text-to-speech/{voice}",
-            headers={"xi-api-key": key, "Content-Type": "application/json"},
-            json={"text": text, "model_id": MODEL_ID},
-            timeout=10,
+def _raise_for(resp: httpx.Response, what: str) -> None:
+    if resp.status_code >= 400:
+        raise ElevenLabsError(f"{what} failed: HTTP {resp.status_code} {resp.text[:300]}")
+
+
+# ---------- text to speech ----------
+
+def normalize(text: str) -> str:
+    """Collapse whitespace so "Can I  get coffee?" and "Can I get coffee?" share a file."""
+    return " ".join(text.split())
+
+
+def cache_key(voice_id: str, text: str) -> str:
+    raw = f"{TTS_MODEL}|{voice_id}|{normalize(text)}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def cache_path(voice_id: str, text: str) -> Path:
+    return CACHE_DIR / f"{cache_key(voice_id, text)}.mp3"
+
+
+async def synthesize(voice_id: str, text: str) -> tuple[str, bool]:
+    """Return (filename in CACHE_DIR, was_cached). Generates on a cache miss."""
+    text = normalize(text)
+    if not text:
+        raise ElevenLabsError("nothing to say")
+    path = cache_path(voice_id, text)
+    if path.exists():
+        return path.name, True
+
+    lock = _locks.setdefault(path.name, asyncio.Lock())
+    async with lock:
+        if path.exists():  # a concurrent request generated it while we waited
+            return path.name, True
+        resp = await _client().post(
+            f"/text-to-speech/{voice_id}",
+            params={"output_format": OUTPUT_FORMAT},
+            headers={**_headers(), "Accept": "audio/mpeg"},
+            json={"text": text, "model_id": TTS_MODEL},
         )
-        response.raise_for_status()
-        path.write_bytes(response.content)
-        return path
-    except Exception:
-        return None
+        _raise_for(resp, "text-to-speech")
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".part")
+        tmp.write_bytes(resp.content)
+        tmp.replace(path)  # atomic: never serve a half-written file
+    _locks.pop(path.name, None)
+    return path.name, False
+
+
+# ---------- which voice a resident speaks with ----------
+
+def load_voices() -> dict:
+    """voices.json: {resident_id: {"default": voice_id, "options": [...]}}."""
+    if not VOICES_FILE.exists():
+        return {}
+    return json.loads(VOICES_FILE.read_text())
+
+
+def set_resident_voice(resident_id: str, voice_id: str) -> None:
+    _voice_overrides[resident_id] = voice_id
+
+
+def resident_voice(resident_id: str, profile_voice_id: str | None = None) -> str:
+    """The resident's chosen voice → profile → designed default → fallback."""
+    return (
+        _voice_overrides.get(resident_id)
+        or profile_voice_id
+        or load_voices().get(resident_id, {}).get("default")
+        or FALLBACK_VOICE
+    )
+
+
+def has_override(resident_id: str) -> bool:
+    return resident_id in _voice_overrides
+
+
+# ---------- Voice Design (T1.1, used by scripts/design_voices.py) ----------
+
+async def design_previews(description: str, text: str) -> list[dict]:
+    """Generate ~3 candidate voices from a description.
+
+    `text` is what the previews say; ElevenLabs wants 100–1000 characters.
+    Returns [{"generated_voice_id": str, "audio": bytes}].
+    """
+    body = {"voice_description": description, "text": text, "model_id": VOICE_DESIGN_MODEL}
+    resp = await _client().post("/text-to-voice/design", headers=_headers(), json=body, timeout=120)
+    if resp.status_code == 404:  # older API surface
+        body.pop("model_id")
+        resp = await _client().post("/text-to-voice/create-previews", headers=_headers(), json=body, timeout=120)
+    _raise_for(resp, "voice design")
+    return [
+        {"generated_voice_id": p["generated_voice_id"], "audio": base64.b64decode(p["audio_base_64"])}
+        for p in resp.json()["previews"]
+    ]
+
+
+async def save_designed_voice(name: str, description: str, generated_voice_id: str) -> str:
+    """Turn a preview into a permanent voice in the account. Returns its voice_id."""
+    body = {"voice_name": name, "voice_description": description, "generated_voice_id": generated_voice_id}
+    resp = await _client().post("/text-to-voice", headers=_headers(), json=body, timeout=60)
+    if resp.status_code == 404:  # older API surface
+        resp = await _client().post(
+            "/text-to-voice/create-voice-from-preview", headers=_headers(), json=body, timeout=60)
+    _raise_for(resp, "save designed voice")
+    return resp.json()["voice_id"]
