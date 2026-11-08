@@ -510,3 +510,34 @@ export async function savePhoto(input: {
     return { ok: false, error: "The API is not reachable." };
   }
 }
+
+// ---------- Gaze/gesture input (docs/GAZE_GESTURE_PLAN.md §7) ----------
+
+import type { InputEvent, InputProfile } from "./input/types";
+import { DEFAULT_PROFILE } from "./input/profile";
+
+/** Batched OUTCOME events from the input controller — never video. */
+export function postInputEvents(events: InputEvent[]) {
+  return sendJson<{ saved: number }>("/input-events", { events });
+}
+
+/** How this resident communicates best, from input history (G6/G7). */
+export async function getInputProfile(residentId: string): Promise<InputProfile> {
+  const raw = await fetchJson(`/input-profile/${residentId}`);
+  const row = record(raw);
+  if (!row) return { ...DEFAULT_PROFILE, resident_id: residentId };
+  return {
+    resident_id: residentId,
+    preferred_select:
+      row.preferred_select === "gaze" || row.preferred_select === "gesture"
+        ? row.preferred_select
+        : "touch",
+    preferred_yes: text(row.preferred_yes) ?? "touch",
+    dwell_ms: typeof row.dwell_ms === "number" ? row.dwell_ms : 1000,
+    rates: (record(row.rates) ?? {}) as InputProfile["rates"],
+    notes: Array.isArray(row.notes) ? row.notes.filter((n): n is string => typeof n === "string") : [],
+    events_counted: typeof row.events_counted === "number" ? row.events_counted : 0,
+    confidence:
+      row.confidence === "high" || row.confidence === "medium" ? row.confidence : "low",
+  };
+}

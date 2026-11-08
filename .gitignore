@@ -49,3 +49,6 @@ Thumbs.db
 .vscode/
 
 # Build plan source docs are kept as .docx intentionally — see docs/ for markdown versions
+
+# MediaPipe model + WASM — fetched by web/scripts/fetch-vision-assets.mjs
+web/public/models/
