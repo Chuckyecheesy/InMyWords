@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getResident, getStory } from "@/lib/api";
 import { AudioPlayback } from "@/components/shared";
+import { storyImageUrl } from "@/lib/cloudinary";
 
 export const metadata = { title: "Story" };
 
@@ -38,12 +39,11 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
           {chapters.map((chapter) => (
             <article key={chapter.id} className="story-chapter">
               {/* Chapter photo (if available) */}
-              {chapter.photo_ids && chapter.photo_ids.length > 0 && (
+              {chapter.photo_ids && chapter.photo_ids.length > 0 && storyImageUrl(chapter.photo_ids[0]) && (
                 <picture>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     className="story-chapter-photo"
-                    src={`https://res.cloudinary.com/inmywords/image/upload/c_fill,g_auto,w_800,h_400/${chapter.photo_ids[0]}.jpg`}
+                    src={storyImageUrl(chapter.photo_ids[0])!}
                     alt="Chapter illustration"
                   />
                 </picture>

@@ -1,0 +1,39 @@
+- generic [active] [ref=f2e1]:
+  - link "Skip to content" [ref=f2e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=f2e3]:
+    - link "In My Words" [ref=f2e4] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f2e5]:
+      - button "Larger text" [ref=f2e6] [cursor=pointer]
+      - button "High contrast" [ref=f2e7] [cursor=pointer]
+  - main [ref=f2e8]:
+    - link "All residents" [ref=f2e9] [cursor=pointer]:
+      - /url: /staff
+    - paragraph [ref=f2e10]: Staff
+    - heading "Marcus" [level=1] [ref=f2e11]
+    - paragraph [ref=f2e12]: Single words and gestures. Picture tiles. Needs quiet to focus.
+    - navigation "Staff" [ref=f2e13]:
+      - link "Onboarding" [ref=f2e14] [cursor=pointer]:
+        - /url: /staff/marcus/onboarding
+      - link "Photos" [ref=f2e15] [cursor=pointer]:
+        - /url: /staff/marcus/photos
+      - link "Coach" [ref=f2e16] [cursor=pointer]:
+        - /url: /staff/marcus/coach
+      - link "Since last shift" [ref=f2e17] [cursor=pointer]:
+        - /url: /staff/handoff?resident=marcus
+      - link "Activity" [ref=f2e18] [cursor=pointer]:
+        - /url: /staff/activity?resident=marcus
+    - generic [ref=f2e19]:
+      - generic [ref=f2e20]:
+        - heading "Add a photo" [level=2] [ref=f2e21]
+        - paragraph [ref=f2e22]: A phone photo becomes a tile, with the same crop and corners as the others.
+      - generic [ref=f2e23]:
+        - generic [ref=f2e24]:
+          - text: What is this a picture of?
+          - textbox "What is this a picture of?" [ref=f2e25]
+        - generic [ref=f2e26] [cursor=pointer]:
+          - text: Choose a photo
+          - button "Choose a photo" [ref=f2e27]
+        - button "Save photo" [disabled] [ref=f2e28]
+  - alert [ref=f2e29]

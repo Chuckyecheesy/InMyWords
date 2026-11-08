@@ -84,16 +84,16 @@ EXPECTED OUTPUT:
 #### Test: "displays real photos from Cloudinary"
 ```
 INPUT:
-  photo_id: "marcus_photo_bowling_1"
+  public_id: "tiles/marcus_bowling"
+  env: NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=<your cloud>
 
-EXPECTED OUTPUT (DOM):
-  <img src="https://res.cloudinary.com/inmywords/image/upload/
-       c_thumb,g_face,w_400,h_400/marcus_photo_bowling_1.jpg"
-       alt="Choice option"
-       style="border-radius: 8px; object-fit: cover;" />
-  ✓ Cloudinary URL with transformation recipe
-  ✓ Face-focused, 400×400px
-  ✓ Rounded corners
+EXPECTED OUTPUT (DOM), built by tileImageUrl(public_id, mode) in web/lib/cloudinary.ts:
+  <img src="https://res.cloudinary.com/<cloud>/image/upload/
+       c_fill,g_auto,w_640,h_640/e_background_removal/
+       c_pad,w_720,h_720,b_rgb:F7FBFA/r_48/tiles/marcus_bowling" />
+  ✓ Cloud name comes from config, never hardcoded
+  ✓ The frozen T4.1 tile recipe (square crop, auto focus, background removed, padded, rounded)
+  ✓ A second high-contrast variant is rendered (adds e_contrast:50,e_sharpen:80, white pad)
 ```
 
 ---
@@ -256,20 +256,19 @@ DATABASE STATE CHANGE:
 ```
 INPUT (from GET /story/marcus):
   chapters[0]: {
-    photo_ids: ["marcus_photo_bowling_1"],
+    photo_ids: ["story/marcus_portrait"],
     ...
   }
 
 EXPECTED OUTPUT (DOM):
-  <img 
-    src="https://res.cloudinary.com/inmywords/image/upload/
-         c_fill,g_auto,w_600,h_400/marcus_photo_bowling_1.jpg"
-    alt="Chapter photo"
-    style="width: 100%; max-height: 400px; object-fit: cover;" 
-  />
-  ✓ Photo displayed at top
-  ✓ Full width, centered
-  ✓ Cloudinary transformation applied
+  <img
+    src="https://res.cloudinary.com/<cloud>/image/upload/
+         c_fill,g_auto,w_800,h_400/story/marcus_portrait.jpg"
+    alt="Chapter illustration"
+    class="story-chapter-photo" />
+  ✓ URL built by storyImageUrl(photo_ids[0]) in web/lib/cloudinary.ts
+  ✓ Cloud name comes from config; no image is rendered if it is unset
+  ✓ Photo displayed at top, full width, 800x400 crop
 ```
 
 ---
@@ -477,7 +476,7 @@ Response:
     id: 42,
     chapter_key: "about_me",
     text: "My favorite memory is...",
-    photo_ids: ["marcus_photo_bowling_1"],
+    photo_ids: ["story/marcus_portrait"],
     audio_url: "https://cloudinary.com/.../story_about_me_marcus_approved.mp3",
     status: "approved"
   }]
