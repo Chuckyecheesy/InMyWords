@@ -39,16 +39,20 @@ from jsonschema import Draft202012Validator
 EMBEDDING_DIM = 768
 FLASH_MODEL = "gemini-3.8-flash"
 STEADY_MODEL = "gemini-3.5-flash"
+LITE_MODEL = "gemini-3.5-flash-lite"
 
-# (primary, fallback) per feature. Someone waiting on the answer gets the
-# steady model first. Background work tries the newer model and falls back.
+# (primary, fallback) per feature. Hard work (writing, extracting) uses the
+# steady model; easy work (yes/no, one short sentence) uses the lite model,
+# which also has its own request budget. Fallbacks use a different model so
+# one overloaded model does not stop a feature.
 # Override with GEMINI_MODEL_<FEATURE> and GEMINI_MODEL_<FEATURE>_FALLBACK.
 FEATURE_MODELS = {
     "voice": (STEADY_MODEL, None),   # compose() is Voice's own fallback
     "coach": (STEADY_MODEL, FLASH_MODEL),
     "handoff": (STEADY_MODEL, FLASH_MODEL),
-    "story": (FLASH_MODEL, STEADY_MODEL),
-    "memory": (FLASH_MODEL, STEADY_MODEL),
+    "story": (STEADY_MODEL, FLASH_MODEL),
+    "memory": (STEADY_MODEL, FLASH_MODEL),
+    "memory_easy": (LITE_MODEL, STEADY_MODEL),
 }
 EMBED_MODEL = "gemini-embedding-001"
 

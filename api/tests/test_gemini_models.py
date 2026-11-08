@@ -16,9 +16,13 @@ class ModelChoiceTests(unittest.TestCase):
         self.assertEqual(gemini.models_for("voice")[0], "gemini-3.5-flash")
         self.assertEqual(gemini.models_for("coach")[0], "gemini-3.5-flash")
 
-    def test_background_features_try_the_newer_model_then_fall_back(self):
-        self.assertEqual(gemini.models_for("memory"), ["gemini-3.8-flash", "gemini-3.5-flash"])
-        self.assertEqual(gemini.models_for("story"), ["gemini-3.8-flash", "gemini-3.5-flash"])
+    def test_hard_features_use_steady_then_the_newer_model(self):
+        for feature in ("memory", "story"):
+            self.assertEqual(gemini.models_for(feature), ["gemini-3.5-flash", "gemini-3.8-flash"])
+
+    def test_easy_memory_work_uses_lite_then_steady(self):
+        self.assertEqual(gemini.models_for("memory_easy"),
+                         ["gemini-3.5-flash-lite", "gemini-3.5-flash"])
 
     def test_voice_has_no_second_model(self):
         self.assertEqual(len(gemini.models_for("voice")), 1)
@@ -49,7 +53,7 @@ class FallbackTests(unittest.TestCase):
     def test_first_model_failing_uses_the_fallback(self):
         out, calls = self.run_with([RuntimeError("504"), {"ok": 1}])
         self.assertEqual(out, {"ok": 1})
-        self.assertEqual([m for m, _ in calls], ["gemini-3.8-flash", "gemini-3.5-flash"])
+        self.assertEqual([m for m, _ in calls], ["gemini-3.5-flash", "gemini-3.8-flash"])
 
     def test_first_try_gets_a_short_deadline_when_a_fallback_exists(self):
         _, calls = self.run_with([RuntimeError("504"), {"ok": 1}])

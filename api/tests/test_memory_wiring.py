@@ -53,6 +53,26 @@ class ObserveSyncTests(unittest.TestCase):
             wiring.observe_sync = original
 
 
+class PhrasingPromptTests(unittest.TestCase):
+    def test_phrasing_uses_the_easy_model_and_forbids_first_person(self):
+        seen = {}
+
+        class Fake:
+            @staticmethod
+            def generate_for(feature, prompt, schema, **k):
+                seen["feature"], seen["prompt"] = feature, prompt
+                return {"sentence": "He goes bowling on Saturdays."}
+
+        original = wiring._gemini
+        wiring._gemini = lambda: Fake
+        try:
+            wiring.gemini_phrase({"content": "Went bowling", "weekday": "Saturday", "hour": None})
+        finally:
+            wiring._gemini = original
+        self.assertEqual(seen["feature"], "memory_easy")
+        self.assertIn("third person", seen["prompt"])
+
+
 class ScanRoutinesTests(unittest.TestCase):
     EVENTS = [{"event": "Went bowling", "date": d}
               for d in ("2026-10-17", "2026-10-24", "2026-10-31")]

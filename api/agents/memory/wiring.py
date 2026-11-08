@@ -66,7 +66,7 @@ def gemini_contradicts(candidate: dict, memory: dict) -> bool:
         "things or simply agree."
     )
     try:
-        return bool(_gemini().generate_for("memory", prompt, _YES_NO_SCHEMA).get("contradicts"))
+        return bool(_gemini().generate_for("memory_easy", prompt, _YES_NO_SCHEMA).get("contradicts"))
     except Exception as exc:
         print(f"[memory] contradiction check failed: {exc}")
         return False
@@ -81,8 +81,9 @@ def gemini_phrase(group: dict) -> str:
     """Gemini phrases; the count and day come from code and are not asked for."""
     fallback = plain_routine_text(group)
     try:
-        out = _gemini().generate_for("memory", 
-            f"Write one short plain sentence, no numbers, for this routine: {fallback}",
+        out = _gemini().generate_for("memory_easy",
+            "Write one short plain sentence, no numbers, in the third person (never 'I' or 'my'; 'he', 'she' or 'they' is fine), "
+            f"describing this routine noticed by staff: {fallback}",
             _PHRASE_SCHEMA)
         return str(out.get("sentence", "")).strip() or fallback
     except Exception as exc:
