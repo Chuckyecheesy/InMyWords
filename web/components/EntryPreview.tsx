@@ -36,7 +36,7 @@ export function EntryPreview() {
   }
 
   return (
-    <figure className="entry-preview" aria-label="Try Speak For Me: tap a picture, then hear the sentence">
+    <figure className="entry-preview" aria-label="Try My Words: tap a picture, then hear the sentence">
       <div className="entry-preview-tiles">
         {PICTURES.map((picture) => (
           <button

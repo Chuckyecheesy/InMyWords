@@ -36,7 +36,7 @@ function instructionsFor(section: string, name: string): string {
     case "teach":
       return "Pick a tile, then show your hand sign to the camera a few times.";
     default:
-      return `Hi ${name}. Tap Speak For Me to talk with pictures. Tap My Story to tell people about your life. Tap My Choices to decide something.`;
+      return `Hi ${name}. Tap My Words to tell people what you want. Tap My Story to tell people about your life. Tap My Choices to decide something.`;
   }
 }
 
@@ -158,7 +158,7 @@ export function ResidentChrome({
     section === "interview"
       ? { href: `/resident/${id}/story`, label: "My Story" }
       : section === "calibrate" || section === "teach"
-        ? { href: `/resident/${id}/speak`, label: "Speak For Me" }
+        ? { href: `/resident/${id}/speak`, label: "My Words" }
         : { href: `/resident/${id}`, label: "Home" };
 
   return (

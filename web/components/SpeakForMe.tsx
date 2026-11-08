@@ -10,6 +10,7 @@ import {
   Eraser,
   Eye,
   Hand,
+  ImagePlus,
   LayoutGrid,
   MapPin,
   MessageCircle,
@@ -31,6 +32,7 @@ import { Butterfly } from "./nature";
 import { BowlingIcon, categoryTint, type Icon } from "@/lib/pictograms";
 import type { Resident, Tile } from "@/lib/types";
 import { CameraConsent } from "./CameraConsent";
+import { AddCard } from "./AddCard";
 import { GazeTileGrid } from "./GazeTileGrid";
 import { GestureHint } from "./GestureHint";
 import { TileButton, TileFace } from "./shared";
@@ -123,6 +125,9 @@ const FRIENDLY_SUGGEST_ERROR =
 const FRIENDLY_SPEAK_ERROR = "The voice isn't working right now. Nothing was said or saved.";
 
 export function SpeakForMe({ resident }: { resident: Resident }) {
+  const [tiles, setTiles] = useState(resident.tiles);
+  const [addingCard, setAddingCard] = useState(false);
+  const [cardNote, setCardNote] = useState<string | null>(null);
   const [selected, setSelected] = useState<Tile[]>([]);
   const [limitNote, setLimitNote] = useState<string | null>(null);
   const [cleared, setCleared] = useState<Tile[] | null>(null);
@@ -136,9 +141,9 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
 
-  const categories = useMemo(() => categoriesOf(resident.tiles), [resident.tiles]);
+  const categories = useMemo(() => categoriesOf(tiles), [tiles]);
   const visible =
-    category === "all" ? resident.tiles : resident.tiles.filter((tile) => tile.category === category);
+    category === "all" ? tiles : tiles.filter((tile) => tile.category === category);
   const labels = selected.map((tile) => tile.label);
   const name = resident.name;
   const sentence = spokenSentence(labels, timeNow);
@@ -182,11 +187,11 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
   useEffect(() => {
     if (!input.cameraOn) return;
     return onCustomGesture((label) => {
-      const tile = resident.tiles.find((item) => item.label === label);
+      const tile = tiles.find((item) => item.label === label);
       if (tile) toggleTile(tile, "custom");
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input.cameraOn, resident.tiles, selected]);
+  }, [input.cameraOn, tiles, selected]);
 
   function removeTile(tile: Tile) {
     resetSuggestions();
@@ -347,6 +352,43 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         <h1>What do you want to say?</h1>
         <p>Pick pictures, then tap <strong>Help me say it</strong>. You choose what is spoken.</p>
       </div>
+
+      {addingCard ? (
+        <AddCard
+          residentId={resident.id}
+          onCancel={() => setAddingCard(false)}
+          onSaved={(nextTiles, label) => {
+            setTiles(nextTiles);
+            setCategory("all");
+            setCardNote(`"${label}" is on your grid now.`);
+            setAddingCard(false);
+          }}
+        />
+      ) : (
+        <div>
+          <button
+            type="button"
+            className="btn"
+            data-variant="primary"
+            data-size="lg"
+            data-longpress="own"
+            onPointerDown={hold.down("Add a card")}
+            onPointerUp={hold.clear}
+            onPointerLeave={hold.clear}
+            onPointerCancel={hold.clear}
+            onClick={() => {
+              if (!hold.consumed()) {
+                setCardNote(null);
+                setAddingCard(true);
+              }
+            }}
+          >
+            <ImagePlus size={24} aria-hidden="true" />
+            Add a card
+          </button>
+          {cardNote ? <p className="note" role="status">{cardNote}</p> : null}
+        </div>
+      )}
 
       <section className="composer" aria-label="Sentence">
         <div className="composer-main">
@@ -704,7 +746,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
       {input.status === "error" ? inputError : null}
       {input.consent && input.eyeMode && input.calibrationReady ? (
         <GazeTileGrid
-          tiles={resident.tiles}
+          tiles={tiles}
           dwellMs={input.profile.dwell_ms}
           cameraReady={input.cameraOn}
           onSelect={(tile, holdMs) => toggleTile(tile, holdMs > 0 ? "gaze" : "touch", holdMs)}

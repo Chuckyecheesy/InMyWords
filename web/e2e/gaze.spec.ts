@@ -39,7 +39,10 @@ async function installTracker(page: Page) {
           state.frames++;
           positions = state.missing ? null : [[state.frames, 2]];
           const target = document.querySelector(".calibrate-target") ??
-            (state.aim ? Array.from(document.querySelectorAll("[data-service-target]")).find((tile) => tile.textContent?.trim() === state.aim) : undefined);
+            (state.aim ? Array.from(document.querySelectorAll("[data-service-target]")).find((tile) => {
+              const text = (tile.textContent || "").replace(/\s+/g, " ").trim();
+              return text === state.aim || tile.getAttribute("aria-label") === state.aim;
+            }) : undefined);
           const rect = target?.getBoundingClientRect();
           listener(!state.missing && rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null, performance.now());
         }, 33);
@@ -132,17 +135,24 @@ test("calibration, three-category gaze selection, storage, loss and camera off",
   await expect(page.getByText("Camera on. Looking for your eyes…", { exact: true })).toBeVisible();
 
   await state(page, { aim: "Refreshments" });
-  await expect(page.locator(".composer-sentence")).toHaveText("I would like some refreshments.", { timeout: 5000 });
-  await page.waitForTimeout(1800);
+  await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible({ timeout: 8000 });
+  await expect(page.locator(".composer-sentence")).toHaveText("Your sentence will appear here.");
+  await state(page, { aim: "Confirm" });
+  await expect(page.locator(".composer-sentence")).toHaveText("I would like some refreshments.", { timeout: 12000 });
+  await expect(page.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Refreshments", exact: true })).toHaveAttribute("aria-pressed", "true");
   await state(page, { aim: "" });
   await expect.poll(() => events.filter((event) => event.input_type === "gaze" && event.target === "refreshments").length).toBe(1);
   expect(events.find((event) => event.input_type === "gaze")!.hold_ms).toBeGreaterThan(600);
   await expect.poll(async () => (await (await request.get("http://127.0.0.1:8000/input-profile/marcus")).json()).events_counted).toBeGreaterThan(before.events_counted);
 
+  await page.getByRole("button", { name: "Say my words", exact: true }).scrollIntoViewIfNeeded();
   await state(page, { aim: "Say my words" });
-  await expect.poll(() => spoken).toEqual(["I would like some refreshments."]);
-  await page.waitForTimeout(1800);
+  await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible({ timeout: 8000 });
+  expect(spoken).toEqual([]);
+  await state(page, { aim: "Confirm" });
+  await expect.poll(() => spoken, { timeout: 12000 }).toEqual(["I would like some refreshments."]);
+  await page.waitForTimeout(800);
   expect(spoken).toHaveLength(1);
 
   await state(page, { missing: true });
@@ -167,9 +177,9 @@ test("permission failure shows retry and preserves touch", async ({ page }) => {
   await page.goto("/resident/marcus/speak");
   await page.getByRole("button", { name: "Turn camera on" }).click();
   await expect(page.getByText(/Camera permission denied/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Turn camera on" })).toBeVisible();
   await page.getByRole("button", { name: "Refreshments", exact: true }).click();
   await expect(page.locator(".composer-sentence")).toContainText("refreshments");
-  await page.getByRole("button", { name: "Turn camera off", exact: true }).click();
   await page.getByRole("button", { name: "Turn camera on" }).click();
   await expect(page.locator(".service-camera")).toBeVisible();
 });

@@ -255,7 +255,7 @@ const coach: Record<string, CoachEntry[]> = {
       keywords: ["communicate", "communication", "talk", "speak", "tiles", "understand", "say"],
       answer: {
         answer:
-          "Marcus uses picture tiles, single words and gestures. Ask one question at a time and wait, he'll answer yes or no with a tile or a nod. When he builds a sentence in Speak For Me, he approves it before it is spoken.",
+          "Marcus uses picture tiles, single words and gestures. Ask one question at a time and wait, he'll answer yes or no with a tile or a nod. When he builds a sentence in My Words, he approves it before it is spoken.",
         sources: [
           { type: "document", date: RECORDS },
           { type: "staff", date: "2026-10-30" },

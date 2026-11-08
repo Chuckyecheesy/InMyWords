@@ -504,13 +504,13 @@ describe("T4.3", { concurrency: false }, () => {
       const { default: ResidentHome } = await import("../app/resident/[id]/page.tsx");
       render(await ResidentHome({ params: Promise.resolve({ id: "marcus" }) }));
       assert.equal(
-        screen.getByRole("link", { name: /Speak For Me/ }).getAttribute("href"),
+        screen.getByRole("link", { name: /My Words/ }).getAttribute("href"),
         "/resident/marcus/speak",
       );
       cleanup();
       const { default: Speak } = await import("../app/resident/[id]/speak/page.tsx");
       render(await Speak({ params: Promise.resolve({ id: "marcus" }) }));
-      screen.getByRole("heading", { name: "Speak For Me" });
+      screen.getByRole("heading", { name: "My Words" });
       for (const category of ["Refreshments", "Entertainment", "Family"]) {
         screen.getByRole("button", { name: category, exact: true });
       }
