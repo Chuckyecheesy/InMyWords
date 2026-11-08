@@ -14,6 +14,10 @@ export const GAZE_STALE_MS = 500;
 export const CONFIRM_LEFT = 0.42;
 export const CONFIRM_RIGHT = 0.58;
 export const CATEGORY_BAND_PAD = 0.15;
+/** How far past a target the look can be and still get pulled in. */
+export const BUBBLE_PAD = 0.28;
+/** A locked bubble wins until another center is clearly closer, so noise cannot flicker. */
+export const BUBBLE_SWITCH_PX = 72;
 
 export type ZoneRect = {
   id: string;
@@ -76,6 +80,66 @@ export function classifyGazePoint(
 ): string | null {
   if (options.confirming) return confirmZone(point.x, options.viewportWidth);
   return categoryZone(point, options.categories) ?? options.other;
+}
+
+function bubblePad(bubble: ZoneRect): { x: number; y: number } {
+  const width = bubble.right - bubble.left;
+  const height = bubble.bottom - bubble.top;
+  return {
+    x: Math.max(48, width * BUBBLE_PAD),
+    y: Math.max(48, height * BUBBLE_PAD),
+  };
+}
+
+function contains(point: { x: number; y: number }, bubble: ZoneRect, pad: { x: number; y: number }): boolean {
+  return point.x >= bubble.left - pad.x && point.x <= bubble.right + pad.x
+    && point.y >= bubble.top - pad.y && point.y <= bubble.bottom + pad.y;
+}
+
+function centerOf(bubble: ZoneRect): { x: number; y: number } {
+  return { x: (bubble.left + bubble.right) / 2, y: (bubble.top + bubble.bottom) / 2 };
+}
+
+function distanceTo(point: { x: number; y: number }, bubble: ZoneRect): number {
+  const center = centerOf(bubble);
+  return Math.hypot(point.x - center.x, point.y - center.y);
+}
+
+/**
+ * Aim assist. A look that gets close to a target is placed on that target's
+ * center and stays there until another target is clearly closer.
+ */
+export class BubbleMagnet {
+  private locked: string | null = null;
+
+  clear(): void {
+    this.locked = null;
+  }
+
+  snap(point: { x: number; y: number }, bubbles: ZoneRect[]): { x: number; y: number; id: string | null } {
+    const usable = bubbles.filter((bubble) => bubble.id && bubble.right > bubble.left && bubble.bottom > bubble.top);
+    const lock = usable.find((bubble) => bubble.id === this.locked) ?? null;
+    let next: ZoneRect | null = null;
+    if (lock && contains(point, lock, bubblePad(lock))) {
+      next = lock;
+      const takeover = usable.find((bubble) => bubble.id !== lock.id
+        && contains(point, bubble, { x: 0, y: 0 })
+        && distanceTo(point, bubble) + BUBBLE_SWITCH_PX < distanceTo(point, lock));
+      if (takeover) next = takeover;
+    } else {
+      const core = usable.filter((bubble) => contains(point, bubble, { x: 0, y: 0 }));
+      const pool = core.length ? core : usable.filter((bubble) => contains(point, bubble, bubblePad(bubble)));
+      const sorted = pool.slice().sort((a, b) => distanceTo(point, a) - distanceTo(point, b));
+      const leader = sorted[0];
+      const runner = sorted[1];
+      if (leader && (!runner || core.includes(leader) || distanceTo(point, runner) - distanceTo(point, leader) >= BUBBLE_SWITCH_PX)) {
+        next = leader;
+      }
+    }
+    this.locked = next?.id ?? null;
+    if (!next) return { x: point.x, y: point.y, id: null };
+    return { ...centerOf(next), id: next.id };
+  }
 }
 
 /** Share of samples in one zone, ignoring nothing: nulls count against the majority. */

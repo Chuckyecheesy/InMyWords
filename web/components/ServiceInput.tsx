@@ -7,9 +7,9 @@ import { hasCameraConsent, setCameraConsent } from "@/lib/input/consent";
 import { gazeVideoElement, hasCalibration, onGaze, startGaze, stopGaze } from "@/lib/input/gaze";
 import { onHandPointer, startGestures, stopGestures } from "@/lib/input/gestures";
 import {
+  BubbleMagnet,
   GAZE_STALE_MS,
   GazeLatch,
-  classifyGazePoint,
   type ZoneRect,
 } from "@/lib/input/gaze-zones";
 import { HoldSelector, type PointerPoint } from "@/lib/input/hand-pointer";
@@ -19,9 +19,14 @@ type Mode = "touch" | "gaze" | "hand";
 const GAZE_HINT = "Your camera stays on this device. No video is saved. Hold your look for about two seconds. Then look left to cancel or right to add it.";
 const HAND_HINT = "Your camera stays on this device. No video is saved. Hold for one second to select.";
 
-function categoryRects(root: HTMLElement): ZoneRect[] {
-  return Array.from(root.querySelectorAll<HTMLButtonElement>("button.service-category[data-service-target]"))
-    .filter((button) => !button.disabled && button.dataset.serviceTarget)
+function gazeBubbles(root: HTMLElement, confirming: boolean): ZoneRect[] {
+  return Array.from(root.querySelectorAll<HTMLButtonElement>("button[data-service-target]"))
+    .filter((button) => {
+      const id = button.dataset.serviceTarget;
+      if (!id || button.disabled) return false;
+      if (!confirming) return true;
+      return id === "gaze:cancel" || id === "gaze:confirm";
+    })
     .map((button) => {
       const rect = button.getBoundingClientRect();
       return {
@@ -45,6 +50,7 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [point, setPoint] = useState<PointerPoint | null>(null);
+  const [locked, setLocked] = useState(false);
   const [hold, setHold] = useState({ target: null as string | null, progress: 0 });
   const [calibrated, setCalibrated] = useState(false);
   const preview = useRef<HTMLVideoElement>(null);
@@ -120,6 +126,7 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
     }
     const handSelector = new HoldSelector();
     const gazeLatch = new GazeLatch();
+    const magnet = new BubbleMagnet();
     let sample: PointerPoint | null = null;
     let sampleAt = 0;
     const receive = (next: PointerPoint | null) => { sample = next; sampleAt = performance.now(); };
@@ -136,33 +143,20 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
       const now = performance.now();
       const freshFor = mode === "gaze" ? GAZE_STALE_MS : 250;
       const current = sample && now - sampleAt < freshFor ? sample : null;
-      setPoint(current);
       if (mode === "gaze") {
         const root = region.current;
         const confirming = !!root?.querySelector("[data-service-target='gaze:confirm']");
-        let other: string | null = null;
-        if (current && root && !confirming) {
-          const buttons = root.querySelectorAll<HTMLButtonElement>("button[data-service-target]");
-          for (const button of buttons) {
-            if (button.disabled || button.classList.contains("service-category")) continue;
-            const rect = button.getBoundingClientRect();
-            if (rect.width <= 0 || rect.height <= 0) continue;
-            const inside = current.x >= rect.left && current.x <= rect.right && current.y >= rect.top && current.y <= rect.bottom;
-            if (inside) other = button.dataset.serviceTarget ?? null;
-          }
-        }
-        const zone = current && root
-          ? classifyGazePoint(current, {
-            viewportWidth: window.innerWidth,
-            confirming,
-            categories: confirming ? [] : categoryRects(root),
-            other,
-          })
-          : null;
+        if (!current) magnet.clear();
+        const snapped = current && root ? magnet.snap(current, gazeBubbles(root, confirming)) : null;
+        setPoint(snapped?.id ? { x: snapped.x, y: snapped.y } : current);
+        setLocked(!!snapped?.id);
+        const zone = snapped?.id ?? null;
         const result = gazeLatch.push(zone, now);
         setHold({ target: result.target, progress: result.progress });
         if (result.select && result.target) act(result.target);
       } else {
+        setPoint(current);
+        setLocked(false);
         const hit = current ? document.elementFromPoint(current.x, current.y)?.closest<HTMLButtonElement>("button[data-service-target]") : null;
         const target = hit && region.current?.contains(hit) && !hit.disabled ? hit.dataset.serviceTarget ?? null : null;
         // Disabled buttons may have pointer-events:none. Use the previous button's
@@ -232,7 +226,7 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
       </div>
     </div>}
     {error && <p role="alert">{error} Tap Turn camera on to retry, or tap your choices.</p>}
-    {ready && point && !disabled && <div className="service-pointer" aria-hidden="true" style={{ left: point.x, top: point.y }} />}
+    {ready && point && !disabled && <div className={`service-pointer${locked ? " is-locked" : ""}`} aria-hidden="true" style={{ left: point.x, top: point.y }} />}
     {ready && <div className="service-input-dock" role="group" aria-label="Camera navigation">
       <button type="button" className="btn" data-service-target="input:up" aria-label="Scroll up" onClick={() => window.scrollBy({ top: -window.innerHeight * .6, behavior: "smooth" })}><ArrowUp size={28} aria-hidden="true" /></button>
       <button type="button" className="btn" data-service-target="input:down" aria-label="Scroll down" onClick={() => window.scrollBy({ top: window.innerHeight * .6, behavior: "smooth" })}><ArrowDown size={28} aria-hidden="true" /></button>
