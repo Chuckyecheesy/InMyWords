@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ImagePlus, Keyboard, Sparkles } from "lucide-react";
-import { SpeakForMe } from "@/components/SpeakForMe";
+import { CategorySpeaker } from "@/components/CategorySpeaker";
 import { getResident } from "@/lib/api";
 
 export const metadata = { title: "Speak For Me" };
@@ -12,7 +12,7 @@ export default async function SpeakPage({ params }: { params: Promise<{ id: stri
   if (!resident) notFound();
   return (
     <>
-      <SpeakForMe resident={resident.data} />
+      <CategorySpeaker key={id} residentId={id} />
       <details className="speak-disclosure">
         <summary>Other ways to communicate</summary>
         <nav className="speak-modes" aria-label="Other ways to say it">

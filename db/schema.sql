@@ -13,6 +13,7 @@ DROP TABLE IF EXISTS staff_assignments CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS input_events CASCADE;
 DROP TABLE IF EXISTS custom_gestures CASCADE;
+DROP TABLE IF EXISTS service_requests CASCADE;
 DROP TABLE IF EXISTS documents CASCADE;
 DROP TABLE IF EXISTS calendar_imports, visit_events, routines CASCADE;
 DROP TABLE IF EXISTS emh_events, emh_checklist, emh_notes, bookings, calendar_events,
@@ -134,6 +135,18 @@ CREATE TABLE action_results (
   step       TEXT NOT NULL,
   result     TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE service_requests (
+  id TEXT PRIMARY KEY,
+  resident_id TEXT NOT NULL REFERENCES residents(id),
+  categories JSONB NOT NULL,
+  status TEXT NOT NULL DEFAULT 'sent'
+    CHECK (status IN ('sent', 'acknowledged', 'completed', 'cancelled')),
+  submission_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (resident_id, submission_key)
 );
 
 -- priority 'urgent' + acknowledged_* back the resident "Get staff help"

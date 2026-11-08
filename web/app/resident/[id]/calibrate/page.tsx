@@ -7,6 +7,9 @@ import { hasCameraConsent } from "@/lib/input/consent";
 import {
   cameraStartMessage,
   clearCalibration,
+  completeCalibration,
+  resetGazeSamples,
+  resetForResident,
   currentGaze,
   freezeLearning,
   recordCalibrationPoint,
@@ -35,34 +38,61 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   const [checkIndex, setCheckIndex] = useState(0);
   const [checkTarget, setCheckTarget] = useState({ x: 0.5, y: 0.5 });
   const distances = useRef<number[]>([]);
+  const targetRef = useRef<HTMLButtonElement | null>(null);
+  const targetSince = useRef(0);
+  const cancelled = useRef(false);
+  const lifecycle = useRef(0);
+  const [sampleMessage, setSampleMessage] = useState<string | null>(null);
+  const [cameraOn, setCameraOn] = useState(false);
   const [result, setResult] = useState<"good" | "okay" | "retry" | null>(null);
   const [starting, setStarting] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!hasCameraConsent(id)) setPhase("consent");
-    return () => stopGaze();
+    cancelled.current = false;
+    const token = ++lifecycle.current;
+    void resetForResident(id);
+    queueMicrotask(() => {
+      if (token !== lifecycle.current) return;
+      setPhase(hasCameraConsent(id) ? "intro" : "consent");
+      setCameraOn(false);
+      setResult(null);
+    });
+    return () => { cancelled.current = true; lifecycle.current = token + 1; stopGaze(); };
   }, [id]);
 
+  useEffect(() => {
+    resetGazeSamples();
+    targetSince.current = performance.now();
+  }, [phase, targetIndex, checkIndex]);
+
   async function begin() {
+    const token = lifecycle.current;
     setStarting(true);
     setCameraError(null);
     try {
-      clearCalibration();
-      await startGaze();
+      await startGaze(id);
+      if (cancelled.current || token !== lifecycle.current) return;
+      setCameraOn(true);
+      await clearCalibration();
+      if (cancelled.current || token !== lifecycle.current) return;
       setPhase("calibrating");
       setTargetIndex(0);
       setTaps(0);
     } catch (error) {
-      setCameraError(cameraStartMessage(error));
+      if (!cancelled.current && token === lifecycle.current) setCameraError(cameraStartMessage(error));
     } finally {
-      setStarting(false);
+      if (!cancelled.current && token === lifecycle.current) setStarting(false);
     }
   }
 
   function tapTarget() {
-    const pos = POSITIONS[targetIndex];
-    recordCalibrationPoint(pos.x * window.innerWidth, pos.y * window.innerHeight);
+    const rect = targetRef.current?.getBoundingClientRect();
+    if (!rect || !recordCalibrationPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)) {
+      setSampleMessage("I can't see your eyes yet. Face the camera, then tap again.");
+      return;
+    }
+    setSampleMessage(null);
     if (taps + 1 < TAPS_PER_TARGET) {
       setTaps(taps + 1);
       return;
@@ -80,12 +110,14 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   }
 
   function measureCheckPoint() {
-    const gaze = currentGaze();
-    const tx = checkTarget.x * window.innerWidth;
-    const ty = checkTarget.y * window.innerHeight;
-    if (gaze) {
-      distances.current.push(Math.hypot(gaze.x - tx, gaze.y - ty));
+    const gaze = currentGaze(targetSince.current);
+    const rect = targetRef.current?.getBoundingClientRect();
+    if (!gaze || !rect) {
+      setSampleMessage("Look at the circle while facing the camera, then tap again.");
+      return;
     }
+    setSampleMessage(null);
+    distances.current.push(Math.hypot(gaze.x - rect.left - rect.width / 2, gaze.y - rect.top - rect.height / 2));
     if (checkIndex + 1 < CHECK_POINTS) {
       setCheckIndex(checkIndex + 1);
       setCheckTarget({ x: 0.15 + Math.random() * 0.7, y: 0.15 + Math.random() * 0.7 });
@@ -96,7 +128,9 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
         ? distances.current.reduce((a, b) => a + b, 0) / distances.current.length
         : Infinity;
     const fraction = avg / window.innerWidth;
-    setResult(fraction < 0.15 ? "good" : fraction <= 0.25 ? "okay" : "retry");
+    const outcome = fraction < 0.15 ? "good" : fraction <= 0.25 ? "okay" : "retry";
+    if (outcome !== "retry") completeCalibration(id);
+    setResult(outcome);
     setPhase("done");
   }
 
@@ -175,6 +209,8 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
     return (
       <div className="calibrate-stage">
         <div className="calibrate-hud card" role="status">
+          <span>Camera on</span>
+          {sampleMessage ? <span>{sampleMessage}</span> : null}
           <span className="calibrate-hud-label">
             Star {targetIndex + 1} of {POSITIONS.length}
           </span>
@@ -187,6 +223,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
         </div>
         <button
           type="button"
+          ref={targetRef}
           className="calibrate-target pulse-slow"
           style={{ left: `${pos.x * 100}%`, top: `${pos.y * 100}%` }}
           onClick={tapTarget}
@@ -202,6 +239,8 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
     return (
       <div className="calibrate-stage">
         <div className="calibrate-hud card" role="status">
+          <span>Camera on</span>
+          {sampleMessage ? <span>{sampleMessage}</span> : null}
           <span className="calibrate-hud-label">
             Check {checkIndex + 1} of {CHECK_POINTS}
           </span>
@@ -209,6 +248,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
         </div>
         <button
           type="button"
+          ref={targetRef}
           className="calibrate-target check pulse-slow"
           style={{ left: `${checkTarget.x * 100}%`, top: `${checkTarget.y * 100}%` }}
           onClick={measureCheckPoint}
@@ -222,6 +262,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
 
   return (
     <div className="stack calibrate-page">
+      {cameraOn ? <p role="status">Camera on</p> : null}
       <div className="card card-pad setup-card result-card" data-result={result ?? "okay"}>
         <span className="setup-icon" aria-hidden="true">
           {result === "retry" ? <Hand size={34} /> : <Sparkles size={34} />}
@@ -232,7 +273,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
         <p className="lead">
           {result === "retry"
             ? "Sit 50–70 cm from the screen with light on your face, then try again."
-            : "Your eyes are ready. This lasts until the tablet is closed."}
+            : "Your eyes are ready. This lasts until this page is reloaded."}
         </p>
         <div className="setup-actions">
           {result === "retry" ? (

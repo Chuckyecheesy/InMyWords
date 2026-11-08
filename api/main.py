@@ -20,6 +20,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, R
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from typing import Literal
 
 import mocks
 from services import auth as auth_svc
@@ -216,6 +217,63 @@ async def auth_residents():
 
 class VoiceBody(BaseModel):
     voice_id: str
+
+
+class ServiceRequestBody(BaseModel):
+    resident_id: str
+    categories: list[Literal['refreshments', 'entertainment', 'family']]
+    submission_key: str
+    approved: Literal[True]
+
+
+class ServiceRequestStatusBody(BaseModel):
+    status: Literal['acknowledged', 'completed', 'cancelled']
+
+
+async def _service_response(coro):
+    result, live = await _mcp(coro, None)
+    if not live or not isinstance(result, dict):
+        raise HTTPException(503, 'Staff requests are unavailable. Please retry.')
+    if result.get('error'):
+        raise HTTPException(result.get('code', 422), result['error'])
+    return result
+
+
+@app.post('/service-requests')
+async def submit_service_request(body: ServiceRequestBody, scope: dict = Depends(current_scope)):
+    require_access(scope, body.resident_id)
+    return await _service_response(mcp_client.submit_service_request(**body.model_dump()))
+
+
+@app.get('/service-requests')
+async def list_service_requests(resident_id: str = '', status: str = '', scope: dict = Depends(current_scope)):
+    session = scope['session']
+    if resident_id:
+        require_access(scope, resident_id)
+    elif session is None:
+        require_access(scope, '')
+    elif session.get('role') == 'resident':
+        resident_id = session.get('rid', '')
+        require_access(scope, resident_id)
+    result = await _service_response(mcp_client.list_service_requests(resident_id, status))
+    if session:
+        return {**result, 'requests': [row for row in result.get('requests', [])
+                                      if auth_svc.can_access(session, row['resident_id'], scope['assignments'])]}
+    return result
+
+
+@app.patch('/service-requests/{request_id}')
+async def update_service_request(request_id: str, body: ServiceRequestStatusBody, scope: dict = Depends(current_scope)):
+    if body.status != 'cancelled':
+        require_staff(scope)
+    elif scope['session'] is None:
+        require_access(scope, '')
+    result = await _service_response(mcp_client.list_service_requests())
+    row = next((row for row in result.get('requests', []) if row['id'] == request_id), None)
+    if row is None:
+        raise HTTPException(404, 'Request not found.')
+    require_access(scope, row['resident_id'])
+    return await _service_response(mcp_client.update_service_request(request_id, body.status))
 
 class SuggestBody(BaseModel):
     resident_id: str
@@ -1118,7 +1176,9 @@ async def input_events(body: InputEventsBody, scope: dict = Depends(current_scop
         require_access(scope, rid)
     events = [e.model_dump() for e in body.events]
     result, live = await _mcp(mcp_client.log_input_events(events), None)
-    return {"saved": result["saved"]} if live else {"saved": len(events)}
+    if not live or not isinstance(result, dict) or result.get("saved") != len(events):
+        raise HTTPException(503, "Input history could not be saved. Please retry.")
+    return {"saved": result["saved"]}
 
 
 class CustomGestureBody(BaseModel):
@@ -1133,8 +1193,12 @@ async def save_custom_gesture(body: CustomGestureBody, scope: dict = Depends(cur
     require_access(scope, body.resident_id)
     result, live = await _mcp(
         mcp_client.save_custom_gesture(body.resident_id, body.tile, body.samples), None)
+    if not live or not isinstance(result, dict):
+        raise HTTPException(503, 'Your gesture could not be saved. Please retry.')
     if live and result.get("error"):
         raise HTTPException(422, result["error"])
+    if result.get('ok') is not True:
+        raise HTTPException(503, 'Your gesture could not be saved. Please retry.')
     return {"ok": True, "tile": body.tile}
 
 

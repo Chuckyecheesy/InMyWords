@@ -150,3 +150,37 @@ Prep: same teammate performs every time; calibrate under venue lighting 5 min be
 - **Tiger Data**: high-frequency input events in a hypertable with a continuous aggregate + refresh policy is a textbook use case.
 - **Overall**: directly answers the brief's "input cannot depend on spelling or typing", with privacy by design.
 - **Done**: G1–G5 pass TC1–TC13; the 20-second beat runs cleanly 3× in a row; backup clip recorded; seeded history restores with `db/reset.py`.
+
+## WebGazer integration and verification
+
+WebGazer 3.5.3 runs in the browser. Run npm ci in web, then npm run dev
+or npm run build; asset preparation copies WebGazer and all face-mesh files into
+public/models. Missing required assets fail preparation. Optional gesture downloads
+may fail without disabling eye tracking. The runtime sets faceMeshSolutionPath
+to /models/mediapipe/face_mesh. Use HTTPS or localhost.
+
+On Speak For Me, enable **Use my eyes and hands**, then choose **Eye grid** or
+**Set up my eyes**. Complete nine stars (five taps each) and five accuracy checks.
+Face samples are required for training; checks require a fresh gaze prediction.
+A Good or Okay result enables the eye grid when returning to the tiles.
+Calibration remains in memory across resident routes and is reset by reload,
+resident change, recalibration, or withdrawing consent. WebGazer cross-session
+storage is disabled. Camera tracks are stopped explicitly on leaving a tracking
+screen or turning consent off; calibration itself does not keep the webcam open.
+
+Only outcome events are posted to /input-events. The API returns 503 when the
+memory MCP cannot save the complete batch; the browser retries failed requests.
+The existing input-profile endpoint and database schema are unchanged.
+
+Automated checks:
+- npm test (frontend logic, lifecycle, and component checks)
+- npx playwright test gaze.spec.ts (mock predictions through calibration,
+  selection, memory MCP storage, Pause, loss, consent withdrawal, and retry)
+- python -m unittest discover -s api/tests -p test_input_events.py
+
+Browser tests run local profile and memory MCP services with seed storage and
+require installed Python dependencies plus npx playwright install chromium.
+Mock predictions verify integration, not webcam accuracy. For a real-device check,
+complete calibration over HTTPS/localhost, dwell on a tile, look away to interrupt
+selection, use Pause/Resume, and turn consent off while checking the browser's
+camera indicator. Speech still requires the existing approval flow.

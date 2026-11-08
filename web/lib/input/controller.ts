@@ -58,6 +58,15 @@ export class DwellController {
     if (this.phase === "paused") this.phase = "idle";
   }
 
+  reset(): void {
+    if (this.phase !== "paused") this.phase = "idle";
+    this.tileId = null;
+    this.fixateStart = 0;
+    this.offTileSince = 0;
+    this.candidateId = null;
+    this.cooldownUntil = 0;
+  }
+
   /** Which tile (if any) contains the point, with padding; nearest centre wins. */
   hitTest(point: GazePoint): TileRect | null {
     let best: TileRect | null = null;

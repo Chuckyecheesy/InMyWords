@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DwellController, type Selection } from "@/lib/input/controller";
 import { onGaze } from "@/lib/input/gaze";
 import type { Tile } from "@/lib/types";
@@ -34,16 +34,19 @@ function tick(): void {
 export function GazeTileGrid({
   tiles,
   dwellMs,
+  cameraReady = true,
   onSelect,
   onPauseChange,
 }: {
   tiles: Tile[];
   dwellMs: number;
+  cameraReady?: boolean;
   onSelect: (tile: Tile, holdMs: number) => void;
   onPauseChange?: (paused: boolean) => void;
 }) {
-  const shown = [...tiles.slice(0, 5), PAUSE_TILE];
-  const controller = useRef<DwellController | null>(null);
+  const shown = useMemo(() => [...tiles.slice(0, 5), PAUSE_TILE], [tiles]);
+  const controller = useMemo(() => new DwellController(dwellMs), [dwellMs]);
+  const regionRef = useRef<HTMLElement | null>(null);
   const refs = useRef(new Map<string, HTMLButtonElement>());
   const [ring, setRing] = useState<{ tileId: string | null; progress: number }>({
     tileId: null,
@@ -51,12 +54,11 @@ export function GazeTileGrid({
   });
   const [paused, setPaused] = useState(false);
   const [gazeLost, setGazeLost] = useState(false);
+  const lastFrameAt = useRef(0);
 
-  if (!controller.current) controller.current = new DwellController(dwellMs);
-  controller.current.dwellMs = dwellMs;
 
   const measure = useCallback(() => {
-    const ctl = controller.current!;
+    const ctl = controller;
     ctl.clearTiles();
     for (const tile of shown) {
       const el = refs.current.get(tile.id);
@@ -72,10 +74,10 @@ export function GazeTileGrid({
         isPause: tile.id === PAUSE_TILE.id,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shown.map((t) => t.id).join(",")]);
+  }, [shown, controller]);
 
   useEffect(() => {
+    regionRef.current?.scrollIntoView({ block: "end" });
     measure();
     window.addEventListener("resize", measure);
     window.addEventListener("scroll", measure, true);
@@ -83,13 +85,16 @@ export function GazeTileGrid({
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure, true);
     };
-  }, [measure]);
+  }, [measure, cameraReady, paused]);
 
   useEffect(() => {
-    const ctl = controller.current!;
+    const ctl = controller;
     const unsubscribe = onGaze((point, lost) => {
       setGazeLost(lost);
+      if (lost) ctl.reset();
       const now = performance.now();
+      if (now - lastFrameAt.current > 250) ctl.reset();
+      if (point) lastFrameAt.current = now;
       const selection: Selection | null = ctl.tick(point, now);
       const state = ctl.state(now);
       setRing((prev) =>
@@ -109,22 +114,19 @@ export function GazeTileGrid({
       }
     });
     return unsubscribe;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onSelect, onPauseChange, shown.map((t) => t.id).join(",")]);
+  }, [onSelect, onPauseChange, shown, controller]);
 
   function resume() {
-    controller.current?.resume();
+    controller.resume();
     setPaused(false);
     onPauseChange?.(false);
   }
 
   return (
-    <section className="block gaze-grid-wrap" aria-label="Eye grid">
-      {gazeLost ? (
-        <p className="note" role="status">
-          I can’t see your eyes. Sit closer to the screen, with light on your face.
-        </p>
-      ) : null}
+    <section ref={regionRef} className="block gaze-grid-wrap" aria-label="Eye grid">
+      <p className="note gaze-status" role="status">
+        {gazeLost ? "I can't see your eyes. Face the camera." : ""}
+      </p>
       {paused ? (
         <button type="button" className="tile tile-button gaze-resume" onClick={resume}>
           <span className="tile-label">Resume eye grid</span>
@@ -147,7 +149,7 @@ export function GazeTileGrid({
                 onClick={() => {
                   // Touch always works too, same flow, logged as touch upstream.
                   if (tile.id === PAUSE_TILE.id) {
-                    controller.current?.pause();
+                    controller.pause();
                     setPaused(true);
                     onPauseChange?.(true);
                   } else {

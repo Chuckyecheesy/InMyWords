@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Camera, HandMetal, Sparkles } from "lucide-react";
 import { getCustomGestures, saveCustomGesture } from "@/lib/api";
@@ -33,19 +33,19 @@ export function TeachGesture({ resident }: { resident: Resident }) {
   const [saved, setSaved] = useState(false);
   const [tryHits, setTryHits] = useState<string[]>([]);
   const [cameraAttempt, setCameraAttempt] = useState(0);
-  const tryHitsRef = useRef(tryHits);
-  tryHitsRef.current = tryHits;
 
   useEffect(() => {
-    setConsent(hasCameraConsent(resident.id));
+    let cancelled = false;
+    queueMicrotask(() => { if (!cancelled) setConsent(hasCameraConsent(resident.id)); });
+    return () => { cancelled = true; };
   }, [resident.id]);
 
   useEffect(() => {
-    if (!consent) return;
+    if (!consent || !hasCameraConsent(resident.id)) return;
     let cancelled = false;
     void (async () => {
       try {
-        await startGaze();
+        await startGaze(resident.id);
         if (cancelled) return;
         setCameraOn(true);
         setMessage(null);
@@ -64,7 +64,7 @@ export function TeachGesture({ resident }: { resident: Resident }) {
       stopGestures();
       stopGaze();
     };
-  }, [consent, cameraAttempt]);
+  }, [consent, resident.id, cameraAttempt]);
 
   useEffect(() => {
     if (!saved) return;
@@ -100,6 +100,10 @@ export function TeachGesture({ resident }: { resident: Resident }) {
       return;
     }
     const all = await getCustomGestures(resident.id);
+    if (!all.some((gesture) => gesture.tile_label === tile.label)) {
+      setMessage("Your gesture could not be loaded. Keep your samples and try saving again.");
+      return;
+    }
     setCustomGestures(all);
     setSaved(true);
     setMessage(null);

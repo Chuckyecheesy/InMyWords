@@ -27,6 +27,19 @@ _DEFAULTS = {
 }
 
 
+async def submit_service_request(resident_id, categories, submission_key, approved):
+    return await _call('actions', 'submit_service_request', dict(
+        resident_id=resident_id, categories=categories, submission_key=submission_key, approved=approved))
+
+
+async def list_service_requests(resident_id='', status=''):
+    return await _call('actions', 'list_service_requests', dict(resident_id=resident_id, status=status))
+
+
+async def update_service_request(request_id, status):
+    return await _call('actions', 'update_service_request', dict(request_id=request_id, status=status))
+
+
 def _url(name: str) -> str:
     url = os.environ.get(f"MCP_{name.upper()}_URL", _DEFAULTS[name])
     return url if url.rstrip("/").endswith("/mcp") else url.rstrip("/") + "/mcp"

@@ -285,7 +285,7 @@ describe("setting a routine", () => {
       resident_id: "dana", person: "sam", start: "13:00", length_min: 120, days: null, start_date: "2026-11-08",
     });
     assert.ok(screen.getByText("Nothing is booked until you approve."));
-    assert.equal(screen.getAllByText("1:00p.m.–3:00p.m.").length, 7);
+    assert.equal((await screen.findAllByText("1:00p.m.–3:00p.m.")).length, 7);
   });
 
   test("approve, wait out the cancel window, then save and book", async () => {

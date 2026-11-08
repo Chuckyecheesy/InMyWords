@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StaffServiceQueue } from "@/components/StaffServiceQueue";
 import { ArrowRight, BookOpen, History, Lightbulb, MessageCircle } from "lucide-react";
 import { DataBanner } from "@/components/DataBanner";
 import { handoffKind } from "@/components/HandoffBits";
@@ -46,6 +47,7 @@ export default async function StaffDashboard() {
 
       <div className="dash">
         <div className="dash-col">
+          <StaffServiceQueue residents={people.map((person) => ({ id: person.data.id, name: person.data.name }))} />
           <section className="shift-card" aria-labelledby="shift-title">
             <span className="shift-icon" aria-hidden="true">
               <History size={26} />

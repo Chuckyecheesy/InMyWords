@@ -31,6 +31,8 @@ export class GazeSmoother {
   ): void {
     if (
       !raw ||
+      !Number.isFinite(raw.x) ||
+      !Number.isFinite(raw.y) ||
       raw.x < 0 ||
       raw.y < 0 ||
       raw.x > screen.width ||

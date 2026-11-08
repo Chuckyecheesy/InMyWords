@@ -10,6 +10,7 @@
 import { GestureDetector } from "./controller";
 import { CustomGestureMatcher, type Landmark, type TaughtGesture } from "./custom-gestures";
 import { gazeVideoElement } from "./gaze";
+import { HandPointer, type PointerPoint } from "./hand-pointer";
 
 export type FiredGesture = { name: string; score: number };
 
@@ -22,11 +23,19 @@ type RecognizerResult = {
   landmarks?: Landmark[][];
 };
 
+let generation = 0;
 let recognizer: { recognizeForVideo(video: HTMLVideoElement, ts: number): RecognizerResult; close(): void } | null = null;
 let rafId: number | null = null;
 let detector = new GestureDetector();
-let listeners = new Set<(fired: FiredGesture) => void>();
-let customListeners = new Set<(tileLabel: string) => void>();
+const listeners = new Set<(fired: FiredGesture) => void>();
+const customListeners = new Set<(tileLabel: string) => void>();
+const pointerListeners = new Set<(point: PointerPoint | null) => void>();
+let handPointer = new HandPointer();
+
+export function onHandPointer(cb: (point: PointerPoint | null) => void): () => void {
+  pointerListeners.add(cb);
+  return () => { pointerListeners.delete(cb); };
+}
 let customMatcher = new CustomGestureMatcher([]);
 let customDetector = new GestureDetector();
 let lastLandmarks: Landmark[] | null = null;
@@ -37,6 +46,7 @@ let framesSinceCheck = 0;
 
 export async function startGestures(): Promise<void> {
   if (recognizer) return;
+  const token = generation;
   const vision = await import("@mediapipe/tasks-vision");
   let fileset;
   try {
@@ -44,6 +54,7 @@ export async function startGestures(): Promise<void> {
   } catch {
     fileset = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
   }
+  let created;
   // WebGazer's face-mesh build leaves an Emscripten `Module` on window.
   // GestureRecognizer reads `Module.noExitRuntime`, and that getter aborts
   // the face-mesh runtime. Replace the global before the recognizer
@@ -56,23 +67,29 @@ export async function startGestures(): Promise<void> {
     numHands: 1,
   };
   try {
-    recognizer = await vision.GestureRecognizer.createFromOptions(fileset, options);
+    created = await vision.GestureRecognizer.createFromOptions(fileset, options);
   } catch {
     // Some machines have no usable GPU delegate. CPU still reads the same camera.
-    recognizer = await vision.GestureRecognizer.createFromOptions(fileset, {
+    created = await vision.GestureRecognizer.createFromOptions(fileset, {
       ...options,
       baseOptions: { ...options.baseOptions, delegate: "CPU" },
     });
   }
+  if (token !== generation) { created.close(); return; }
+  recognizer = created;
   detector = new GestureDetector();
   loop();
 }
 
 export function stopGestures(): void {
+  generation += 1;
   if (rafId !== null) cancelAnimationFrame(rafId);
   rafId = null;
   recognizer?.close();
   recognizer = null;
+  lastLandmarks = null;
+  handPointer = new HandPointer();
+  for (const cb of pointerListeners) cb(null);
 }
 
 /**
@@ -111,7 +128,11 @@ function loop(): void {
   if (skipFrames && frameCount % 2 === 1) return; // <15 fps -> every 2nd frame
 
   const video = gazeVideoElement();
-  if (!video || video.readyState < 2) return;
+  if (!video || video.readyState < 2) {
+    lastLandmarks = null;
+    for (const cb of pointerListeners) cb(null);
+    return;
+  }
 
   const now = performance.now();
   framesSinceCheck += 1;
@@ -128,8 +149,13 @@ function loop(): void {
     top = result.gestures?.[0]?.[0];
     lastLandmarks = result.landmarks?.[0] ?? null;
   } catch {
+    lastLandmarks = null;
+    for (const cb of pointerListeners) cb(null);
     return; // one bad frame is not an event
   }
+
+  const point = handPointer.push(lastLandmarks, window.innerWidth, window.innerHeight);
+  for (const cb of pointerListeners) cb(point);
 
   const name = top && top.categoryName !== "None" ? top.categoryName : null;
   const fired = detector.push(name, top?.score ?? 0, now);
