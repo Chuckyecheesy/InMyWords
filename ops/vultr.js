@@ -11,6 +11,8 @@
  *   node ops/vultr.js instances                  list instances
  *   node ops/vultr.js create [--region yto] [--plan vc2-1c-2gb] [--yes]
  *                                                create one Ubuntu 24.04 VM with the local deploy SSH key
+ *   node ops/vultr.js resize <instance-id> <plan> [--yes]
+ *                                                in-place plan upgrade (the VM reboots; disk is kept)
  *   node ops/vultr.js destroy <instance-id> --yes
  */
 'use strict';
@@ -130,6 +132,20 @@ async function create() {
   console.log(`Created instance ${instance.id} (${instance.label}). It takes 1–3 minutes to boot; run: node ops/vultr.js instances`);
 }
 
+async function resize() {
+  const [id, plan] = [args[1], args[2]];
+  if (!id || !plan || id.startsWith('--') || plan.startsWith('--')) throw new Error('Usage: node ops/vultr.js resize <instance-id> <plan> --yes');
+  const { instance } = await vultr('GET', `/instances/${id}`);
+  const { upgrades } = await vultr('GET', `/instances/${id}/upgrades?type=plans`);
+  if (!(upgrades.plans || []).includes(plan)) throw new Error(`${plan} is not an available upgrade for ${instance.plan}`);
+  const all = (await vultr('GET', '/plans?type=all&per_page=500').catch(() => ({}))).plans || [];  // price is informational
+  const chosen = all.find((p) => p.id === plan);
+  console.log(`Resize ${instance.label} ${instance.plan} -> ${plan} ($${chosen?.monthly_cost}/mo). The VM reboots for a few minutes; disk and IP are kept.`);
+  if (!flag('yes')) { console.log('Re-run with --yes to resize it.'); return; }
+  await vultr('PATCH', `/instances/${id}`, { plan });
+  console.log('Resize requested. Run: node ops/vultr.js instances');
+}
+
 async function destroy() {
   const id = args[1];
   if (!id || id.startsWith('--')) throw new Error('Usage: node ops/vultr.js destroy <instance-id> --yes');
@@ -143,7 +159,7 @@ async function destroy() {
 module.exports = { vultr, readEnvFile };
 
 if (require.main === module) {
-  const commands = { check, plans, instances, create, destroy };
+  const commands = { check, plans, instances, create, resize, destroy };
   const command = commands[args[0]];
   if (!command) {
     const lines = fs.readFileSync(__filename, 'utf8').split('\n');
