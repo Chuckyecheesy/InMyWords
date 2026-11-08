@@ -262,7 +262,7 @@ async def get_staff_tasks(resident=""):
 # the routes' direct calls. PLANNER_TOOLS says which server owns each tool.
 
 PLANNER_TOOLS = {
-    "save_routine": "profile", "get_planner": "profile",
+    "save_routine": "profile", "get_planner": "profile", "preview_routine": "profile",
     "approve_visits": "actions", "write_calendar_event": "actions",
     "book_staff_visit": "actions", "get_booking": "actions",
     "import_calendar": "actions", "propose_calendar_import": "actions",
@@ -274,6 +274,11 @@ PLANNER_TOOLS = {
 async def call_tool(tool, args):
     """Call a planner tool on whichever server owns it."""
     return await _call(PLANNER_TOOLS[tool], tool, args)
+
+async def preview_routine(resident, staff, start_time, length_min, days=None, start_date=None):
+    return await _call("profile", "preview_routine", {
+        "resident": resident, "staff": staff, "start_time": start_time,
+        "length_min": length_min, "days": days, "start_date": start_date})
 
 async def save_routine(resident, staff, start_time, length_min, days=None, start_date=None):
     return await _call("profile", "save_routine", {

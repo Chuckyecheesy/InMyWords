@@ -474,6 +474,9 @@ class SeedStore:
     def get_staff(self, staff_id):
         return self.staff.get(staff_id)
 
+    def list_staff(self):
+        return [dict(s) for s in self.staff.values()]
+
     def get_observations(self, rid, since=None):
         rows = [o for o in self.observations if o["resident_id"] == rid]
         if since:
@@ -1126,6 +1129,9 @@ class PostgresStore:
 
     def get_staff(self, staff_id):
         return self._one("SELECT * FROM staff WHERE id = %s", (staff_id,))
+
+    def list_staff(self):
+        return self._all("SELECT id, name, role FROM staff ORDER BY name")
 
     def get_observations(self, rid, since=None):
         if since:

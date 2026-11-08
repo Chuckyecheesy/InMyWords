@@ -26,6 +26,7 @@ import type {
   StoryChapter,
   Tile,
 } from "./types";
+import type { PlannerVisit, StaffOption } from "./planner";
 export type { AgentNote };
 export type ActionPlan = ActionPlanShape;
 
@@ -695,4 +696,122 @@ export function setTileArchived(tileId: string | number, residentId: string, arc
 /** Uncached resident fetch for client components that just mutated tiles. */
 export async function getResidentFresh(id: string): Promise<Resident | null> {
   return normalizeResident(id, await fetchJson(`/residents/${encodeURIComponent(id)}`));
+}
+
+// ---------- My Planner (PROJECT_PLAN §2.5) ----------
+
+/** Who residents can choose when the planner API is not answering. */
+const SAMPLE_STAFF: StaffOption[] = [
+  { id: "sam", name: "Sam" },
+  { id: "jordan", name: "Jordan" },
+];
+
+function normalizeVisit(value: unknown): PlannerVisit | null {
+  const row = record(value);
+  const starts = text(row?.starts_at);
+  const ends = text(row?.ends_at);
+  if (!row || !starts || !ends) return null;
+  const source = row.source === "staff" || row.source === "inferred" ? row.source : "resident";
+  return {
+    id: typeof row.id === "number" ? row.id : null,
+    staff: text(row.staff) ?? "",
+    starts_at: starts,
+    ends_at: ends,
+    source,
+    label: text(row.label) ?? "",
+    approved: row.approved === true,
+    google_synced: row.google_synced === true,
+    read_only: row.read_only === true,
+    title: text(row.title) ?? undefined,
+  };
+}
+
+function visitsOf(value: unknown): PlannerVisit[] | null {
+  return list(value, "visits")
+    ?.map(normalizeVisit)
+    .filter((v): v is PlannerVisit => v !== null) ?? null;
+}
+
+export type PlannerWeek = { visits: PlannerVisit[]; staff: StaffOption[] };
+
+export async function getPlanner(id: string): Promise<Result<PlannerWeek>> {
+  const raw = record(await fetchJson(`/planner/${encodeURIComponent(id)}`));
+  const visits = raw && !raw.error ? visitsOf(raw) : null;
+  if (raw && visits) {
+    const staff = (Array.isArray(raw.staff) ? raw.staff : [])
+      .map((s) => record(s))
+      .flatMap((s) => (s && text(s.id) && text(s.name) ? [{ id: text(s.id)!, name: text(s.name)! }] : []));
+    return { data: { visits, staff: staff.length ? staff : SAMPLE_STAFF }, origin: "api" };
+  }
+  return { data: { visits: [], staff: SAMPLE_STAFF }, origin: "sample" };
+}
+
+export type RoutineInput = {
+  resident_id: string;
+  person: string;
+  start: string;
+  length_min: number;
+  days?: string[] | null;
+  start_date?: string;
+};
+
+/** The server answers 200 with {"error"} or {"refused"} for planner refusals. */
+async function plannerCall(path: string, body: unknown): Promise<MutationResult<Record<string, unknown>>> {
+  const result = await sendJson<Record<string, unknown>>(path, body);
+  if (!result.ok) return result;
+  const data = record(result.data);
+  if (!data) return { ok: false, error: "The planner sent an empty answer." };
+  if (data.refused || data.error) return { ok: false, error: text(data.error) ?? "That was not allowed." };
+  return { ok: true, data };
+}
+
+/** The approval card's week preview. The server saves nothing (rule 1). */
+export async function previewRoutine(input: RoutineInput): Promise<MutationResult<PlannerVisit[]>> {
+  const result = await plannerCall("/planner/preview", input);
+  if (!result.ok) return result;
+  return { ok: true, data: visitsOf(result.data) ?? [] };
+}
+
+export async function saveRoutine(
+  input: RoutineInput,
+): Promise<MutationResult<{ routine_id: number; visits: PlannerVisit[] }>> {
+  const result = await plannerCall("/planner/routine", input);
+  if (!result.ok) return result;
+  const id = result.data.routine_id;
+  if (typeof id !== "number") return { ok: false, error: "The routine was not saved." };
+  return { ok: true, data: { routine_id: id, visits: visitsOf(result.data) ?? [] } };
+}
+
+export type Booking = {
+  visits: PlannerVisit[];
+  google_synced: boolean;
+  planner: string;
+};
+
+/** After approval: the Planner subagent puts the visits on staff's calendar. */
+export async function bookVisits(input: {
+  resident_id: string;
+  routine_id: number;
+  approved: boolean;
+}): Promise<MutationResult<Booking>> {
+  const result = await plannerCall("/planner/book", input);
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    data: {
+      visits: visitsOf(result.data) ?? [],
+      google_synced: result.data.google_synced === true,
+      planner: text(result.data.planner) ?? "rules",
+    },
+  };
+}
+
+/** Fallback: a staff .zip calendar export, shown read-only on the grid. */
+export async function importCalendarView(input: {
+  resident_id: string;
+  calendar_zip_b64: string;
+}): Promise<MutationResult<PlannerVisit[]>> {
+  const result = await plannerCall("/planner/import", input);
+  if (!result.ok) return result;
+  return { ok: true, data: (visitsOf(result.data) ?? []).map((v) => ({ ...v, read_only: true })) };
 }

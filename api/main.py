@@ -582,6 +582,14 @@ def _sync_call_tool():
     return call
 
 
+@app.post("/planner/preview")
+async def planner_preview(body: PlannerRoutineBody):
+    """The approval card's week preview. Saves nothing (rule 1)."""
+    result, live = await _mcp(mcp_client.preview_routine(
+        body.resident_id, body.person, body.start, body.length_min, body.days, body.start_date), None)
+    return result if live else _PLANNER_DOWN
+
+
 @app.post("/planner/routine")
 async def planner_routine(body: PlannerRoutineBody):
     result, live = await _mcp(mcp_client.save_routine(

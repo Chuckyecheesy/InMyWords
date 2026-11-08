@@ -25,8 +25,16 @@ SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _load_env() -> None:
+    """Read .env (setdefault, so real env vars win) without relying on the
+    caller having opened the store first."""
+    from store import _load_env as load
+    load()
+
+
 def calendar_id_for(staff_id: str) -> str | None:
     """The Google calendar a staff member's visits land on."""
+    _load_env()
     raw = os.environ.get("GOOGLE_CALENDAR_STAFF_EMAILS", "").strip()
     if not raw:
         return None
@@ -39,14 +47,24 @@ def calendar_id_for(staff_id: str) -> str | None:
 
 
 def _key_info(raw: str) -> dict | None:
-    raw = raw.strip()
+    raw = raw.strip().strip('"').strip("'").strip()
     if not raw:
         return None
     if raw.startswith("{"):
-        return json.loads(raw)
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            # .env loaders here read one line at a time, so a pasted multi-line
+            # key arrives as just "{". Say so instead of silently going DB-only.
+            print("[gcal] GOOGLE_SERVICE_ACCOUNT_JSON looks like JSON split over several lines in .env; "
+                  "set it to the key file's path instead (e.g. inmyways-xxxx.json)")
+            return None
     path = Path(raw)
     path = path if path.is_absolute() else ROOT / path
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+    if not path.is_file():
+        print(f"[gcal] GOOGLE_SERVICE_ACCOUNT_JSON: no key file at {path.name}")
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 class GoogleCalendar:
@@ -68,6 +86,13 @@ class GoogleCalendar:
         resp.raise_for_status()
         return resp.json()["id"]
 
+    def delete(self, calendar_id: str, event_id: str) -> None:
+        import httpx
+        resp = httpx.delete(f"{API}/calendars/{calendar_id}/events/{event_id}",
+                            headers=self._headers(), timeout=self._timeout)
+        if resp.status_code not in (200, 204, 410):  # 410: already gone
+            resp.raise_for_status()
+
     def list(self, calendar_id: str, time_min: str, time_max: str) -> list[dict]:
         import httpx
         resp = httpx.get(f"{API}/calendars/{calendar_id}/events", headers=self._headers(),
@@ -80,6 +105,7 @@ class GoogleCalendar:
 
 def default_client():
     """The real client, or None when no key is configured (DB-only mode)."""
+    _load_env()
     try:
         info = _key_info(os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", ""))
         return GoogleCalendar(info) if info else None

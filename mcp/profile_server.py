@@ -289,28 +289,51 @@ def save_tile(resident: str, label: str, cloudinary_id: str, category: str = "")
 # ---- My Planner (PROJECT_PLAN §2.5) ----
 
 
+def _routine_blocks(resident, staff, start_time, length_min, days, start_date):
+    """Shared checks + plain-code expansion. Returns (resident_row, blocks, error)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from calendar_core import DEFAULT_TZ, expand_routine
+
+    store = get_store()
+    r = store.get_resident(resident)
+    if not r:
+        return None, None, {"error": f"unknown resident '{resident}'"}
+    if not store.get_staff(staff):
+        return None, None, {"error": f"unknown staff '{staff}'"}
+    start_date = start_date or datetime.now(ZoneInfo(DEFAULT_TZ)).date().isoformat()
+    try:
+        return r, expand_routine(start_date, start_time, length_min, days=days, tz=DEFAULT_TZ), None
+    except ValueError as exc:
+        return None, None, {"error": str(exc)}
+
+
+@mcp.tool
+def preview_routine(resident: str, staff: str, start_time: str, length_min: int,
+                    days: list[str] | None = None, start_date: str | None = None) -> dict:
+    """What a routine would look like on the week, for the approval card.
+    WRITES NOTHING (rule 1): the routine is saved only after the resident
+    approves it."""
+    _, blocks, err = _routine_blocks(resident, staff, start_time, length_min, days, start_date)
+    if err:
+        return err
+    return {"resident": resident, "staff": staff,
+            "visits": [{"staff": staff, **b} for b in blocks]}
+
+
 @mcp.tool
 def save_routine(resident: str, staff: str, start_time: str, length_min: int,
                  days: list[str] | None = None, start_date: str | None = None) -> dict:
     """The resident's routine ("meet Sam at 13:00 for 120 minutes", every day by
     default) expanded into one visit block per day for a week. Plain code does
     the time maths. Nothing is booked: every visit waits for the approval card."""
-    from datetime import datetime
-    from zoneinfo import ZoneInfo
+    from calendar_core import WEEKDAYS
 
-    from calendar_core import DEFAULT_TZ, WEEKDAYS, expand_routine
-
+    r, blocks, err = _routine_blocks(resident, staff, start_time, length_min, days, start_date)
+    if err:
+        return err
     store = get_store()
-    r = store.get_resident(resident)
-    if not r:
-        return {"error": f"unknown resident '{resident}'"}
-    if not store.get_staff(staff):
-        return {"error": f"unknown staff '{staff}'"}
-    start_date = start_date or datetime.now(ZoneInfo(DEFAULT_TZ)).date().isoformat()
-    try:
-        blocks = expand_routine(start_date, start_time, length_min, days=days, tz=DEFAULT_TZ)
-    except ValueError as exc:
-        return {"error": str(exc)}
     routine, visits = store.create_routine(resident, staff, start_time, int(length_min),
                                            list(days) if days else list(WEEKDAYS), "resident", blocks)
     return {"routine_id": routine["id"], "resident": resident,
@@ -319,13 +342,16 @@ def save_routine(resident: str, staff: str, start_time: str, length_min: int,
 
 @mcp.tool
 def get_planner(resident: str) -> dict:
-    """Every visit block for the resident, earliest first."""
+    """Every visit block for the resident, earliest first, plus the staff
+    the resident can choose to see."""
     store = get_store()
     r = store.get_resident(resident)
     if not r:
         return {"error": f"unknown resident '{resident}'"}
     visits = sorted(store.get_visits(rid=resident), key=lambda v: v["starts_at"])
-    return {"resident": resident, "visits": [visit_view(v, r["first_name"]) for v in visits]}
+    staff = [{"id": s["id"], "name": s["name"]} for s in store.list_staff() if s.get("role") == "staff"]
+    return {"resident": resident, "visits": [visit_view(v, r["first_name"]) for v in visits],
+            "staff": staff}
 
 
 @mcp.tool

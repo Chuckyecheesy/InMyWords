@@ -14,10 +14,11 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 | `POST /suggest` | resident_id, tiles, time | options: 2–3 sentences | T3 |
 | `POST /speak` | resident_id, text | audio_url | T1 |
 | `POST /sentences` | resident_id, tiles, chosen_text, approved | id | T2 |
-| `POST /planner/routine` | resident_id, person, start, length_min, days (default all 7), start_date? | routine_id, visits: [{id, staff, starts_at, ends_at, source, label, approved, google_synced}] | T2 |
+| `POST /planner/preview` | same as /planner/routine | visits [{staff, starts_at, ends_at}] for the approval card — **saves nothing** (rule 1) | T2 |
+| `POST /planner/routine` *(called only after approval)* | resident_id, person, start, length_min, days (default all 7), start_date? | routine_id, visits: [{id, staff, starts_at, ends_at, source, label, approved, google_synced}] | T2 |
 | `POST /planner/plan` | resident_id, routine_id | proposed visit_events (start, end, person) for approval | T3 |
 | `POST /planner/book` | resident_id, **routine_id**, approved | visits, google_event_ids, google_synced, planner (`gemini` \| `gemini+rules` \| `rules`), agent {model_calls, gemini_wrote, rules_wrote, rejected_calls, fallback_reason}. `refused` unless approved. The Gemini Planner subagent writes via MCP; plain code finishes the rest. DB rows are the source of truth | T2 |
-| `GET /planner/{resident_id}` | — | visits (same shape as above), earliest first | T2 |
+| `GET /planner/{resident_id}` | — | visits (same shape as above), earliest first; staff [{id, name}] the resident can choose | T2 |
 | `POST /planner/import` *(fallback, read-only)* | resident_id, calendar_zip_b64 | visits: [{title, starts_at, ends_at, source: staff, label: "From staff calendar, <date>", read_only}] — never written to Google | T2 |
 | `POST /planner/import/propose` *(stretch)* | staff_id, calendar_zip_b64 | import_id, events [{id, title, starts_at, ends_at, recurrence, duplicate}], duplicate_check | T2 |
 | `POST /planner/import/commit` *(stretch)* | staff_id, import_id, approved_ids, approved | google_event_ids, skipped (duplicates), planner, agent — each written live via Google Calendar `events.insert` | T2 |

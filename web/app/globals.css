@@ -5407,3 +5407,227 @@ button.entry-preview-play:disabled { opacity: 0.6; }
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+
+/* ---------- My Planner (PROJECT_PLAN §2.5) ---------- */
+
+.feature-card[data-tone="planner"] {
+  --art-bg: var(--sage-soft);
+}
+
+.planner {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.planner-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.planner-head h1 {
+  margin: 0;
+}
+
+/* Seven days, wrapping on narrow tablets; the same order every time. */
+.planner-week {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-4);
+}
+
+.planner-day {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: var(--stroke) solid var(--line-strong);
+  min-height: 160px;
+}
+
+.planner-day[data-today] {
+  border: var(--stroke-strong) solid var(--accent);
+  background: var(--accent-softer);
+}
+
+.planner-day-name {
+  margin: 0;
+  display: grid;
+  font-size: var(--text-h3);
+}
+
+.planner-day-date {
+  font-size: var(--text-body);
+  font-weight: 500;
+  color: var(--ink-2);
+}
+
+.visit-empty {
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-3);
+}
+
+.visit-block {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-md);
+  background: var(--src-resident-bg);
+  color: var(--src-resident);
+  border-left: 6px solid var(--src-resident);
+  font-size: var(--text-body);
+}
+
+/* Imported staff hours: shown, never booked — drawn differently on purpose. */
+.visit-block[data-kind="imported"] {
+  background: var(--src-staff-bg);
+  color: var(--src-staff);
+  border-left: 6px dashed var(--src-staff);
+}
+
+.visit-time {
+  /* 22px floor, and free to wrap: a full range is wider than a tablet column. */
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.visit-block,
+.planner-day {
+  min-width: 0;
+}
+
+.visit-what {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.visit-label,
+.visit-synced {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.visit-synced {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.planner-question {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.planner-question h2 {
+  margin: 0;
+  font-size: var(--text-h2);
+}
+
+.planner-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.planner-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: var(--tap-large);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--r-lg);
+  border: var(--stroke-strong) solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-lead);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.planner-choice:hover {
+  border-color: var(--accent);
+}
+
+.planner-choice[aria-pressed="true"],
+.planner-choice[data-primary] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.planner-choice:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.planner-monogram {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-pill);
+  background: var(--cat-people);
+  color: var(--sage-ink);
+  font-weight: 700;
+}
+
+.planner-preview {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-body);
+}
+
+.planner-preview li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.planner-staff {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--r-lg);
+  border: var(--stroke) dashed var(--line-strong);
+  font-size: var(--text-body);
+}
+
+.planner-staff summary {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+[data-theme="contrast"] .planner-day,
+[data-theme="contrast"] .planner-choice {
+  border: 3px solid #000;
+}
+
+[data-theme="contrast"] .visit-block {
+  background: #fff;
+  color: #000;
+  border-left-color: #000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planner-approval .cancel-window {
+    animation: none;
+  }
+}

@@ -265,6 +265,24 @@ class SaveRoutineTests(PlannerTestCase):
         self.assertEqual(len(out["visits"]), 1)
         self.assertEqual(len(tool(profile().get_planner)("dana")["visits"]), 8)
 
+    def test_preview_shows_the_week_and_saves_nothing(self):
+        """Rule 1: the approval card's preview is not saved as Dana's words."""
+        out = tool(profile().preview_routine)(resident="dana", staff="sam", start_time="13:00",
+                                              length_min=120, start_date="2026-11-08")
+        self.assertEqual(len(out["visits"]), 7)
+        self.assertEqual(out["visits"][0]["starts_at"], "2026-11-08T13:00:00-05:00")
+        self.assertEqual(tool(profile().get_planner)("dana")["visits"], [])
+
+    def test_preview_rejects_bad_input(self):
+        out = tool(profile().preview_routine)(resident="dana", staff="sam", start_time="25:00",
+                                              length_min=120, start_date="2026-11-08")
+        self.assertIn("error", out)
+
+    def test_get_planner_lists_staff_to_choose_from(self):
+        staff = tool(profile().get_planner)("dana")["staff"]
+        self.assertIn({"id": "sam", "name": "Sam"}, staff)
+        self.assertNotIn("priya", [s["id"] for s in staff], "managers aren't offered as visitors")
+
     def test_unknown_resident_or_staff_is_an_error(self):
         self.assertIn("error", self.dana_routine(resident="nobody"))
         self.assertIn("error", self.dana_routine(staff="nobody"))
