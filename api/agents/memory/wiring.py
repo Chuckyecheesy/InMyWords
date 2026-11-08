@@ -47,7 +47,7 @@ def _gemini():
 
 
 def gemini_extract(prompt: str) -> dict:
-    return _gemini().generate_json(prompt, _CANDIDATES_SCHEMA)
+    return _gemini().generate_for("memory", prompt, _CANDIDATES_SCHEMA)
 
 
 def gemini_contradicts(candidate: dict, memory: dict) -> bool:
@@ -56,13 +56,17 @@ def gemini_contradicts(candidate: dict, memory: dict) -> bool:
     if memory.get("type") != candidate.get("type"):
         return False
     prompt = (
-        "Can both statements be true now for the same person?\n"
-        f"Old: {memory.get('content', '')}\nNew: {candidate.get('content', '')}\n"
-        'Answer {"contradicts": true} only if the new one replaces the old one '
-        "(e.g. now prefers tea instead of coffee)."
+        "A care team holds an old fact about a person. A new observation may mean "
+        "the old fact is out of date and should be re-checked with the person.\n"
+        f"Old fact: {memory.get('content', '')}\n"
+        f"New observation: {candidate.get('content', '')}\n"
+        'Answer {"contradicts": true} if the new observation is about the same '
+        "topic and suggests a change (for example: old says coffee, new says now "
+        'picks tea). Answer {"contradicts": false} if they are about different '
+        "things or simply agree."
     )
     try:
-        return bool(_gemini().generate_json(prompt, _YES_NO_SCHEMA).get("contradicts"))
+        return bool(_gemini().generate_for("memory", prompt, _YES_NO_SCHEMA).get("contradicts"))
     except Exception as exc:
         print(f"[memory] contradiction check failed: {exc}")
         return False
@@ -77,7 +81,7 @@ def gemini_phrase(group: dict) -> str:
     """Gemini phrases; the count and day come from code and are not asked for."""
     fallback = plain_routine_text(group)
     try:
-        out = _gemini().generate_json(
+        out = _gemini().generate_for("memory", 
             f"Write one short plain sentence, no numbers, for this routine: {fallback}",
             _PHRASE_SCHEMA)
         return str(out.get("sentence", "")).strip() or fallback

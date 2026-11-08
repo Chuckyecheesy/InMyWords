@@ -38,6 +38,18 @@ from jsonschema import Draft202012Validator
 
 EMBEDDING_DIM = 768
 FLASH_MODEL = "gemini-3.8-flash"
+STEADY_MODEL = "gemini-3.5-flash"
+
+# (primary, fallback) per feature. Someone waiting on the answer gets the
+# steady model first. Background work tries the newer model and falls back.
+# Override with GEMINI_MODEL_<FEATURE> and GEMINI_MODEL_<FEATURE>_FALLBACK.
+FEATURE_MODELS = {
+    "voice": (STEADY_MODEL, None),   # compose() is Voice's own fallback
+    "coach": (STEADY_MODEL, FLASH_MODEL),
+    "handoff": (STEADY_MODEL, FLASH_MODEL),
+    "story": (FLASH_MODEL, STEADY_MODEL),
+    "memory": (FLASH_MODEL, STEADY_MODEL),
+}
 EMBED_MODEL = "gemini-embedding-001"
 
 # Stored memories use RETRIEVAL_DOCUMENT. Recall queries use RETRIEVAL_QUERY.
@@ -460,6 +472,7 @@ def generate_json(
     temperature: float = 0.2,
     client=None,
     attempts: int = 2,
+    timeout_ms: int = 20000,
 ) -> dict:
     """Return JSON that validates against `schema`.
 
@@ -476,7 +489,7 @@ def generate_json(
         "response_json_schema": _gemini_schema(schema),
         # One attempt, at least 10s. Shorter deadlines are rejected, and
         # the default retry loop holds a tile tap open for a minute.
-        "http_options": {"timeout": 20000, "retry_options": {"attempts": 1}},
+        "http_options": {"timeout": timeout_ms, "retry_options": {"attempts": 1}},
     }
     if system:
         config["system_instruction"] = system
@@ -505,6 +518,34 @@ def generate_json(
             + "\nReturn only JSON that matches the schema."
         )
     raise GeminiSchemaError(last_error)
+
+
+def models_for(feature: str) -> list[str]:
+    primary, fallback = FEATURE_MODELS[feature]
+    key = f"GEMINI_MODEL_{feature.upper()}"
+    primary = os.environ.get(key) or primary
+    fallback = os.environ.get(key + "_FALLBACK") or fallback
+    return [primary] + ([fallback] if fallback and fallback != primary else [])
+
+
+def generate_for(feature: str, prompt: str, schema: dict, **kwargs) -> dict:
+    """generate_json with the feature's model, then its fallback on any
+    service error (503, 504, 429). With a fallback the first try gets the
+    shortest deadline Gemini accepts, so a hung model costs ~10s, not 20s."""
+    chain = models_for(feature)
+    last: Exception | None = None
+    for index, model in enumerate(chain):
+        extra = {"timeout_ms": 10000} if index < len(chain) - 1 else {}
+        try:
+            return generate_json(prompt, schema, model=model, **{**extra, **kwargs})
+        except ValueError:
+            raise
+        except Exception as exc:  # network, 5xx, quota, bad schema
+            last = exc
+            print(f"[gemini] {feature}: {model} failed ({type(exc).__name__}); "
+                  + ("trying fallback" if index < len(chain) - 1 else "no fallback left"))
+    assert last is not None
+    raise last
 
 
 def _as_vector(values) -> list[float]:

@@ -289,9 +289,11 @@ def suggest(
     if generate is not None:
         caller = generate
         if generate == "auto":
-            from services.gemini import generate_json
+            from functools import partial
 
-            caller = generate_json
+            from services.gemini import generate_for
+
+            caller = partial(generate_for, "voice")
         raw = _ask_model(caller, _prompt(name, tiles, time_of_day, remembered))
         if raw is not None:
             options = _accept(raw, tiles, remembered, time_of_day)

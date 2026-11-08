@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 
 from services import elevenlabs, mcp_client
-from services.gemini import SCHEMAS, generate_json
+from services.gemini import SCHEMAS, generate_for
 
 _WORD = re.compile(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*")
 _FUNCTION = {
@@ -80,7 +80,8 @@ def gemini_phrase(name: str, answers: list[dict]) -> str:
         "Do not add places, people, or plans that are not in the answers.\n"
         f"{lines}"
     )
-    data = generate_json(
+    data = generate_for(
+        "story",
         prompt,
         SCHEMAS["story"]["draft"],
         system="Use only the interview answers. Do not add facts. Return JSON.",
