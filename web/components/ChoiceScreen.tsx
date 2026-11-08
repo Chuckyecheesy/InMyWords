@@ -9,19 +9,51 @@ import { choiceStanding, consequence, money } from "@/lib/format";
 import type { ChoiceOption, ChoiceResult } from "@/lib/types";
 import { ApprovalCard } from "./ApprovalCard";
 import { OptionArt } from "./ChapterArt";
+import { RunningEllipsis } from "./RunningEllipsis";
 import { ThinkingDots } from "./ui";
 
 const LONG_PRESS_MS = 600;
+const PLAN_WAIT_MS = 35_000;
 
-function AgentShowcase({ agents }: { agents: AgentNote[] }) {
+const CHOICE_AGENTS: AgentNote[] = [
+  { id: "observer", name: "Observer", note: "" },
+  { id: "retriever", name: "Retriever", note: "" },
+  { id: "routine", name: "Routine finder", note: "" },
+  { id: "action", name: "Action", note: "" },
+];
+
+function AgentShowcase({ agents, running = false }: { agents: AgentNote[]; running?: boolean }) {
   return (
-    <section className="agent-showcase" data-testid="agent-showcase" aria-label="Agents helping with this choice">
+    <section
+      className="agent-showcase"
+      data-testid={running ? "agent-running" : "agent-showcase"}
+      data-running={running ? "" : undefined}
+      aria-busy={running || undefined}
+      aria-label="Agents helping with this choice"
+    >
       <h2>Helping with this</h2>
+      {running ? (
+        <p className="suggestions-head" role="status" data-testid="steps-running">
+          <span>
+            The steps are running
+            <RunningEllipsis />
+          </span>
+        </p>
+      ) : null}
       <div className="agent-row">
         {agents.map((agent) => (
-          <article key={agent.id} className="agent-card" data-agent={agent.id}>
+          <article key={agent.id} className="agent-card" data-agent={agent.id} data-state={running ? "running" : "done"}>
             <span className="choice-label">{agent.name}</span>
-            <span className="note">{agent.note}</span>
+            <span className="note">
+              {running ? (
+                <>
+                  Running
+                  <RunningEllipsis />
+                </>
+              ) : (
+                agent.note
+              )}
+            </span>
           </article>
         ))}
       </div>
@@ -50,23 +82,30 @@ export function ChoiceScreen({
   const [chosen, setChosen] = useState<string | null>(null);
   const [status, setStatus] = useState<"chosen" | "not_yet_decided" | null>(null);
   const [plan, setPlan] = useState<ActionPlan | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
+  const [planAttempt, setPlanAttempt] = useState(0);
   const pressed = useRef(false);
 
   useEffect(() => {
     if (status !== "chosen" || !chosen) return;
     let cancel = false;
-    planActions({ resident_id: residentId, goal: chosen }).then((result) => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), PLAN_WAIT_MS);
+    planActions({ resident_id: residentId, goal: chosen }, controller.signal).then((result) => {
       if (cancel) return;
       if (!result.ok) {
-        setError(result.error);
+        setPlanError(result.error);
         return;
       }
+      setPlanError(null);
       setPlan(result.data);
     });
     return () => {
       cancel = true;
+      window.clearTimeout(timer);
+      controller.abort();
     };
-  }, [status, chosen, residentId]);
+  }, [status, chosen, residentId, planAttempt]);
 
   useEffect(() => {
     if (!prompt) return;
@@ -118,6 +157,7 @@ export function ChoiceScreen({
     setBusy(true);
     setError(null);
     setPlan(null);
+    setPlanError(null);
     const value = option.label.toLowerCase() === NOT_DECIDED_LABEL ? NOT_DECIDED_VALUE : option.label;
     const result = await decideChoice(String(choice.id), value);
     setBusy(false);
@@ -220,6 +260,7 @@ export function ChoiceScreen({
                 setStatus(null);
                 setChosen(null);
                 setPlan(null);
+                setPlanError(null);
               }}
             >
               <RotateCcw size={22} aria-hidden="true" />
@@ -318,10 +359,32 @@ export function ChoiceScreen({
           ) : null}
         </>
       )}
-      {status === "chosen" && !plan && !error ? (
-        <p className="suggestions-head" role="status">
-          <ThinkingDots /> The agents are looking this up.
-        </p>
+      {status === "chosen" && !plan && !planError ? <AgentShowcase agents={CHOICE_AGENTS} running /> : null}
+      {planError ? (
+        <div className="callout" data-tone="error" role="alert">
+          <div className="callout-body">
+            <p>{planError}</p>
+            <button
+              type="button"
+              className="btn"
+              data-variant="secondary"
+              data-size="lg"
+              data-longpress="own"
+              onPointerDown={(event) => hold(event, "Try again")}
+              onClick={() => {
+                if (pressed.current) {
+                  pressed.current = false;
+                  return;
+                }
+                setPlanError(null);
+                setPlanAttempt((value) => value + 1);
+              }}
+            >
+              <RotateCcw size={22} aria-hidden="true" />
+              Try again
+            </button>
+          </div>
+        </div>
       ) : null}
       {plan && plan.agents.length > 0 ? <AgentShowcase agents={plan.agents} /> : null}
       {plan ? <ApprovalCard residentId={residentId} plan={plan} /> : null}

@@ -451,30 +451,47 @@ def plan_with_notes(goal: str, *, name: str, memories: list[dict] | None, events
     return plan
 
 
+_RECALL_WAIT_SECONDS = 8
+_EVENTS_WAIT_SECONDS = 8
+_PROPOSE_WAIT_SECONDS = 12
+
+
 async def propose_plan(resident_id: str, goal: str, *, name: str) -> dict:
     """Recall through MCP, build the plan, and attach the four agent notes.
-    A down server is named on that note. The plan still uses the catalog."""
+    A down server is named on that note. The plan still uses the catalog.
+    Each lookup is bounded so a hung server cannot leave the choice waiting."""
+    import asyncio
+
     from services import mcp_client
 
     memories: list[dict] | None
     events: list[dict] | None
     goal_hits: list[dict] | None = None
-    try:
-        seen: dict = {}
-        for query in (goal, "usual time", "family sister contact"):
-            found = (await mcp_client.recall(resident_id, query)).get("memories", [])
-            if query == goal:
-                goal_hits = list(found)  # ranked by meaning, best first: the note quotes these
-            for memory in found:
-                if memory.get("status") not in ("pending", "rejected", "dismissed"):
-                    seen[memory.get("id", memory.get("content"))] = memory
-        memories = list(seen.values())
-    except Exception as exc:
-        print(f"[action] retriever skipped ({type(exc).__name__}): {exc}")
-        memories = None
+    seen: dict = {}
+    reached = False
+    for query in (goal, "usual time", "family sister contact"):
+        try:
+            payload = await asyncio.wait_for(
+                mcp_client.recall(resident_id, query), _RECALL_WAIT_SECONDS
+            )
+        except Exception as exc:
+            print(f"[action] retriever skipped ({type(exc).__name__}): {exc}")
+            continue
+        reached = True
+        found = payload.get("memories", []) if isinstance(payload, dict) else []
+        if query == goal:
+            goal_hits = list(found)  # ranked by meaning, best first: the note quotes these
+        for memory in found:
+            if memory.get("status") not in ("pending", "rejected", "dismissed"):
+                seen[memory.get("id", memory.get("content"))] = memory
+    memories = list(seen.values()) if reached else None
+    if not reached:
         goal_hits = None
+
     try:
-        significant = await mcp_client.get_significant_events(resident_id)
+        significant = await asyncio.wait_for(
+            mcp_client.get_significant_events(resident_id), _EVENTS_WAIT_SECONDS
+        )
         events = list(significant.get("events") or [])
     except Exception as exc:
         print(f"[action] routine finder skipped ({type(exc).__name__}): {exc}")
@@ -482,11 +499,13 @@ async def propose_plan(resident_id: str, goal: str, *, name: str) -> dict:
 
     propose = None
     if gemini_enabled():
-        import asyncio
         today = date.today()
         try:
             # Off the event loop; grounding happens inside, the rules cover any failure.
-            steps = await asyncio.to_thread(gemini_propose, goal, _usable(memories), name, today)
+            steps = await asyncio.wait_for(
+                asyncio.to_thread(gemini_propose, goal, _usable(memories), name, today),
+                _PROPOSE_WAIT_SECONDS,
+            )
             propose = lambda _goal, _memories: steps  # noqa: E731
         except Exception as exc:
             print(f"[action] Gemini proposer failed, using rules ({type(exc).__name__}): {exc}")
