@@ -30,6 +30,8 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 | `GET /handoff` | staff_id, resident_id | items with type and date | T2 |
 | `GET /activity/{resident_id}` | — | actions, choices, sentences log | T2 |
 | `POST /observations` | resident_id, staff_id, note | ok | T2 |
+| `POST /records` *(records library)* | resident_id, title, body, category, author?, doc_date? | ok, id | T2 |
+| `GET /records/{resident_id}` *(records library)* | — | records: [{id, title, category, author, doc_date, uploaded_at, body}] | T2 |
 | `POST /input-events` *(gaze/gesture, Nov 8)* | events: [{ts, resident_id, session_id, input_type, action, target, hold_ms, gesture, confidence, outcome}] | saved: N | T2 |
 | `GET /input-profile/{resident_id}` *(gaze/gesture, Nov 8)* | — | preferred_select, preferred_yes, dwell_ms, rates, notes, events_counted, confidence | T2 |
 

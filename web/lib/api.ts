@@ -639,3 +639,37 @@ export async function getCustomGestures(residentId: string): Promise<TaughtGestu
     return [{ tile_label: label, samples: item.samples as number[][] }];
   });
 }
+
+// ---------- Records library (ROADMAP Phase 3) ----------
+
+export type ResidentRecord = {
+  id: number;
+  title: string;
+  category: string;
+  author: string | null;
+  doc_date: string | null;
+  uploaded_at: string;
+  body: string;
+};
+
+export async function getRecords(residentId: string): Promise<ResidentRecord[]> {
+  const raw = await fetchJson(`/records/${residentId}`);
+  const rows = list(raw, "records");
+  if (!rows) return [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    if (!item || typeof item.title !== "string") return [];
+    return [item as unknown as ResidentRecord];
+  });
+}
+
+export function addRecord(input: {
+  resident_id: string;
+  title: string;
+  body: string;
+  category: string;
+  author?: string;
+  doc_date?: string;
+}) {
+  return sendJson<{ ok: boolean; id: number }>("/records", input);
+}

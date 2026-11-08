@@ -3,7 +3,7 @@ import { afterEach, test } from "node:test";
 import React, { isValidElement, Suspense, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { LoadingNotice } from "../components/LoadingNotice";
-import HandoffPage from "../app/staff/handoff/page";
+import UpdatesPage from "../app/staff/updates/page";
 import StaffLoading from "../app/staff/loading";
 import StaffSectionLoading from "../app/staff/[id]/loading";
 import ResidentLoading from "../app/resident/loading";
@@ -46,7 +46,7 @@ test("staff and resident routes have loading feedback; nested fallbacks do not d
   }
 });
 
-test("handoff shell resolves without requesting the summary and resets its boundary per resident", async () => {
+test("updates shell resolves without requesting the summary and resets its boundary per resident", async () => {
   const hits: string[] = [];
   globalThis.fetch = async (input) => {
     const url = new URL(String(input));
@@ -55,12 +55,12 @@ test("handoff shell resolves without requesting the summary and resets its bound
     return Response.json(sampleResident(url.pathname.split("/").at(-1)!));
   };
   for (const id of ["marcus", "dana"]) {
-    const page = await HandoffPage({ searchParams: Promise.resolve({ resident: id }) });
+    const page = await UpdatesPage({ searchParams: Promise.resolve({ resident: id, type: "all" }) });
     assert.ok(page);
     const boundary = findBoundary(page);
     assert.ok(boundary);
-    assert.equal(boundary.key, id);
-    assert.match(renderToStaticMarkup(boundary.props.fallback), /Loading updates since your last shift/);
+    assert.equal(boundary.key, `${id}-all`);
+    assert.match(renderToStaticMarkup(boundary.props.fallback), /Loading updates/);
     assert.ok(isValidElement(boundary.props.children));
   }
   assert.ok(hits.length > 0);

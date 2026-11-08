@@ -389,7 +389,7 @@ describe("T4.3", { concurrency: false }, () => {
       assert.equal(screen.getByRole("link", { name: "Dana" }).getAttribute("href"), "/staff/dana");
       assert.equal(
         screen.getByRole("link", { name: /Since last shift/ }).getAttribute("href"),
-        "/staff/handoff",
+        "/staff/updates",
       );
       assert.equal(
         screen.getAllByRole("link", { name: /onboarding/i })[0].getAttribute("href"),
@@ -426,22 +426,22 @@ describe("T4.3", { concurrency: false }, () => {
         null,
       );
       assert.equal(
-        screen.getByRole("link", { name: "Since last shift" }).getAttribute("href"),
-        "/staff/handoff?resident=marcus",
+        screen.getByRole("link", { name: "Updates" }).getAttribute("href"),
+        "/staff/updates?resident=marcus",
       );
       assert.equal(
-        screen.getByRole("link", { name: "Activity" }).getAttribute("href"),
-        "/staff/activity?resident=marcus",
+        screen.getByRole("link", { name: "Records" }).getAttribute("href"),
+        "/staff/marcus/records",
       );
 
-      show("/staff/handoff", "dana");
+      show("/staff/updates", "dana");
       assert.equal(
-        screen.getByRole("link", { name: "Since last shift" }).getAttribute("aria-current"),
+        screen.getByRole("link", { name: "Updates" }).getAttribute("aria-current"),
         "page",
       );
       assert.equal(
-        screen.getByRole("link", { name: "Activity" }).getAttribute("href"),
-        "/staff/activity?resident=dana",
+        screen.getByRole("link", { name: "Records" }).getAttribute("href"),
+        "/staff/dana/records",
       );
     });
 
@@ -470,22 +470,31 @@ describe("T4.3", { concurrency: false }, () => {
       render(await Coach({ params: Promise.resolve({ id: "marcus" }) }));
       screen.getByRole("heading", { name: /Ask the Coach/ });
 
+      // The old handoff and activity routes now redirect into the unified
+      // Updates page (Roadmap Phase 3).
       cleanup();
       const { default: Handoff } = await import("../app/staff/handoff/page.tsx");
-      render(await Handoff({ searchParams: Promise.resolve({ resident: "marcus" }) }));
-      screen.getByRole("heading", { name: "Since last shift" });
-      assert.equal(
-        screen.getByRole("link", { name: "Marcus" }).getAttribute("aria-current"),
-        "page",
+      await assert.rejects(
+        async () => Handoff({ searchParams: Promise.resolve({ resident: "marcus" }) }),
+        (error: Error & { digest?: string }) =>
+          String(error.digest ?? error.message).includes("/staff/updates?resident=marcus"),
       );
 
       cleanup();
       const { default: Activity } = await import("../app/staff/activity/page.tsx");
-      render(await Activity({ searchParams: Promise.resolve({ resident: "dana" }) }));
-      screen.getByRole("heading", { name: "Activity log" });
+      await assert.rejects(
+        async () => Activity({ searchParams: Promise.resolve({ resident: "dana" }) }),
+        (error: Error & { digest?: string }) =>
+          String(error.digest ?? error.message).includes("/staff/updates?resident=dana"),
+      );
+
+      cleanup();
+      const { default: Updates } = await import("../app/staff/updates/page.tsx");
+      render(await Updates({ searchParams: Promise.resolve({ resident: "marcus", type: "all" }) }));
+      screen.getByRole("heading", { name: "Updates" });
       assert.equal(
-        screen.getByRole("link", { name: "Dana" }).getAttribute("href"),
-        "/staff/activity?resident=dana",
+        screen.getByRole("link", { name: "Marcus" }).getAttribute("aria-current"),
+        "page",
       );
     });
   });

@@ -231,6 +231,37 @@ def get_choices(resident: str, since: str = "") -> dict:
 
 
 @mcp.tool
+def add_record(resident: str, title: str, body: str, category: str = "update",
+               author: str = "", doc_date: str = "") -> dict:
+    """Records library (ROADMAP Phase 3): add a document or dated staff
+    update. Append-only; never overwrites older records. Facts from records
+    surface in ask_about with 'From records' labels, never as the
+    resident's words."""
+    allowed = ("binder", "care plan", "update", "medical", "other")
+    if category not in allowed:
+        return {"error": f"category must be one of {allowed}"}
+    if not title.strip() or not body.strip():
+        return {"error": "title and body are required"}
+    store = get_store()
+    doc = store.add_document(resident, title.strip(), category, author or None,
+                             doc_date or None, body.strip())
+    return {"id": doc["id"], "title": doc["title"], "store_mode": store.mode}
+
+
+@mcp.tool
+def get_records(resident: str) -> dict:
+    """The resident's records library, newest document date first."""
+    store = get_store()
+    docs = store.get_documents(resident)
+    return {"resident": resident,
+            "records": [{"id": d["id"], "title": d["title"], "category": d["category"],
+                         "author": d.get("author"), "doc_date": str(d.get("doc_date") or "") or None,
+                         "uploaded_at": str(d.get("uploaded_at") or "")[:10],
+                         "body": d["body"]} for d in docs],
+            "store_mode": store.mode}
+
+
+@mcp.tool
 def add_observation(resident: str, staff: str, note: str) -> dict:
     """Save a staff observation, stored separately from the resident's words,
     never overwrites them."""
