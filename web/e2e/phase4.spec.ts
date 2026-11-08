@@ -4,6 +4,8 @@ import { expect, test } from "@playwright/test";
 
 test("speak page offers the other ways to say it", async ({ page }) => {
   await page.goto("/resident/marcus/speak");
+  // The links live behind a disclosure so the picture grid stays the default.
+  await page.getByText("Other ways to communicate").click();
   await expect(page.getByRole("link", { name: "Type instead", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "My cards", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Guide me", exact: true })).toBeVisible();
