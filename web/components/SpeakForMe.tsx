@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { logSentence, speak, suggestSentences } from "@/lib/api";
 import { categoryLabel } from "@/lib/format";
+import { nextSelection, spokenSentence } from "@/lib/sentence";
 import type { Resident, Tile } from "@/lib/types";
 import { AudioPlayback, BigButton, TileButton, useLongPress } from "./shared";
 
@@ -39,16 +40,16 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
   const [error, setError] = useState<string | null>(null);
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [spokenText, setSpokenText] = useState<string | null>(null);
+  const [limitNote, setLimitNote] = useState<string | null>(null);
 
   const selectedLabels = selected.map((tile) => tile.label);
-  const strip = selectedLabels.join(" ");
+  const sentence = spokenSentence(selectedLabels, timeNow);
 
   function toggleTile(tile: Tile) {
-    setSelected((current) => {
-      const exists = current.some((item) => item.id === tile.id);
-      if (exists) return current.filter((item) => item.id !== tile.id);
-      return [...current, tile];
-    });
+    const result = nextSelection(selected, tile);
+    setSelected(result.tiles);
+    setLimitNote(result.note);
+    setSuggestions([]);
   }
 
   async function playAndMaybeLog(text: string, save: boolean) {
@@ -116,7 +117,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
     <div className="stack speak-for-me">
       <section className="sentence" aria-label="Sentence">
         <h2>Sentence</h2>
-        <p>{strip || "No sentence yet."}</p>
+        <p>{sentence || "No sentence yet."}</p>
+        {limitNote ? <p className="note">{limitNote}</p> : null}
       </section>
 
       <div className="speak-actions">
