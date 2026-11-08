@@ -34,7 +34,7 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
         </div>
       ) : (
         <>
-          <h1>Your Story</h1>
+          <h2>Your Story</h2>
           {chapters.map((chapter) => (
             <article key={chapter.id} className="story-chapter">
               {/* Chapter photo (if available) */}
@@ -58,15 +58,18 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
                 </p>
 
                 {/* Chapter text (first-person narrative) */}
-                <p className="story-chapter-text">{chapter.text}</p>
+                <p id={`chapter-text-${chapter.id}`} className="story-chapter-text">
+                  {chapter.text}
+                </p>
 
                 {/* Audio playback (narration in resident's voice) */}
                 {chapter.audio_url ? (
                   <div className="story-audio">
                     <AudioPlayback
                       src={chapter.audio_url}
-                      label="▶ Play Narration"
+                      label="Play narration"
                       autoPlay={false}
+                      transcriptId={`chapter-text-${chapter.id}`}
                     />
                   </div>
                 ) : chapter.status === "approved" ? (

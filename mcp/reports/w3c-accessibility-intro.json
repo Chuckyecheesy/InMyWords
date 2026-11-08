@@ -1,0 +1,117 @@
+{
+  "url": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+  "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+  "ratio": 92.8,
+  "groups": {
+    "alternatives": {
+      "title": "Alternatives (visual)",
+      "passed": 5,
+      "applicable": 6,
+      "ratio": 83.3
+    },
+    "keyboard": {
+      "title": "Keyboard (physical)",
+      "passed": 124,
+      "applicable": 124,
+      "ratio": 100.0
+    },
+    "transcripts": {
+      "title": "Transcripts (auditory)",
+      "passed": 0,
+      "applicable": 0,
+      "ratio": null
+    },
+    "understand": {
+      "title": "Understand and navigate",
+      "passed": 198,
+      "applicable": 208,
+      "ratio": 95.2
+    }
+  },
+  "checks_passed": 327,
+  "checks_applicable": 338,
+  "findings": [
+    {
+      "group": "alternatives",
+      "selector": "div.box-i > ul > li:nth-of-type(3) > a.video-link.video-link-small > img",
+      "passed": false,
+      "summary": "Image has empty alt text but is not marked decorative.",
+      "fix": "Give the image equivalent alt text, or mark it decorative (alt=\"\" inside a named control, or aria-hidden=\"true\")."
+    },
+    {
+      "group": "understand",
+      "selector": "#site-header > div.logos:nth-of-type(1) > a.home.w3c:nth-of-type(1)",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "#site-header > div.logos:nth-of-type(1) > a.home.wai:nth-of-type(2)",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "ul > li:nth-of-type(3) > form > div > button.button.button-icon",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "#examples > div > p:nth-of-type(2) > em > a",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "#examples > div > p:nth-of-type(6) > a:nth-of-type(1)",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "#examples > div > p:nth-of-type(6) > a:nth-of-type(2)",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "#examples > div > p:nth-of-type(9) > a",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "aside.box.box-simple > div.box-i > ul > li:nth-of-type(1) > a",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "aside.box.box-simple > div.box-i > ul > li:nth-of-type(2) > a",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    },
+    {
+      "group": "understand",
+      "selector": "aside.box.box-simple > div.box-i > ul > li:nth-of-type(3) > a.video-link.video-link-small",
+      "passed": false,
+      "summary": "Control has no accessible name.",
+      "fix": "Add visible text, aria-label, or aria-labelledby so the name says what the control does."
+    }
+  ],
+  "truncated": {
+    "contrast_capped": true
+  },
+  "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+  "markdown": "# Accessibility report\n\n- URL: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Ratio: 92.8\n\n## Groups\n\n- Alternatives (visual): 83.3 (5/6)\n- Keyboard (physical): 100.0 (124/124)\n- Transcripts (auditory): not applicable\n- Understand and navigate: 95.2 (198/208)\n\n## Findings\n\n\n### Alternatives (visual)\n\n- `div.box-i > ul > li:nth-of-type(3) > a.video-link.video-link-small > img` \u2014 Image has empty alt text but is not marked decorative. Give the image equivalent alt text, or mark it decorative (alt=\"\" inside a named control, or aria-hidden=\"true\").\n\n### Understand and navigate\n\n- `#site-header > div.logos:nth-of-type(1) > a.home.w3c:nth-of-type(1)` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `#site-header > div.logos:nth-of-type(1) > a.home.wai:nth-of-type(2)` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `ul > li:nth-of-type(3) > form > div > button.button.button-icon` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `#examples > div > p:nth-of-type(2) > em > a` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `#examples > div > p:nth-of-type(6) > a:nth-of-type(1)` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `#examples > div > p:nth-of-type(6) > a:nth-of-type(2)` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `#examples > div > p:nth-of-type(9) > a` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `aside.box.box-simple > div.box-i > ul > li:nth-of-type(1) > a` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `aside.box.box-simple > div.box-i > ul > li:nth-of-type(2) > a` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n- `aside.box.box-simple > div.box-i > ul > li:nth-of-type(3) > a.video-link.video-link-small` \u2014 Control has no accessible name. Add visible text, aria-label, or aria-labelledby so the name says what the control does.\n\nContrast was sampled from the first 80 visible text nodes. Later text was not scored.\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+}

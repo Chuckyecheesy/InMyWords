@@ -38,6 +38,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
+  const [spokenText, setSpokenText] = useState<string | null>(null);
 
   const selectedLabels = selected.map((tile) => tile.label);
   const strip = selectedLabels.join(" ");
@@ -58,6 +59,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
       setAudioSrc(null);
       return false;
     }
+    setSpokenText(text);
     setAudioSrc(spoken.data.audio_url);
     if (save) {
       await logSentence({
@@ -175,7 +177,14 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </section>
       ) : null}
 
-      {audioSrc ? <AudioPlayback src={audioSrc} autoPlay label="Play" /> : null}
+      {audioSrc ? (
+        <AudioPlayback
+          src={audioSrc}
+          autoPlay
+          label="Play"
+          transcript={spokenText ?? undefined}
+        />
+      ) : null}
 
       {groupTiles(resident.tiles).map(([category, tiles]) => (
         <section key={category} className="block">

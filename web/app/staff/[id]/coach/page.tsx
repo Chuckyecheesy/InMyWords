@@ -16,7 +16,7 @@ export default async function CoachPage({
   return (
     <div className="stack">
       <div className="coach-header">
-        <h1>Ask the Coach</h1>
+        <h2>Ask the Coach</h2>
         <p className="eyebrow">
           Ask questions about {resident.data.name}. Every answer shows its source.
         </p>
