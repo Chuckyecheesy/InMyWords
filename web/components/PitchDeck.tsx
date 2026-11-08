@@ -10,6 +10,10 @@ export function PitchDeck() {
 
   return (
     <section className="block entry-stage pitch-stage" data-testid="pitch-deck" aria-label="Pitch deck">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/logo-dark.svg" alt="In My Words" className="pitch-logo pitch-logo-dark" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/logo.svg" alt="In My Words" className="pitch-logo pitch-logo-light" />
       <p className="kicker">
         Slide {index + 1} of {PITCH_SLIDES.length}
       </p>

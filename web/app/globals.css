@@ -5164,3 +5164,27 @@ textarea {
 .entry-stage .kicker {
   color: var(--stage-kicker, #d9efe9);
 }
+
+/* The real brand icon carries its own bubble — no chip behind it. */
+.wordmark-mark[data-brand] {
+  background: transparent;
+  border-radius: 0;
+}
+
+.wordmark-mark[data-brand] img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Full logo on the pitch stage (dark variant). */
+.pitch-logo {
+  height: 44px;
+  width: auto;
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+[data-theme="contrast"] .pitch-logo-dark { display: none; }
+.pitch-logo-light { display: none; }
+[data-theme="contrast"] .pitch-logo-light { display: block; }

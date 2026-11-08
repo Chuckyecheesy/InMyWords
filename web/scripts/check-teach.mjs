@@ -6,17 +6,13 @@ const shots =
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1380, height: 900 } });
 await page.goto("http://127.0.0.1:3000/", { waitUntil: "networkidle" });
-await page.waitForTimeout(700);
-await page.screenshot({ path: `${shots}/entry-stage.png` });
-
+await page.waitForTimeout(600);
+await page.screenshot({ path: `${shots}/brand-entry.png` });
 await page.goto("http://127.0.0.1:3000/pitch", { waitUntil: "networkidle" });
 await page.waitForTimeout(500);
-await page.screenshot({ path: `${shots}/pitch-stage.png` });
-
-// High-contrast theme
-await page.addInitScript(() => localStorage.setItem("imw-theme", "contrast"));
-await page.goto("http://127.0.0.1:3000/", { waitUntil: "networkidle" });
-await page.waitForTimeout(700);
-await page.screenshot({ path: `${shots}/entry-stage-contrast.png` });
-console.log("stage shots done");
+await page.screenshot({ path: `${shots}/brand-pitch.png` });
+await page.goto("http://127.0.0.1:3000/staff", { waitUntil: "networkidle" });
+await page.waitForTimeout(500);
+await page.screenshot({ path: `${shots}/brand-staff.png` });
+console.log("brand shots done");
 await browser.close();

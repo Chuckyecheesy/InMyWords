@@ -1,4 +1,7 @@
-# In My Words
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="in-my-words-logo-dark.svg">
+  <img src="in-my-words-logo.svg" alt="In My Words" width="420">
+</picture>
 
 *Your story, told once, in your own voice. Your choices, made by you.*
 
