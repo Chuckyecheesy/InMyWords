@@ -5,9 +5,11 @@ export const metadata = { title: "Page not found" };
 
 export default function NotFound() {
   return (
-    <AppShell title="That page is not here" backHref="/" backLabel="Home">
-      <p>The link does not match a resident or a staff screen.</p>
-      <Link href="/" className="big-link">
+    <AppShell title="That page isn't here">
+      <p className="lead" style={{ marginBottom: 24 }}>
+        The link doesn&apos;t match a resident or a staff screen.
+      </p>
+      <Link href="/" className="btn" data-variant="primary" data-size="lg">
         Back to the start
       </Link>
     </AppShell>

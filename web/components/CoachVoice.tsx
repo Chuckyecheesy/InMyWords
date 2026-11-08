@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Conversation } from "@elevenlabs/client";
+import { Mic, Square } from "lucide-react";
 import { agentSession } from "@/lib/api";
 
 type Line = { role: "you" | "coach"; text: string };
@@ -57,14 +58,23 @@ export function CoachVoice({ residentId, residentName }: { residentId: string; r
   const live = state === "listening" || state === "talking" || state === "starting";
 
   return (
-    <section className="block stack" aria-label="Ask out loud">
-      <div className="coach-header">
-        <h3>Ask out loud</h3>
-        <button type="button" className="big-button" onClick={() => void (live ? stop() : start())}>
-          {live ? "Stop" : "Start talking"}
-        </button>
+    <section className="panel" aria-label="Ask out loud">
+      <div className="panel-head">
+        <h2>
+          <Mic size={20} aria-hidden="true" />
+          Ask out loud
+        </h2>
       </div>
-      <p className="eyebrow" aria-live="polite">
+      <button
+        type="button"
+        className="btn"
+        data-variant={live ? "secondary" : "primary"}
+        onClick={() => void (live ? stop() : start())}
+      >
+        {live ? <Square size={16} aria-hidden="true" /> : <Mic size={18} aria-hidden="true" />}
+        {live ? "Stop" : "Start talking"}
+      </button>
+      <p className="muted" style={{ fontSize: 15 }} aria-live="polite">
         {state === "starting"
           ? "Connecting…"
           : state === "listening"
@@ -76,7 +86,7 @@ export function CoachVoice({ residentId, residentName }: { residentId: string; r
                 : "Talk to the coach instead of typing. Answers always say where they came from."}
       </p>
       {lines.length > 0 ? (
-        <ol className="stack" aria-label="Conversation">
+        <ol className="feed" aria-label="Conversation">
           {lines.map((line, index) => (
             <li key={index}>
               <strong>{line.role === "you" ? "You" : "Coach"}:</strong> {line.text}

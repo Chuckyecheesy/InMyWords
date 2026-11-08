@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Hand, ThumbsUp } from "lucide-react";
 import { onGesture } from "@/lib/input/gestures";
 
 /**
@@ -33,8 +34,12 @@ export function GestureHint({
   if (!enabled) return null;
   return (
     <p className="gesture-hint" aria-hidden="true">
-      <span>👍 yes</span>
-      <span>✋ no</span>
+      <span>
+        <ThumbsUp size={18} /> Thumbs up = yes
+      </span>
+      <span>
+        <Hand size={18} /> Open hand = no
+      </span>
     </p>
   );
 }

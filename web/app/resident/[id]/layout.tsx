@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import { DataBanner } from "@/components/DataBanner";
-import { ResidentNav } from "@/components/ResidentNav";
-import { AppShell } from "@/components/AppShell";
+import { ResidentChrome } from "@/components/ResidentChrome";
 import { getResident } from "@/lib/api";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -22,20 +21,13 @@ export default async function ResidentLayout({
   if (!resident) notFound();
 
   return (
-    <AppShell
-      eyebrow="Resident"
-      title={resident.data.name}
-      lede={resident.data.communication_style}
-      backHref="/"
-      backLabel="Home"
-    >
+    <ResidentChrome id={id} name={resident.data.name}>
       {resident.origin === "sample" ? (
-        <DataBanner>
-          Sample data. The API did not answer, so this is the demo resident.
-        </DataBanner>
+        <div className="r-banner">
+          <DataBanner>Sample data — the API didn&apos;t answer, so this is the demo profile.</DataBanner>
+        </div>
       ) : null}
-      <ResidentNav id={id} />
       {children}
-    </AppShell>
+    </ResidentChrome>
   );
 }

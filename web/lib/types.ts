@@ -55,6 +55,10 @@ export type HandoffItem = {
   date: string;
   text: string;
   source?: SourceType;
+  /** Client-only hints for the timeline; inferred from text for live rows. */
+  status?: "done" | "missed";
+  significant?: boolean;
+  author?: string;
 };
 
 export type ActivityItem = {
@@ -73,7 +77,7 @@ export type SourcedFact = {
 
 export type CoachAnswer = {
   answer: string;
-  sources: SourcedFact[];
+  sources: (SourcedFact & { label?: string })[];
 };
 
 export type ChoiceOption = {
@@ -95,7 +99,7 @@ export type ChoiceResult = {
 export type ChoicePreview = {
   question: string;
   weekly_budget: number | null;
-  options: { label: string; cost: number }[];
+  options: { label: string; cost: number; description?: string; when?: string }[];
   status: "chosen" | "not_yet_decided";
   chosen: string | null;
 };
@@ -104,6 +108,20 @@ export type Highlight = {
   text: string;
   source: SourceType;
   date: string | null;
+  author?: string;
+};
+
+/** Client view of a resident's profile, grouped for staff screens. */
+export type ResidentProfile = {
+  home: string;
+  summary: Highlight | null;
+  communication: Highlight[];
+  routines: Highlight[];
+  likes: Highlight[];
+  dislikes: Highlight[];
+  context: Highlight[];
+  observations: Highlight[];
+  pending: Highlight[];
 };
 
 export type DataOrigin = "api" | "sample";

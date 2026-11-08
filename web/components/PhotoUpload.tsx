@@ -119,9 +119,9 @@ export function PhotoUpload({
   const ready = Boolean(config) && !busy;
 
   return (
-    <form className="stack" onSubmit={onSubmit}>
+    <form className="note-form" onSubmit={onSubmit}>
       {configError ? <p className="banner">{configError}</p> : null}
-      <label className="block" htmlFor="photo-label">
+      <label className="field-label" htmlFor="photo-label">
         What is this a picture of?
         <input
           id="photo-label"
@@ -148,24 +148,25 @@ export function PhotoUpload({
           }}
         />
       </label>
-      <button className="save-photo" type="submit" disabled={!ready || !file || !label.trim()}>
+      <button className="btn" data-variant="primary" data-size="lg" type="submit" disabled={!ready || !file || !label.trim()}>
         {busy ? "Saving" : "Save photo"}
       </button>
-      {status ? <p role="status">{status}</p> : null}
+      {status ? <p role="status" className="muted">{status}</p> : null}
       {review ? (
-        <div className="block photo-review" role="alert">
+        <div className="callout photo-review" role="alert">
           <ul>
             {review.map((reason) => (
               <li key={reason}>{reason}</li>
             ))}
           </ul>
           <div className="photo-review-actions">
-            <button type="button" className="save-photo" disabled={busy} onClick={() => void save(true)}>
+            <button type="button" className="btn" data-variant="primary" disabled={busy} onClick={() => void save(true)}>
               Save anyway
             </button>
             <button
               type="button"
-              className="file-picker"
+              className="btn"
+              data-variant="secondary"
               disabled={busy}
               onClick={() => {
                 setReview(null);

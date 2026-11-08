@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { DeliveredPhoto } from "@/components/DeliveredPhoto";
-import { tileImageUrl } from "@/lib/cloudinary";
+import { isDrawnPlaceholder } from "@/lib/demo-photos";
+import { Pictogram, pictogramFor } from "@/lib/pictograms";
 
 export interface ChoiceOption {
   label: string;
@@ -92,8 +93,6 @@ function ChoiceTile({
 }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false);
-  const calm = option.photo_id ? tileImageUrl(option.photo_id, "calm") : null;
-  const contrast = option.photo_id ? tileImageUrl(option.photo_id, "contrast") : null;
 
   function clear() {
     if (timer.current) {
@@ -132,14 +131,19 @@ function ChoiceTile({
         onChoice(option.label);
       }}
     >
-      {calm && contrast ? (
+      {option.photo_id && (!isDrawnPlaceholder(option.photo_id) || !pictogramFor(option.label)) ? (
+        // Saved demo photos load first; Cloudinary is the fallback.
         <picture>
-          <DeliveredPhoto publicId={option.photo_id!} mode="calm" className="choice-img choice-img-calm" />
-          <DeliveredPhoto publicId={option.photo_id!} mode="contrast" className="choice-img choice-img-contrast" />
+          <DeliveredPhoto publicId={option.photo_id} mode="calm" className="choice-img choice-img-calm" />
+          <DeliveredPhoto publicId={option.photo_id} mode="contrast" className="choice-img choice-img-contrast" />
         </picture>
       ) : (
         <span className="choice-letter" aria-hidden="true">
-          {option.label}
+          {pictogramFor(option.label) ? (
+            <Pictogram label={option.label} size={64} strokeWidth={1.75} />
+          ) : (
+            option.label.slice(0, 1).toUpperCase()
+          )}
         </span>
       )}
       <span className="choice-label">{option.label}</span>

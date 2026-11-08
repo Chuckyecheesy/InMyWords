@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { hasCameraConsent, setCameraConsent } from "@/lib/input/consent";
+import { Camera, CameraOff } from "lucide-react";
 import { speak } from "@/lib/api";
-import { BigButton } from "./shared";
+import { hasCameraConsent, setCameraConsent } from "@/lib/input/consent";
+import { useLongPress } from "./shared";
 
 /**
  * "Use my eyes and hands" — off by default, one tap off, visible indicator
@@ -27,6 +28,10 @@ export function CameraConsent({
     setSavedConsent({ residentId, consent: hasCameraConsent(residentId) });
   }, [residentId]);
   const consent = savedConsent.residentId === residentId ? savedConsent.consent : false;
+  const label = consent ? "Using my eyes and hands" : "Use my eyes and hands";
+  const press = useLongPress((text) => {
+    void speak({ resident_id: residentId, text });
+  }, label);
 
   function toggle() {
     const next = !consent;
@@ -35,23 +40,33 @@ export function CameraConsent({
     onChange(next);
   }
 
-  function hear(label: string) {
-    void speak({ resident_id: residentId, text: label });
-  }
-
   return (
-    <section className="block camera-consent" aria-label="Camera consent">
-      <div className="speak-actions">
-        <BigButton tone={consent ? "approve" : "neutral"} onLongPress={hear} onClick={toggle} aria-pressed={consent}>
-          {consent ? "Using my eyes and hands" : "Use my eyes and hands"}
-        </BigButton>
-        {cameraOn ? (
-          <span className="camera-indicator" role="status" aria-live="polite">
-            ● Camera on
-          </span>
-        ) : null}
-      </div>
+    <div className="camera-consent">
+      <button
+        type="button"
+        className="btn"
+        data-variant={consent ? "soft" : "secondary"}
+        data-size="lg"
+        data-longpress="own"
+        aria-pressed={consent}
+        onPointerDown={press.onPointerDown}
+        onPointerUp={press.onPointerUp}
+        onPointerLeave={press.onPointerLeave}
+        onPointerCancel={press.onPointerCancel}
+        onClick={() => {
+          if (press.consumeClick()) return;
+          toggle();
+        }}
+      >
+        {consent ? <Camera size={22} aria-hidden="true" /> : <CameraOff size={22} aria-hidden="true" />}
+        {label}
+      </button>
+      {cameraOn ? (
+        <span className="camera-indicator" role="status" aria-live="polite">
+          <span className="camera-dot" aria-hidden="true" /> Camera on
+        </span>
+      ) : null}
       <p className="note">The camera stays on this tablet. No video is saved.</p>
-    </section>
+    </div>
   );
 }

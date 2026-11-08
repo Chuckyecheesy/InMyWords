@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { approveAction, cancelAction, speak } from "@/lib/api";
 import { stepPhoto } from "@/lib/action-photos";
 import { DeliveredPhoto } from "@/components/DeliveredPhoto";
-import { tileImageUrl } from "@/lib/cloudinary";
+import { CalendarDays, ClipboardCheck, Mail, Ticket } from "lucide-react";
+import { isDrawnPlaceholder } from "@/lib/demo-photos";
 import { money } from "@/lib/format";
 import type { ActionPlan } from "@/lib/api";
 import { BigButton } from "./shared";
@@ -73,10 +74,11 @@ export function ApprovalCard({
   }
 
   return (
-    <section className="block" data-testid="approval-card" aria-label="Approval card">
+    <section className="approval-card" data-testid="approval-card" aria-label="Approval card" data-phase={phase}>
+      <p className="eyebrow">Next step</p>
       <h2>Approve this plan?</h2>
-      <p>{plan.goal}</p>
-      <div className="choice-options">
+      <p className="lead">{plan.goal}</p>
+      <div className="step-grid">
         {plan.online_steps.map((step) => (
           <StepPicture
             key={step.step}
@@ -96,11 +98,16 @@ export function ApprovalCard({
           />
         ))}
       </div>
-      <p>Total {money(plan.total_cost)}.</p>
-      {note ? <p data-testid="approval-note">{note}</p> : null}
+      <p className="approval-total">Total {money(plan.total_cost)}.</p>
+      {note ? (
+        <p className="approval-note" data-testid="approval-note" role="status">
+          {note}
+        </p>
+      ) : null}
+      {phase === "window" ? <span className="cancel-window" aria-hidden="true" /> : null}
       {error ? <p className="note">{error}</p> : null}
       {phase === "proposed" || phase === "window" ? (
-        <div className="speak-actions">
+        <div className="row approval-actions">
           {phase === "proposed" ? (
             <BigButton tone="approve" onLongPress={hear} onClick={approve}>
               Approve
@@ -127,21 +134,20 @@ function StepPicture({
   extra: string | null;
 }) {
   const photo = stepPhoto(residentId, step);
-  const calm = tileImageUrl(photo, "calm");
-  const contrast = tileImageUrl(photo, "contrast");
+  const Icon =
+    step === "send_message" ? Mail : step === "add_to_calendar" ? CalendarDays : step === "book_activity" ? Ticket : ClipboardCheck;
   return (
-    <article className="choice-button" data-step={step}>
-      {calm && contrast ? (
-        <picture>
-          <DeliveredPhoto publicId={photo} mode="calm" className="choice-img choice-img-calm" />
-          <DeliveredPhoto publicId={photo} mode="contrast" className="choice-img choice-img-contrast" />
-        </picture>
+    <article className="step-card" data-step={step}>
+      {isDrawnPlaceholder(photo) ? (
+        <span className="step-photo step-letter" aria-hidden="true">
+          <Icon size={44} strokeWidth={1.75} />
+        </span>
       ) : (
-        <span className="choice-letter" aria-hidden="true">
-          {label.slice(0, 1)}
+        <span className="step-photo">
+          <DeliveredPhoto publicId={photo} mode="story" className="tile-img" />
         </span>
       )}
-      <span className="choice-label">{label}</span>
+      <span className="step-label">{label}</span>
       {extra ? <span className="note">{extra}</span> : null}
     </article>
   );

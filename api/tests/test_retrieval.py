@@ -91,6 +91,14 @@ class VectorCacheTests(unittest.TestCase):
         self.assertEqual(VectorCache(path, fake).vectors(["ab"]), [[2.0, 1.0]])
         self.assertEqual(len(calls), 1)  # served from disk
 
+    def test_works_right_after_machine_boot(self):
+        # time.monotonic() counts from boot. On a fresh CI runner it can be
+        # under the cooldown; that must not look like a recent failure.
+        from unittest import mock
+        with mock.patch("time.monotonic", return_value=5.0):
+            cache = VectorCache(Path(tempfile.mkdtemp()) / "v.json", lambda t: [[1.0, 0.0] for _ in t])
+            self.assertEqual(cache.vectors(["x"]), [[1.0, 0.0]])
+
     def test_failure_returns_none_and_backs_off(self):
         calls = []
 

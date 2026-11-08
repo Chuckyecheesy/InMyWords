@@ -107,7 +107,7 @@ export function TeachGesture({ resident }: { resident: Resident }) {
       <div className="stack calibrate-page">
         <h1>Teach a gesture</h1>
         <p>Turn on “Use my eyes and hands” on the home screen first.</p>
-        <Link href={`/resident/${resident.id}`} className="tile tile-button">
+        <Link prefetch={false} href={`/resident/${resident.id}`} className="tile tile-button">
           <span className="tile-label">Back to my tiles</span>
         </Link>
       </div>
@@ -169,7 +169,7 @@ export function TeachGesture({ resident }: { resident: Resident }) {
             <BigButton tone="neutral" onClick={() => { setTile(null); reset(); }}>
               Teach another
             </BigButton>
-            <Link href={`/resident/${resident.id}`} className="tile tile-button slim">
+            <Link prefetch={false} href={`/resident/${resident.id}`} className="tile tile-button slim">
               <span className="tile-label">Done</span>
             </Link>
           </div>

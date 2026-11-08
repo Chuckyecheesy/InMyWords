@@ -34,9 +34,9 @@ export function HowICommunicateCard({
   const sentences = communicateSentences(profile, name);
 
   return (
-    <article className="card how-i-communicate">
-      <header className="card-head">
-        <h3>How {name} communicates</h3>
+    <article className="how-i-communicate">
+      <header className="panel-head">
+        <h3>How {name} uses the tablet</h3>
         <SourceChip tone="pattern" label={`From ${name}'s input history`} />
       </header>
       <ul>

@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { chapterTitle } from "./format";
 import {
+  homeFor,
+  sampleProfile,
   sampleActivity,
   sampleHandoff,
   samplePending,
@@ -14,9 +16,11 @@ import type {
   ChoiceResult,
   CoachAnswer,
   HandoffItem,
+  Highlight,
   MutationResult,
   PendingMemory,
   Resident,
+  ResidentProfile,
   Result,
   SourceType,
   StoryChapter,
@@ -79,6 +83,12 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
+/** Ids arrive as numbers from Postgres and as strings from mocks. */
+function idText(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return text(value);
+}
+
 function list(value: unknown, key: string): unknown[] | null {
   if (Array.isArray(value)) return value;
   const row = record(value);
@@ -107,7 +117,7 @@ function normalizeTile(value: unknown, index: number): Tile | null {
   const label = text(row.label);
   if (!label) return null;
   return {
-    id: text(row.id) ?? `${label}-${index}`,
+    id: idText(row.id) ?? `${label}-${index}`,
     label,
     category: text(row.category) ?? "words",
     cloudinary_id: text(row.cloudinary_id),
@@ -139,7 +149,7 @@ function normalizeChapter(value: unknown, index: number): StoryChapter | null {
   if (!chapterKey || !body) return null;
   const status = row.status === "approved" ? "approved" : "draft";
   return {
-    id: text(row.id) ?? `${chapterKey}-${index}`,
+    id: idText(row.id) ?? `${chapterKey}-${index}`,
     chapter_key: chapterKey,
     title: text(row.title) ?? chapterTitle(chapterKey),
     text: body,
@@ -178,7 +188,9 @@ function normalizeHandoff(value: unknown): HandoffItem | null {
   if (!row) return null;
   const itemText = text(row.text) ?? text(row.content);
   const date = text(row.date);
-  const type = row.type;
+  // The handoff agent labels EMH rows by table; fold them into the contract types.
+  const type =
+    row.type === "emh_checklist" ? "checklist" : row.type === "emh_note" ? "emh" : row.type;
   if (!itemText || !date) return null;
   if (
     type !== "emh" &&
@@ -190,11 +202,15 @@ function normalizeHandoff(value: unknown): HandoffItem | null {
   ) {
     return null;
   }
+  // Live rows carry no done/missed flag; read it from the wording.
+  const missed =
+    type === "checklist" && /didn't|did not|not happen|cancel|ended early|left early/i.test(itemText);
   return {
     type,
     date,
     text: itemText,
-    source: sourceType(row.source) ?? undefined,
+    source: sourceType(row.source) ?? (type === "memory" ? "resident" : undefined),
+    status: type === "checklist" ? (missed ? "missed" : "done") : undefined,
   };
 }
 
@@ -221,6 +237,52 @@ export const getResident = cache(async (id: string): Promise<Result<Resident> | 
   if (sample) return { data: sample, origin: "sample" };
   return null;
 });
+
+function normalizeHighlight(value: unknown): Highlight | null {
+  const row = record(value);
+  if (!row) return null;
+  const content = text(row.content) ?? text(row.text);
+  const source = sourceType(row.source);
+  if (!content || !source) return null;
+  return { text: content, source, date: text(row.date) ?? text(row.source_date) };
+}
+
+function highlights(value: unknown): Highlight[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.map(normalizeHighlight).filter((item): item is Highlight => item !== null);
+}
+
+/**
+ * Staff profile view. Live: the confirmed memories the profile MCP server
+ * returns with /residents/{id}. Sample: the grouped demo profile.
+ */
+export const getProfile = cache(
+  async (id: string): Promise<Result<ResidentProfile> | null> => {
+    const raw = record(await fetchJson(`/residents/${encodeURIComponent(id)}`));
+    const preferences = highlights(raw?.preferences);
+    const routines = highlights(raw?.routines);
+    if (raw && preferences && routines) {
+      const style = text(raw.communication_style);
+      const resident = preferences.filter((item) => item.source === "resident");
+      return {
+        origin: "api",
+        data: {
+          home: homeFor(id),
+          summary: resident[0] ?? null,
+          communication: style ? [{ text: style, source: "document", date: null }] : [],
+          routines,
+          likes: preferences,
+          dislikes: [],
+          context: [],
+          observations: [],
+          pending: highlights(raw.pending_patterns) ?? [],
+        },
+      };
+    }
+    const sample = sampleProfile(id);
+    return sample ? { data: sample, origin: "sample" } : null;
+  },
+);
 
 export const getStory = cache(async (id: string): Promise<Result<StoryChapter[]>> => {
   const live = list(await fetchJson(`/story/${encodeURIComponent(id)}`), "chapters")

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, Eye } from "lucide-react";
 import { confirmMemory, speak } from "@/lib/api";
 import { sourceChip } from "@/lib/format";
 import type { PendingMemory } from "@/lib/types";
@@ -55,7 +56,15 @@ export function ConfirmQueue({
 
   const waiting = memories.filter((memory) => !answered[memory.id]);
   if (waiting.length === 0) {
-    return <p>Nothing is waiting for {residentName} to confirm.</p>;
+    return (
+      <div className="empty">
+        <span className="empty-icon" aria-hidden="true">
+          <Eye size={30} />
+        </span>
+        <h2>All done</h2>
+        <p>Nothing is waiting for {residentName} to confirm.</p>
+      </div>
+    );
   }
   const later = waiting.length - 1;
 
@@ -65,21 +74,24 @@ export function ConfirmQueue({
         const chip = sourceChip(memory.source, residentName, memory.source_date);
         const seen = memory.times_seen && memory.times_seen > 1 ? memory.times_seen : null;
         return (
-          <article key={memory.id} className="fact">
-            <p>{memory.content}</p>
-            <SourceChip tone={chip.tone} label={chip.label} />
-            {seen ? <p className="note">Seen {seen} times.</p> : null}
+          <article key={memory.id} className="confirm-card">
+            <p className="confirm-statement">{memory.content}</p>
+            <div className="row">
+              <SourceChip tone={chip.tone} label={chip.label} />
+              {seen ? <span className="badge" data-tone="neutral">Seen {seen} times</span> : null}
+            </div>
             {memory.update_reason ? (
-              <p className="note" role="note">
-                ⚠️ May have changed. {memory.update_reason}.
+              <p className="callout" data-tone="info" role="note">
+                <AlertTriangle size={20} aria-hidden="true" />
+                <span>May have changed. {memory.update_reason}.</span>
               </p>
             ) : null}
             {held[memory.id] ? (
               <>
-                <p className="note">
+                <p className="confirm-q">
                   You said {held[memory.id] === "yes" ? "Yes" : "No"}.
                 </p>
-                <div className="actions">
+                <div className="confirm-actions">
                   <BigButton tone="neutral" onLongPress={hear} onClick={() => undo(memory.id)}>
                     Undo
                   </BigButton>
@@ -90,8 +102,8 @@ export function ConfirmQueue({
               </>
             ) : (
               <>
-                <p className="note">Is this still true for {residentName}?</p>
-                <div className="actions">
+                <h2 className="confirm-q">Is this still true for {residentName}?</h2>
+                <div className="confirm-actions">
                   <BigButton tone="approve" onLongPress={hear} onClick={() => hold(memory.id, "yes")}>
                     Yes
                   </BigButton>
@@ -102,7 +114,7 @@ export function ConfirmQueue({
               </>
             )}
             {failed === memory.id ? (
-              <p className="note">That did not save. Try again.</p>
+              <p className="callout" data-tone="error" role="alert">That did not save. Try again.</p>
             ) : null}
           </article>
         );
