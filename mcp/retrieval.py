@@ -31,6 +31,13 @@ from pathlib import Path
 MIN_SCORE = float(os.environ.get("RAG_MIN_SCORE", "0.63"))   # absolute floor
 MARGIN = float(os.environ.get("RAG_MARGIN", "0.08"))         # keep hits within this of the best
 KEYWORD_BOOST = float(os.environ.get("RAG_KEYWORD_BOOST", "0.08"))  # per matched word (max 3)
+# Memory-vs-memory cosine at or above this = the same fact reworded, so
+# remember bumps times_seen instead of saving a copy. Measured (document
+# embeddings): true rewordings 0.879-0.937; the closest DIFFERENT facts 0.802-
+# 0.868 — and 0.868 is a contradiction ("Prefers tea over coffee" vs "Drinks
+# coffee") that must never be merged away. 0.90 errs on keeping a rare
+# duplicate rather than hiding a contradiction.
+DUPLICATE_SIM = float(os.environ.get("RAG_DUPLICATE_SIM", "0.90"))
 
 STOPWORDS = frozenset("""
 a about after again all also am an and any are as at be been being but by can could did do does doing

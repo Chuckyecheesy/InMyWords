@@ -27,14 +27,19 @@ def consolidate(candidate: dict, *, resident_id: str, recall, contradicts,
             return {"action": "proposed_update", "memory_id": memory["id"]}
 
     def save():
-        remember(resident_id=resident_id, **{
+        return remember(resident_id=resident_id, **{
             k: candidate[k] for k in ("type", "content", "source", "evidence")
-            if k in candidate})
+            if k in candidate}) or {}
 
+    # recall returns `similarity` (raw cosine, None when unembedded). A very
+    # close match is the same fact seen again; the memory server decides the
+    # merge itself (same words, or document cosine >= RAG_DUPLICATE_SIM).
     for memory in found:
-        if memory.get("similarity", 0) >= threshold:
-            save()  # server bumps times_seen on a near-duplicate
-            return {"action": "seen_again", "memory_id": memory["id"]}
+        if (memory.get("similarity") or 0) >= threshold:
+            saved = save()
+            return {"action": "seen_again", "memory_id": saved.get("id", memory["id"])}
 
-    save()
+    saved = save()
+    if saved.get("merged"):  # the server recognised a reworded duplicate
+        return {"action": "seen_again", "memory_id": saved.get("id")}
     return {"action": "remembered"}

@@ -192,8 +192,12 @@ async def suggest(body: SuggestBody, request: Request):
     resident_id = "".join(ch for ch in body.resident_id if ch.isalnum() or ch in "_-")[:40]
     recalled, live = await _mcp(
         mcp_client.recall(resident_id, " ".join(tiles)), None)
-    memories = recalled.get("memories", []) if live and isinstance(recalled, dict) else []
-    if not memories:
+    # Seed file only when the memory server FAILED. An empty result is a real
+    # answer (nothing relevant to these tiles) and must not swap in stale seed
+    # data for the live database.
+    if live and isinstance(recalled, dict):
+        memories = recalled.get("memories", [])
+    else:
         memories = load_seed_memories(resident_id)
     profile, profile_live = await _mcp(mcp_client.get_profile(resident_id), None)
     if profile_live and isinstance(profile, dict) and profile.get("name"):

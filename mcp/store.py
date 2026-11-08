@@ -17,7 +17,7 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from retrieval import VectorCache, cosine, keyword_hits, neutralize, query_terms, recency_scores, select
+from retrieval import DUPLICATE_SIM, VectorCache, cosine, keyword_hits, neutralize, query_terms, recency_scores, select
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SEED_DIR = REPO_ROOT / "db" / "seed"
@@ -211,7 +211,9 @@ class SeedStore:
              "kw": keyword_hits(t, words), "recency": rc}
             for r, t, v, rc in zip(rows, texts, dvecs, rec)
         ]
-        return [dict(x["row"], score=x.get("score")) for x in select(scored, limit, broad)]
+        return [dict(x["row"], score=x.get("score"),
+                     similarity=round(x["sim"], 3) if x["sim"] is not None else None)
+                for x in select(scored, limit, broad)]
 
     @staticmethod
     def _memory_fact(m):
@@ -241,6 +243,7 @@ class SeedStore:
                             dates=[f["date"] for f in facts])
         for f in ranked:
             f.pop("score", None)  # keep the contract shape
+            f.pop("similarity", None)
         return ranked
 
     def get_emh_notes(self, rid, since=None):
@@ -349,19 +352,29 @@ class SeedStore:
     # ---- memory layer (T2.5) ----
 
     def remember(self, rid, mem_type, content, source, source_date=None):
-        """Save a candidate memory. Near-duplicates bump times_seen instead."""
+        """Save a candidate memory. Near-duplicates (same words, or the same
+        fact reworded: cosine >= DUPLICATE_SIM) bump times_seen instead."""
+        def merge(m):
+            m["times_seen"] += 1
+            m["last_seen"] = _now()
+            if source_date and not m.get("source_date"):
+                m["source_date"] = source_date
+            return {"id": m["id"], "merged": True, "times_seen": m["times_seen"], "status": m["status"]}
+
+        same = [m for m in self.memories if m["resident_id"] == rid and m["type"] == mem_type]
         new_words = set(content.lower().split())
-        for m in self.memories:
-            if m["resident_id"] != rid or m["type"] != mem_type:
-                continue
+        for m in same:
             old_words = set(m["content"].lower().split())
             overlap = len(new_words & old_words) / max(len(new_words | old_words), 1)
             if overlap >= 0.6:
-                m["times_seen"] += 1
-                m["last_seen"] = _now()
-                if source_date and not m.get("source_date"):
-                    m["source_date"] = source_date
-                return {"id": m["id"], "merged": True, "times_seen": m["times_seen"], "status": m["status"]}
+                return merge(m)
+        if same:
+            new_vec, *old_vecs = self._vectors.vectors([content] + [m["content"] for m in same])
+            if new_vec is not None:
+                best = max(((cosine(new_vec, v), m) for v, m in zip(old_vecs, same) if v is not None),
+                           default=(0.0, None), key=lambda p: p[0])
+                if best[0] >= DUPLICATE_SIM:
+                    return merge(best[1])
         mem = {"id": max((m["id"] for m in self.memories), default=0) + 1, "resident_id": rid,
                "type": mem_type, "content": content, "source": source, "source_date": source_date,
                "times_seen": 1, "first_seen": _now(), "last_seen": _now(), "status": "pending"}
@@ -652,25 +665,37 @@ class PostgresStore:
     # ---- memory layer (T2.5) ----
 
     def remember(self, rid, mem_type, content, source, source_date=None):
-        # Near-duplicate check: word-overlap in SQL is clumsy; fetch same-type
-        # memories and reuse the SeedStore overlap rule in Python.
+        # Near-duplicate check, same rule as SeedStore: word overlap first,
+        # then meaning (pgvector cosine >= DUPLICATE_SIM, same resident + type).
         new_words = set(content.lower().split())
-        for m in self._all("SELECT id, content, status, source_date FROM memories WHERE resident_id = %s AND type = %s",
-                           (rid, mem_type)):
-            old_words = set(m["content"].lower().split())
-            overlap = len(new_words & old_words) / max(len(new_words | old_words), 1)
-            if overlap >= 0.6:
-                if source_date and not m.get("source_date"):
-                    row = self._one(
-                        "UPDATE memories SET times_seen = times_seen + 1, last_seen = now(), "
-                        "source_date = %s WHERE id = %s RETURNING id, times_seen, status",
-                        (source_date, m["id"]))
-                else:
-                    row = self._one(
-                        "UPDATE memories SET times_seen = times_seen + 1, last_seen = now() "
-                        "WHERE id = %s RETURNING id, times_seen, status", (m["id"],))
-                return {"id": row["id"], "merged": True, "times_seen": row["times_seen"], "status": row["status"]}
         vec = embed_text(content, task_type="RETRIEVAL_DOCUMENT")
+        same = self._all("SELECT id, content, status, source_date FROM memories WHERE resident_id = %s AND type = %s",
+                         (rid, mem_type))
+        dup = None
+        for m in same:
+            old_words = set(m["content"].lower().split())
+            if len(new_words & old_words) / max(len(new_words | old_words), 1) >= 0.6:
+                dup = m
+                break
+        if dup is None and vec is not None and same:
+            near = self._one(
+                "SELECT id, content, status, source_date, 1 - (embedding <=> %s::vector) AS sim "
+                "FROM memories WHERE resident_id = %s AND type = %s AND embedding IS NOT NULL "
+                "ORDER BY embedding <=> %s::vector LIMIT 1",
+                (vector_literal(vec), rid, mem_type, vector_literal(vec)))
+            if near and near["sim"] >= DUPLICATE_SIM:
+                dup = near
+        if dup is not None:
+            if source_date and not dup.get("source_date"):
+                row = self._one(
+                    "UPDATE memories SET times_seen = times_seen + 1, last_seen = now(), "
+                    "source_date = %s WHERE id = %s RETURNING id, times_seen, status",
+                    (source_date, dup["id"]))
+            else:
+                row = self._one(
+                    "UPDATE memories SET times_seen = times_seen + 1, last_seen = now() "
+                    "WHERE id = %s RETURNING id, times_seen, status", (dup["id"],))
+            return {"id": row["id"], "merged": True, "times_seen": row["times_seen"], "status": row["status"]}
         if vec is not None:
             new_id = self._insert(
                 "INSERT INTO memories (resident_id, type, content, source, source_date, status, embedding) "
@@ -692,6 +717,8 @@ class PostgresStore:
         names = _name_words(self.get_resident(rid))
         words = recall_terms(query, ignore=names)
         qvec = embed_text(neutralize(query, names), task_type="RETRIEVAL_QUERY")
+        if qvec is not None:  # Gemini is reachable: heal any NULL embeddings first
+            self._backfill_embeddings(rid)
         type_clause = "AND type = %s" if mem_type else ""
         type_params = [mem_type] if mem_type else []
         kw_sql = (" + ".join(["(strpos(lower(content), %s) > 0)::int"] * len(words))
@@ -715,8 +742,35 @@ class PostgresStore:
             r["recency"] = rc
             r.pop("embedding", None)  # never ship 768 floats to an agent
         picked = select(rows, limit, broad)
-        return [{k: v for k, v in r.items() if k not in ("sim", "kw", "recency", "score")}
+        return [{**{k: v for k, v in r.items() if k not in ("sim", "kw", "recency", "score")},
+                 "similarity": round(r["sim"], 3) if r.get("sim") is not None else None}
                 for r in picked]
+
+    _backfill_failed_at = 0.0
+
+    def _backfill_embeddings(self, rid, batch=32):
+        """Self-heal: embed this resident's memories saved while Gemini was down
+        (remember inserts them with a NULL embedding). Without this they stay
+        keyword-only until someone runs db/reset.py. One batched call; after a
+        failure, waits 60s before trying again so a Gemini outage can't slow
+        every recall."""
+        import time
+        if time.monotonic() - PostgresStore._backfill_failed_at < 60:
+            return
+        missing = self._all(
+            "SELECT id, content FROM memories WHERE resident_id = %s AND embedding IS NULL "
+            "ORDER BY id LIMIT %s", (rid, batch))
+        if not missing:
+            return
+        vecs = embed_texts([m["content"] for m in missing])
+        if vecs is None or len(vecs) != len(missing):
+            PostgresStore._backfill_failed_at = time.monotonic()
+            return
+        with self._conn() as conn:
+            for m, v in zip(missing, vecs):
+                conn.execute("UPDATE memories SET embedding = %s::vector WHERE id = %s",
+                             (vector_literal(v), m["id"]))
+        print(f"[store] backfilled {len(missing)} memory embeddings for {rid}")
 
     def get_pending(self, rid):
         return self._all(

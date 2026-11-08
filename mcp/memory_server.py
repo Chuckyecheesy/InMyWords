@@ -36,6 +36,9 @@ def _fact(m, name):
         "status": m["status"],
         "label": source_label(_label_source(m), name, str(date)),
         "update_reason": m.get("update_reason"),
+        # Additive: raw query cosine from recall (None outside recall or when
+        # unembedded). The consolidator uses it to spot a fact seen again.
+        "similarity": m.get("similarity"),
     }
 
 
