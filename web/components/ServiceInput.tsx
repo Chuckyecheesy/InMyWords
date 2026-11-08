@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import Link from "next/link";
 import { ArrowUp, ArrowDown, Camera, CameraOff, Eye, Hand, MousePointer2 } from "lucide-react";
 import { hasCameraConsent, setCameraConsent } from "@/lib/input/consent";
@@ -16,8 +16,9 @@ import { HoldSelector, type PointerPoint } from "@/lib/input/hand-pointer";
 
 type Mode = "touch" | "gaze" | "hand";
 
-const GAZE_HINT = "Your camera stays on this device. No video is saved. Hold your look for about two seconds. Then look left to cancel or right to add it.";
-const HAND_HINT = "Your camera stays on this device. No video is saved. Hold for one second to select.";
+const GAZE_HINT = "Your camera stays on this device. No video is saved. Hold your look for about two seconds. Then look left to cancel or right to add it. Ctrl+J starts or stops the camera.";
+const HAND_HINT = "Your camera stays on this device. No video is saved. Hold for one second to select. Ctrl+J starts or stops the camera.";
+const TOUCH_HINT = "Your camera stays on this device. No video is saved. Ctrl+J starts the camera.";
 
 function gazeBubbles(root: HTMLElement, confirming: boolean): ZoneRect[] {
   return Array.from(root.querySelectorAll<HTMLButtonElement>("button[data-service-target]"))
@@ -55,6 +56,9 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
   const [calibrated, setCalibrated] = useState(false);
   const preview = useRef<HTMLVideoElement>(null);
   const settings = useRef<HTMLDetailsElement>(null);
+  const enabledRef = useRef(enabled);
+  const modeRef = useRef(mode);
+  useEffect(() => { enabledRef.current = enabled; modeRef.current = mode; }, [enabled, mode]);
   const callback = useRef(onSelect);
   const lastSelectedTarget = useRef<string | null>(null);
   useEffect(() => { callback.current = onSelect; }, [onSelect]);
@@ -190,6 +194,26 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
     return () => { buttons?.forEach((button) => { button.removeAttribute("data-holding"); button.style.removeProperty("--hold-progress"); }); };
   }, [hold, region]);
 
+  const toggleCamera = useCallback(() => {
+    const next = !enabledRef.current;
+    setError(null);
+    if (next && modeRef.current === "touch") setMode("gaze");
+    setCameraConsent(residentId, next);
+    setEnabled(next);
+  }, [residentId]);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.repeat || event.altKey || event.shiftKey || !event.ctrlKey || event.key.toLowerCase() !== "j") return;
+      const el = event.target;
+      if (el instanceof HTMLElement && el.closest("input, textarea, select, [contenteditable='true']")) return;
+      event.preventDefault();
+      toggleCamera();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [toggleCamera]);
+
   function choose(next: Mode) {
     setEnabled(false); setReady(false); setPoint(null); setMode(next); setError(null);
     if (settings.current) settings.current.open = false;
@@ -204,11 +228,9 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
     <div className="service-input-controls">
       {compact ? <details className="service-settings" ref={settings}>
         <summary className="btn">{mode === "gaze" ? <Eye size={22} aria-hidden="true" /> : mode === "hand" ? <Hand size={22} aria-hidden="true" /> : <MousePointer2 size={22} aria-hidden="true" />}{mode === "gaze" ? "Eye controls" : mode === "hand" ? "Hand controls" : "Touch controls"}</summary>
-        <div className="service-settings-body">{modes}<p className="note">{mode === "gaze" ? GAZE_HINT : mode === "hand" ? HAND_HINT : "Your camera stays on this device. No video is saved."}</p></div>
+        <div className="service-settings-body">{modes}<p className="note">{mode === "gaze" ? GAZE_HINT : mode === "hand" ? HAND_HINT : TOUCH_HINT}</p></div>
       </details> : modes}
-      {mode !== "touch" && <button type="button" className="btn" data-service-target={enabled ? "input:off" : undefined} onClick={() => {
-        setError(null); setCameraConsent(residentId, !enabled); setEnabled(!enabled);
-      }} aria-pressed={enabled}>
+      {mode !== "touch" && <button type="button" className="btn" data-service-target={enabled ? "input:off" : undefined} aria-keyshortcuts="Control+J" onClick={toggleCamera} aria-pressed={enabled}>
         {enabled ? <CameraOff size={22} aria-hidden="true" /> : <Camera size={22} aria-hidden="true" />}
         {enabled ? "Turn camera off" : "Turn camera on"}
       </button>}
@@ -230,7 +252,7 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
     {ready && <div className="service-input-dock" role="group" aria-label="Camera navigation">
       <button type="button" className="btn" data-service-target="input:up" aria-label="Scroll up" onClick={() => window.scrollBy({ top: -window.innerHeight * .6, behavior: "smooth" })}><ArrowUp size={28} aria-hidden="true" /></button>
       <button type="button" className="btn" data-service-target="input:down" aria-label="Scroll down" onClick={() => window.scrollBy({ top: window.innerHeight * .6, behavior: "smooth" })}><ArrowDown size={28} aria-hidden="true" /></button>
-      <button type="button" className="btn" data-service-target="input:dock-off" onClick={() => { setCameraConsent(residentId, false); setEnabled(false); }}><CameraOff size={24} aria-hidden="true" />Camera off</button>
+      <button type="button" className="btn" data-service-target="input:dock-off" aria-keyshortcuts="Control+J" onClick={toggleCamera}><CameraOff size={24} aria-hidden="true" />Camera off</button>
     </div>}
   </section>;
 }
