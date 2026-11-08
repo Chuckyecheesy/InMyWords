@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { hasCameraConsent, setCameraConsent } from "@/lib/input/consent";
 import { speak } from "@/lib/api";
 import { BigButton } from "./shared";
@@ -19,14 +19,14 @@ export function CameraConsent({
   cameraOn: boolean;
   onChange: (consent: boolean) => void;
 }) {
-  const [savedConsent, setSavedConsent] = useState(() => ({
-    residentId,
-    consent: hasCameraConsent(residentId),
-  }));
-  const consent =
-    savedConsent.residentId === residentId
-      ? savedConsent.consent
-      : hasCameraConsent(residentId);
+  // Server-rendered HTML must match the first client render, so consent
+  // starts false everywhere and localStorage is read AFTER hydration —
+  // reading it during render caused a hydration text mismatch.
+  const [savedConsent, setSavedConsent] = useState({ residentId, consent: false });
+  useEffect(() => {
+    setSavedConsent({ residentId, consent: hasCameraConsent(residentId) });
+  }, [residentId]);
+  const consent = savedConsent.residentId === residentId ? savedConsent.consent : false;
 
   function toggle() {
     const next = !consent;
