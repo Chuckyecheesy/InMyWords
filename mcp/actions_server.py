@@ -106,6 +106,24 @@ def plan_actions(resident: str, goal: str) -> dict:
 
 
 @mcp.tool
+def save_plan(resident: str, goal: str, steps: list[dict]) -> dict:
+    """Persist a plan built by the Action agent (T4.7). The server re-checks
+    the allowlist and recomputes the total, so the agent cannot sneak in a
+    tool or a cost. Status is always 'proposed'."""
+    store = get_store()
+    clean = [s for s in steps if s.get("step") in ALLOWED_STEPS]
+    total = sum(float(s.get("cost", 0)) for s in clean if s.get("kind") != "staff")
+    plan = store.create_plan(resident, goal, clean, total)
+    return {
+        "plan_id": plan["id"], "goal": goal,
+        "online_steps": [s for s in clean if s.get("kind") != "staff"],
+        "staff_tasks": [{"task": s.get("task", s.get("detail")), "due": s.get("time")}
+                        for s in clean if s.get("kind") == "staff"],
+        "total_cost": total, "status": "proposed", "agent": "action",
+    }
+
+
+@mcp.tool
 def approve_plan(resident: str, plan_id: int) -> dict:
     """The resident approved the card: mark approved, run every step in
     order, log each to action_results, mark done. Returns results per step."""

@@ -4,9 +4,9 @@ Run:  python mcp/memory_server.py          (streamable HTTP on :8102)
 
 Confirmed memories ARE the profile. Everything inferred stays "pattern
 noticed" (pending) until the resident confirms it — then it becomes
-"in <name>'s words" (source flips to resident). recall ranks by keyword
-+ recency now; vector similarity joins the ranking once embeddings are
-backfilled (after Ahmed's T3.1) with no shape change.
+"in <name>'s words" (source flips to resident). recall is hybrid
+RAG — Gemini embedding similarity + keywords + recency (mcp/retrieval.py),
+falling back to keywords when embeddings are unavailable. Same output shape.
 """
 
 from fastmcp import FastMCP
@@ -36,6 +36,9 @@ def _fact(m, name):
         "status": m["status"],
         "label": source_label(_label_source(m), name, str(date)),
         "update_reason": m.get("update_reason"),
+        # Additive: raw query cosine from recall (None outside recall or when
+        # unembedded). The consolidator uses it to spot a fact seen again.
+        "similarity": m.get("similarity"),
     }
 
 
@@ -64,12 +67,15 @@ def remember(resident: str, event: str, source: str = "inferred",
 
 
 @mcp.tool
-def recall(resident: str, query: str, type: str = "") -> dict:
+def recall(resident: str, query: str, type: str = "", broad: bool = False) -> dict:
     """Matching memories with source and confirmation status, best first.
-    type filters to preference | event | routine; empty = all."""
+    Hybrid RAG: semantic similarity + keywords + recency (mcp/retrieval.py).
+    type filters to preference | event | routine; empty = all.
+    broad=True returns every on-topic memory, not just the closest ones
+    (used by the consolidator's contradiction check)."""
     store = get_store()
     name = _name(store, resident)
-    memories = store.recall(resident, query, type or None)
+    memories = store.recall(resident, query, type or None, broad=broad)
     return {"resident": resident, "query": query,
             "memories": [_fact(m, name) for m in memories],
             "store_mode": store.mode}

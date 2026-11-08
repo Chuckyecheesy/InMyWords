@@ -172,6 +172,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
           <BigButton
             tone="neutral"
             aria-pressed={input.eyeMode}
+            onLongPress={speakLabel}
             onClick={() => input.setEyeMode(!input.eyeMode)}
           >
             {input.eyeMode ? "Touch grid" : "Eye grid"}
@@ -188,8 +189,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
       <div className="speak-actions">
         <BigButton
           tone="neutral"
-          disabled={selectedLabels.length === 0 || thinking}
           onLongPress={speakLabel}
+          disabled={selectedLabels.length === 0 || thinking}
           onClick={() => {
             void askForHelp();
           }}
@@ -198,8 +199,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </BigButton>
         <BigButton
           tone="neutral"
-          disabled={selectedLabels.length === 0}
           onLongPress={speakLabel}
+          disabled={selectedLabels.length === 0}
           onClick={() => {
             void speakTilesOnly();
           }}
