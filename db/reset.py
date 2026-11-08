@@ -129,12 +129,21 @@ def main():
                  "2021-03-15", binder_path.read_text(encoding="utf-8")))
 
         inputs = read_json("input_events.json")["input_events"]
+        # The input profile reads a sliding 14-day window. The seed file has
+        # fixed dates, so without this shift a day of events ages out every
+        # real day and the G5 worked example (dwell ~1045 ms) slowly drifts.
+        # Shifting all timestamps so the newest lands today keeps every reset
+        # looking like demo day.
+        from datetime import date, datetime
+        newest = max(datetime.fromisoformat(e["ts"].replace("Z", "+00:00")) for e in inputs)
+        shift = date.today() - newest.date()
         for e in inputs:
+            ts = (datetime.fromisoformat(e["ts"].replace("Z", "+00:00")) + shift).isoformat()
             cur.execute(
                 """INSERT INTO input_events (ts, resident_id, session_id, input_type, action,
                                              target, hold_ms, gesture, confidence, outcome)
                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (e["ts"], e["resident_id"], e["session_id"], e["input_type"], e["action"],
+                (ts, e["resident_id"], e["session_id"], e["input_type"], e["action"],
                  e["target"], e["hold_ms"], e["gesture"], e["confidence"], e["outcome"]))
 
         for m in mems["memories"]:

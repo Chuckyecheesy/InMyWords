@@ -17,6 +17,8 @@ test("TC1: camera off — everything works by touch, no indicator, no eye grid",
   page,
 }) => {
   await page.goto("/resident/marcus/speak");
+  // The simplified speak screen keeps camera controls behind a disclosure.
+  await page.getByText("Use eyes or gestures").click();
   await expect(page.getByRole("button", { name: "Use my eyes and hands" })).toBeVisible();
   await expect(page.getByText("Camera on")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Eye grid" })).toHaveCount(0);
@@ -61,6 +63,7 @@ test("consent on: eye grid opens and the camera indicator comes on", async ({
   });
   await page.goto("/resident/marcus/speak");
 
+  await page.getByText("Use eyes or gestures").click();
   await expect(page.getByRole("button", { name: "Eye grid" })).toBeVisible();
   await page.getByRole("button", { name: "Eye grid" }).click();
 
