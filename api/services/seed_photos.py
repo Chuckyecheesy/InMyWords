@@ -73,6 +73,18 @@ def seed_public_ids() -> list[str]:
     return ordered
 
 
+def demo_photo_files(root: Path | None = None) -> list[tuple[str, Path]]:
+    """Saved demo JPEGs, as (public_id, path). These are what the Upload API sends."""
+    base = (root or ROOT) / "web" / "public" / "demo"
+    files: list[tuple[str, Path]] = []
+    if not base.is_dir():
+        return files
+    for path in sorted(base.rglob("*.jpg")):
+        public_id = path.relative_to(base).with_suffix("").as_posix()
+        files.append((public_id, path))
+    return files
+
+
 def _subject_key(public_id: str) -> str:
     leaf = public_id.rsplit("/", 1)[-1]
     for prefix in ("marcus_", "dana_"):
@@ -189,16 +201,57 @@ def generate_all_messy_photos() -> list[Path]:
     return [make_messy_photo(public_id) for public_id in seed_public_ids()]
 
 
-def configure_cloudinary(env: dict[str, str]) -> dict[str, str]:
-    import cloudinary
+def cloud_name_candidates(env: dict[str, str]) -> list[str]:
+    """Names worth trying. The saved value may be a display name, not the cloud id."""
+    raw = env.get("CLOUDINARY_CLOUD_NAME", "").strip()
+    names: list[str] = []
+    for name in (raw, raw.lower(), "inmywords"):
+        if name and name not in names:
+            names.append(name)
+    return names
 
-    cloud = env.get("CLOUDINARY_CLOUD_NAME", "").strip()
+
+def cloud_accepts_key(cloud: str, key: str, secret: str) -> bool:
+    """True when this cloud name accepts the API key. Does not print either secret."""
+    import base64
+    import urllib.error
+    import urllib.request
+
+    token = base64.b64encode(f"{key}:{secret}".encode()).decode()
+    request = urllib.request.Request(
+        f"https://api.cloudinary.com/v1_1/{cloud}/usage",
+        headers={"Authorization": f"Basic {token}"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            response.read(32)
+            return response.status == 200
+    except urllib.error.HTTPError:
+        return False
+    except Exception:
+        return False
+
+
+def resolve_cloud_name(env: dict[str, str]) -> str:
     key = env.get("CLOUDINARY_API_KEY", "").strip()
     secret = env.get("CLOUDINARY_API_SECRET", "").strip()
-    if not cloud or not key or not secret:
+    names = cloud_name_candidates(env)
+    if not key or not secret or not names:
         raise RuntimeError(
             "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET."
         )
+    for name in names:
+        if cloud_accepts_key(name, key, secret):
+            return name
+    raise RuntimeError("Cloudinary did not accept cloud name: " + ", ".join(names))
+
+
+def configure_cloudinary(env: dict[str, str]) -> dict[str, str]:
+    import cloudinary
+
+    cloud = resolve_cloud_name(env)
+    key = env.get("CLOUDINARY_API_KEY", "").strip()
+    secret = env.get("CLOUDINARY_API_SECRET", "").strip()
     cloudinary.config(cloud_name=cloud, api_key=key, api_secret=secret, secure=True)
     return {"cloud_name": cloud, "api_key": key}
 
@@ -270,7 +323,7 @@ def warm_tile_urls(cloud_name: str, public_ids: list[str], *, rounds: int = 8) -
         for mode, public_id in pending:
             url = (
                 f"https://res.cloudinary.com/{cloud_name}/image/upload/"
-                f"{TILE_RECIPES[mode]}/{public_id}"
+                f"{TILE_RECIPES[mode]}/f_auto/q_auto/{public_id}"
             )
             try:
                 with urllib.request.urlopen(url, timeout=60) as response:

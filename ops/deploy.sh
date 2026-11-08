@@ -54,7 +54,7 @@ SERVICES=(inmywords-mcp-profile inmywords-mcp-memory inmywords-mcp-actions inmyw
 
 # Secrets copied from the local .env to the VM. Add a name here when a new integration lands.
 ENV_KEYS=(DATABASE_URL GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBED_MODEL
-  ELEVENLABS_ID ELEVENLABS_STORY_AGENT_ID ELEVENLABS_COACH_AGENT_ID ELEVENLABS_TTS_MODEL
+  ELEVENLABS_ID ELEVENLABS_API_KEY ELEVENLABS_STORY_AGENT_ID ELEVENLABS_COACH_AGENT_ID ELEVENLABS_TTS_MODEL
   ELEVENLABS_FALLBACK_VOICE_ID ELEVENLABS_DEFAULT_VOICE_ID CLOUDINARY_CLOUD_NAME CLOUDINARY_API_KEY CLOUDINARY_API_SECRET
   CLOUDINARY_UPLOAD_PRESET NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME EMAIL_SENDER_ADDRESS EMAIL_SENDER_PASSWORD
   GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_CALENDAR_STAFF_EMAILS)
@@ -130,6 +130,13 @@ cd $REMOTE
 cd web
 npm ci --no-audit --no-fund --loglevel=error
 set -a; . /etc/inmywords.env; set +a
+if cloud=\$(cd $REMOTE/api && /opt/inmywords-venv/bin/python -m scripts.print_cloud_name); then
+  export CLOUDINARY_CLOUD_NAME=\"\$cloud\"
+  export NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=\"\$cloud\"
+  echo \"Cloudinary cloud: \$cloud\"
+else
+  echo 'WARNING: Cloudinary did not accept the saved cloud name.' >&2
+fi
 # next build wipes .next first, so keep the running build until the new one succeeds.
 rm -rf /var/tmp/inmywords-next.prev; [ -d .next ] && cp -a .next /var/tmp/inmywords-next.prev
 if ! API_BASE_URL=http://127.0.0.1:8000 npm run build > /var/tmp/inmywords-build.log 2>&1; then
@@ -146,6 +153,14 @@ mkdir -p $REMOTE/web/.next/cache && chown -R app:app $REMOTE/web/.next/cache
 mkdir -p /var/lib/inmywords && chown app:app /var/lib/inmywords
 ln -sfn /var/lib/inmywords/runtime.json $REMOTE/db/seed/.runtime.json"
 
+step "Uploading demo photos through the Cloudinary API"
+# Uses the cloud name, key, and secret already on the VM. Prints public ids only.
+ssh_root "set -eo pipefail
+set -a; . /etc/inmywords.env; set +a
+cd $REMOTE/api
+/opt/inmywords-venv/bin/python -m scripts.upload_demo_photos" \
+  || echo "WARNING: Cloudinary upload did not finish. Tiles use the last photos that reached the cloud." >&2
+
 step "Installing systemd units"
 unit() {  # name, description, workdir, exec, extra env lines
   cat <<UNIT
@@ -161,6 +176,8 @@ Group=app
 WorkingDirectory=$3
 EnvironmentFile=/etc/inmywords.env
 Environment=PYTHONUNBUFFERED=1
+# fastmcp and npm write caches under $HOME; ProtectHome hides /home, so use the state dir.
+Environment=HOME=/var/lib/inmywords
 $5
 ExecStart=$4
 Restart=always

@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import { tileImageUrl } from "@/lib/cloudinary";
 import type { Tile } from "@/lib/types";
 
@@ -11,8 +11,8 @@ export function WordTile({ tile }: { tile: Tile }) {
       <div className="tile-face">
         {calm && contrast ? (
           <>
-            <Image className="tile-img tile-img-calm" src={calm} alt="" fill sizes="180px" />
-            <Image className="tile-img tile-img-contrast" src={contrast} alt="" fill sizes="180px" />
+            <DeliveredPhoto publicId={tile.cloudinary_id!} mode="calm" className="tile-img tile-img-calm" />
+            <DeliveredPhoto publicId={tile.cloudinary_id!} mode="contrast" className="tile-img tile-img-contrast" />
           </>
         ) : (
           <span className="tile-letter">{tile.label}</span>

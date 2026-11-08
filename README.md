@@ -11,6 +11,7 @@ An AAC (augmentative and alternative communication) + life-story + staff-onboard
 - **Onboarding Coach** — new staff learn a resident's essentials in 2 minutes, full story in 10. Every answer is source-labelled: "In Marcus's words", "Staff observation, date", or "From EMH".
 - **Memory Layer** — learns preferences, events and routines from every interaction. Inferred patterns are labelled "pattern noticed" until the resident confirms them.
 - **Shift Handoff, Supported Choice, Actions** — since-last-shift summaries, photo-based choices with consequences, and agents that book/message/schedule — always behind a picture approval card.
+- **Eye-gaze & gesture input** *(added Nov 8)* — look at a tile and hold your gaze to select it; thumbs up to approve, open palm to cancel. On-device only (no video stored or sent), consent-first, and the app learns each resident's preferred way to communicate. Spec: [docs/GAZE_GESTURE_PLAN.md](docs/GAZE_GESTURE_PLAN.md).
 
 ## Repo layout
 

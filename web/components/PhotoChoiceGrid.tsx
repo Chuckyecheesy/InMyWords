@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
+import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import { tileImageUrl } from "@/lib/cloudinary";
 
 export interface ChoiceOption {
@@ -133,10 +134,8 @@ function ChoiceTile({
     >
       {calm && contrast ? (
         <picture>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="choice-img choice-img-calm" src={calm} alt="" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="choice-img choice-img-contrast" src={contrast} alt="" />
+          <DeliveredPhoto publicId={option.photo_id!} mode="calm" className="choice-img choice-img-calm" />
+          <DeliveredPhoto publicId={option.photo_id!} mode="contrast" className="choice-img choice-img-contrast" />
         </picture>
       ) : (
         <span className="choice-letter" aria-hidden="true">

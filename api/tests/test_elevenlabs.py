@@ -37,21 +37,23 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self._saved = (elevenlabs.CACHE_DIR, elevenlabs.VOICES_FILE, elevenlabs._http,
-                       os.environ.get("ELEVENLABS_ID"))
+                       {k: os.environ.get(k) for k in ("ELEVENLABS_ID", "ELEVENLABS_API_KEY")})
         elevenlabs.CACHE_DIR = Path(self.tmp.name) / "cache"
         elevenlabs.VOICES_FILE = Path(self.tmp.name) / "voices.json"
         elevenlabs._voice_overrides.clear()
         os.environ["ELEVENLABS_ID"] = "test-key"
+        os.environ.pop("ELEVENLABS_API_KEY", None)  # the repo .env may set the other name
         self.fake = _FakeElevenLabs()
         elevenlabs._http = httpx.AsyncClient(base_url=elevenlabs.API, transport=httpx.MockTransport(self.fake))
 
     async def asyncTearDown(self):
         await elevenlabs._http.aclose()
-        elevenlabs.CACHE_DIR, elevenlabs.VOICES_FILE, elevenlabs._http, key = self._saved
-        if key is None:
-            os.environ.pop("ELEVENLABS_ID", None)
-        else:
-            os.environ["ELEVENLABS_ID"] = key
+        elevenlabs.CACHE_DIR, elevenlabs.VOICES_FILE, elevenlabs._http, env = self._saved
+        for name, value in env.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
         elevenlabs._voice_overrides.clear()
         self.tmp.cleanup()
 
@@ -105,6 +107,55 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
     def test_not_configured_without_key(self):
         os.environ.pop("ELEVENLABS_ID")
         self.assertFalse(elevenlabs.configured())
+
+    def test_either_key_name_works(self):
+        os.environ.pop("ELEVENLABS_ID")
+        os.environ["ELEVENLABS_API_KEY"] = "other-name"
+        self.assertEqual(elevenlabs.api_key(), "other-name")
+
+
+class AgentSessionTest(unittest.IsolatedAsyncioTestCase):
+    """GET /agents/{kind}/session hands the browser a signed URL, never the key."""
+
+    def setUp(self):
+        self._saved = (elevenlabs._http, {k: os.environ.get(k) for k in
+                       ("ELEVENLABS_ID", "ELEVENLABS_API_KEY", "ELEVENLABS_STORY_AGENT_ID",
+                        "ELEVENLABS_COACH_AGENT_ID")})
+        os.environ["ELEVENLABS_ID"] = "test-key"
+        os.environ.pop("ELEVENLABS_API_KEY", None)
+        os.environ["ELEVENLABS_STORY_AGENT_ID"] = "agent_story"
+        os.environ.pop("ELEVENLABS_COACH_AGENT_ID", None)
+        self.calls: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.calls.append(request)
+            return httpx.Response(200, json={"signed_url": "wss://example/convai?token=abc"})
+
+        elevenlabs._http = httpx.AsyncClient(base_url=elevenlabs.API, transport=httpx.MockTransport(handler))
+        from fastapi.testclient import TestClient
+        import main
+        self.client = TestClient(main.app)
+
+    async def asyncTearDown(self):
+        await elevenlabs._http.aclose()
+        elevenlabs._http, env = self._saved
+        for key, value in env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    async def test_story_session_returns_signed_url_only(self):
+        resp = self.client.get("/agents/story/session")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {"signed_url": "wss://example/convai?token=abc"})
+        self.assertNotIn("test-key", resp.text)
+        self.assertEqual(self.calls[0].url.params["agent_id"], "agent_story")
+
+    async def test_unconfigured_agent_is_503_and_unknown_is_404(self):
+        self.assertEqual(self.client.get("/agents/coach/session").status_code, 503)
+        self.assertEqual(self.client.get("/agents/other/session").status_code, 404)
+        self.assertEqual(self.calls, [])
 
 
 if __name__ == "__main__":

@@ -83,6 +83,36 @@ if pending.get("memories"):
 else:
     print("  note: confirm skipped (queue empty — fine after repeated runs)")
 
+print("gaze/gesture input (G5)")
+hit("POST", "/input-events",
+    {"events": [{"ts": "2026-11-08T10:15:02Z", "resident_id": "marcus", "session_id": "s-smoke",
+                 "input_type": "gaze", "action": "select", "target": "coffee", "hold_ms": 1080,
+                 "gesture": None, "confidence": 0.8, "outcome": "confirmed"}]},
+    ("saved",))
+profile = hit("GET", "/input-profile/marcus",
+              expect_keys=("preferred_select", "preferred_yes", "dwell_ms", "rates", "confidence"))
+if profile and profile.get("events_counted"):
+    checks = [
+        ("preferred_select", profile["preferred_select"] == "gaze"),
+        ("preferred_yes", profile["preferred_yes"] == "Thumb_Up"),
+        ("dwell_ms ~1045", 1000 <= profile["dwell_ms"] <= 1100),
+        ("evening note", any("evening" in n for n in profile["notes"])),
+        ("confidence high", profile["confidence"] == "high"),
+    ]
+    bad = [name for name, ok in checks if not ok]
+    if bad:
+        failures.append(f"input-profile worked example mismatch: {bad} -> {profile}")
+    else:
+        print("  ok   profile matches the worked example (gaze, Thumb_Up, ~1045ms, evening note)")
+
+print("custom gestures (G8)")
+sample = [round(0.01 * i, 4) for i in range(63)]
+hit("POST", "/custom-gestures",
+    {"resident_id": "marcus", "tile": "go outside", "samples": [sample] * 5}, ("ok",))
+taught = hit("GET", "/custom-gestures/marcus", expect_keys=("gestures",))
+if taught and not any(g.get("tile_label") == "go outside" for g in taught.get("gestures", [])):
+    failures.append("custom-gestures roundtrip: saved gesture not returned")
+
 print("staff")
 hit("GET", "/handoff?staff_id=jordan&resident_id=marcus", expect_keys=("items",))
 hit("GET", "/activity/marcus", expect_keys=("items",))

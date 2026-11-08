@@ -1,0 +1,178 @@
+[
+  {
+    "ids": [
+      "tiles/marcus_coffee"
+    ],
+    "title": "File:A small cup of coffee.JPG",
+    "license": "CC BY-SA 2.0",
+    "artist": "Julius Schorzman",
+    "bytes": 100547
+  },
+  {
+    "ids": [
+      "tiles/marcus_tea",
+      "tiles/dana_tea"
+    ],
+    "title": "File:Cup of black tea.JPG",
+    "license": "CC BY-SA 4.0",
+    "artist": "AntanO",
+    "bytes": 52933
+  },
+  {
+    "ids": [
+      "tiles/marcus_bowling",
+      "story/marcus_bowling"
+    ],
+    "title": "File:Bowling with red ball.jpg",
+    "license": "CC0",
+    "artist": "Unknown (publicdomainarchive.com)",
+    "bytes": 64425
+  },
+  {
+    "ids": [
+      "tiles/marcus_raptors"
+    ],
+    "title": "File:Basketball through hoop.jpg",
+    "license": "Public domain",
+    "artist": "Airman 1st Class Kerelin Molina",
+    "bytes": 100249
+  },
+  {
+    "ids": [
+      "tiles/marcus_park"
+    ],
+    "title": "File:Van Gogh - Weg im Park von Arles mit Spaziergängern.jpeg",
+    "license": "Public domain",
+    "artist": "Vincent van Gogh",
+    "bytes": 263916
+  },
+  {
+    "ids": [
+      "tiles/marcus_music"
+    ],
+    "title": "File:Headphones 1.jpg",
+    "license": "CC BY-SA 3.0",
+    "artist": "No machine-readable author provided. PJ assumed (based on copyright claims).",
+    "bytes": 52865
+  },
+  {
+    "ids": [
+      "tiles/marcus_bus",
+      "tiles/dana_bus"
+    ],
+    "title": "File:AC Transit bus FC10 servicing route 62.jpg",
+    "license": "CC BY-SA 4.0",
+    "artist": "Grendelkhan",
+    "bytes": 227635
+  },
+  {
+    "ids": [
+      "tiles/marcus_quiet"
+    ],
+    "title": "File:Armchair MET 85B ACF113R9.jpg",
+    "license": "CC0",
+    "artist": "",
+    "bytes": 73620
+  },
+  {
+    "ids": [
+      "tiles/marcus_lisa",
+      "story/marcus_lisa",
+      "tiles/dana_sister",
+      "story/marcus_portrait",
+      "tiles/marcus_help",
+      "tiles/dana_help"
+    ],
+    "title": "Simple drawn symbols, so a real person's photo is not used as a resident",
+    "license": "project original",
+    "artist": "In My Words",
+    "bytes": 0
+  },
+  {
+    "ids": [
+      "tiles/dana_garden",
+      "story/dana_garden"
+    ],
+    "title": "File:Vegetable garden 1.JPG",
+    "license": "CC BY-SA 3.0",
+    "artist": "P199",
+    "bytes": 371550
+  },
+  {
+    "ids": [
+      "tiles/dana_groceries"
+    ],
+    "title": "File:Vegetables in a grocery store, Paris.JPG",
+    "license": "Public domain",
+    "artist": "Daderot",
+    "bytes": 226030
+  },
+  {
+    "ids": [
+      "tiles/dana_walk",
+      "story/dana_walk"
+    ],
+    "title": "File:Walking paths in Central Park - DSC05937.JPG",
+    "license": "CC0",
+    "artist": "Daderot",
+    "bytes": 329616
+  },
+  {
+    "ids": [
+      "tiles/dana_money"
+    ],
+    "title": "File:Reverse of 1 Qiran Iranian Coin - Fath Ali Shah Qhajar - 1830.jpg",
+    "license": "Public domain",
+    "artist": "Fath Ali Shah Qhajar Royal Mintage",
+    "bytes": 316344
+  },
+  {
+    "ids": [
+      "tiles/dana_tv"
+    ],
+    "title": "File:Casio TV-770 portable television set-4660.jpg",
+    "license": "CC BY-SA 4.0",
+    "artist": "Raimond Spekking",
+    "bytes": 95653
+  },
+  {
+    "ids": [
+      "tiles/dana_herbs"
+    ],
+    "title": "File:Plant basil.jpg",
+    "license": "CC BY-SA 4.0",
+    "artist": "Talhakhan3862",
+    "bytes": 140939
+  },
+  {
+    "ids": [
+      "tiles/marcus_movie"
+    ],
+    "title": "File:Cinema seats in blue.jpg",
+    "license": "CC BY 2.0",
+    "artist": "Laura Billings from London, UK",
+    "bytes": 59718
+  },
+  {
+    "ids": [
+      "tiles/marcus_later",
+      "tiles/dana_later"
+    ],
+    "title": "File:Wall clock, Westgate - geograph.org.uk - 1618062.jpg",
+    "license": "CC BY-SA 2.0",
+    "artist": "Michael Trolove",
+    "bytes": 69918
+  },
+  {
+    "ids": [
+      "tiles/marcus_yes",
+      "tiles/dana_yes",
+      "tiles/marcus_no",
+      "tiles/dana_no"
+    ],
+    "title": "Drawn in the browser for the answer tiles",
+    "license": "project original",
+    "artist": "In My Words",
+    "bytes": 0
+  }
+]

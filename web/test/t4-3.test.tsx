@@ -627,6 +627,31 @@ describe("T4.3", { concurrency: false }, () => {
       }
     });
 
+    test("every tile cannot become one sentence", async () => {
+      const pointer = await renderSpeak([QUIET]);
+      for (const label of [
+        "no",
+        "yes",
+        "tea",
+        "coffee",
+        "quiet",
+        "help",
+        "bus",
+        "park",
+        "Lisa",
+        "bowling",
+        "Raptors",
+        "music",
+      ]) {
+        await pointer.click(screen.getByRole("button", { name: label }));
+      }
+      const text = screen.getByRole("region", { name: "Sentence" }).textContent ?? "";
+      assert.match(text, /Yes\. I want tea and coffee\./);
+      assert.doesNotMatch(text, /bowling/);
+      assert.match(text, /three tiles/i);
+      assert.equal(screen.getByRole("button", { name: "bowling" }).getAttribute("aria-pressed"), "false");
+    });
+
     test("Speak tiles only speaks the tile words, skips suggest, and logs them", async () => {
       const playback = watchPlayback();
       try {

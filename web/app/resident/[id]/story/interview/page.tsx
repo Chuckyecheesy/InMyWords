@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
-import { AudioPlayback, BigButton } from "@/components/shared";
+import { AudioPlayback, BigButton, useLongPress } from "@/components/shared";
 import { PhotoChoiceGrid } from "@/components/PhotoChoiceGrid";
 import { approveStory, draftStory, getStoryAnswers, saveStoryAnswer, speak } from "@/lib/api";
 import {
@@ -11,6 +11,7 @@ import {
   type StoryChapterTemplate,
   type StoryQuestion,
 } from "@/lib/story-chapters";
+import { startStoryGuide, type GuideStatus, type StoryGuide } from "@/lib/story-agent";
 
 class StepBack extends Error {}
 
@@ -31,7 +32,10 @@ export default function StoryInterviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [mode, setMode] = useState<"pick" | "ask" | "review">("pick");
+  const [mode, setMode] = useState<"pick" | "ask" | "review" | "guide">("pick");
+  const [guideOn, setGuideOn] = useState(false);
+  const [guideStatus, setGuideStatus] = useState<GuideStatus | null>(null);
+  const guide = useRef<StoryGuide | null>(null);
   const [chapter, setChapter] = useState<StoryChapterTemplate | null>(null);
   const [step, setStep] = useState(0);
   const [stepCount, setStepCount] = useState(0);
@@ -69,8 +73,45 @@ export default function StoryInterviewPage({
       waiter.current?.reject(new Error("left the interview"));
       waiter.current = null;
       delete window.showChoices;
+      void guide.current?.end();
+      guide.current = null;
     };
   }, []);
+
+  // T1.4: the Story Interviewer asks the chapter's questions out loud and shows
+  // pictures through window.showChoices. It saves each answer itself, so this
+  // path never calls saveStoryAnswer. The chapter review and approval stay here.
+  async function runGuide(nextChapter: StoryChapterTemplate) {
+    runId.current += 1;
+    setChapter(nextChapter);
+    setError(null);
+    setMode("guide");
+    const started = await startStoryGuide({
+      residentId: id,
+      residentName: id.charAt(0).toUpperCase() + id.slice(1),
+      chapter: nextChapter,
+      onStatus: (status) => {
+        setGuideStatus(status);
+        if (status === "ended" && guide.current) {
+          guide.current = null;
+          waiter.current?.reject(new Error("guide ended"));
+          waiter.current = null;
+          void showReview(nextChapter.chapter_key);
+        }
+      },
+    });
+    if (!started) {
+      setError("The story guide isn't available right now. You can still tap through the questions.");
+      setGuideStatus(null);
+      void runChapter(nextChapter);
+      return;
+    }
+    guide.current = started;
+  }
+
+  function endGuide() {
+    void guide.current?.end();
+  }
 
   async function hear(label: string) {
     const spoken = await speak({ resident_id: id, text: label });
@@ -135,7 +176,7 @@ export default function StoryInterviewPage({
     waiter.current = null;
     if (fromAgent) {
       current.resolve(pending);
-      setMode("pick");
+      setMode(guide.current ? "guide" : "pick");
       setRequest(null);
       setPending(null);
       setFromAgent(false);
@@ -160,19 +201,18 @@ export default function StoryInterviewPage({
         <section className="stack" aria-label="Chapters">
           <h2>Which chapter?</h2>
           <p>One question at a time. Tap a picture to answer.</p>
+          <BigButton onClick={() => setGuideOn((on) => !on)} onLongPress={hear}>
+            {guideOn ? "Story guide: on" : "Story guide: off"}
+          </BigButton>
           <div className="chapter-picker">
             {STORY_CHAPTERS.map((item) => (
-              <button
+              <ChapterButton
                 key={item.chapter_key}
-                type="button"
-                className="big-button"
-                data-chapter={item.chapter_key}
-                onClick={() => {
-                  void runChapter(item);
-                }}
-              >
-                {item.title}
-              </button>
+                title={item.title}
+                chapterKey={item.chapter_key}
+                onSpeak={() => void hear(item.title)}
+                onOpen={() => void (guideOn ? runGuide(item) : runChapter(item))}
+              />
             ))}
           </div>
         </section>
@@ -203,6 +243,24 @@ export default function StoryInterviewPage({
         </>
       ) : null}
 
+      {mode === "guide" && chapter ? (
+        <section className="stack" aria-live="polite">
+          <h2>{chapter.title}</h2>
+          <p>
+            {guideStatus === "starting"
+              ? "The story guide is getting ready…"
+              : guideStatus === "talking"
+                ? "The story guide is talking."
+                : guideStatus === "error"
+                  ? "The story guide had a problem."
+                  : "The story guide is listening. Pictures will show here."}
+          </p>
+          <BigButton onClick={endGuide} onLongPress={hear}>
+            Stop the story guide
+          </BigButton>
+        </section>
+      ) : null}
+
       {mode === "review" && chapter ? (
         <section className="stack">
           <h2>{chapter.title}</h2>
@@ -226,6 +284,7 @@ export default function StoryInterviewPage({
                 <BigButton
                   tone="approve"
                   disabled={busy || !draftId}
+                  onLongPress={hear}
                   onClick={() => {
                     if (!draftId) return;
                     setBusy(true);
@@ -243,6 +302,7 @@ export default function StoryInterviewPage({
                 </BigButton>
                 <BigButton
                   disabled={busy}
+                  onLongPress={hear}
                   onClick={() => {
                     setDraftText(null);
                     setDraftId(null);
@@ -257,6 +317,7 @@ export default function StoryInterviewPage({
           <div className="story-nav">
             <BigButton
               disabled={busy}
+              onLongPress={hear}
               onClick={() => {
                 if (!chapter) return;
                 setBusy(true);
@@ -276,6 +337,7 @@ export default function StoryInterviewPage({
               Make my chapter
             </BigButton>
             <BigButton
+              onLongPress={hear}
               onClick={() => {
                 setMode("pick");
                 setChapter(null);
@@ -297,4 +359,35 @@ export default function StoryInterviewPage({
 
 function toRequest(question: StoryQuestion): ShowChoicesInput {
   return { question: question.question, options: question.options };
+}
+
+function ChapterButton({
+  title,
+  chapterKey,
+  onOpen,
+  onSpeak,
+}: {
+  title: string;
+  chapterKey: string;
+  onOpen: () => void;
+  onSpeak: () => void;
+}) {
+  const press = useLongPress(() => onSpeak(), title);
+  return (
+    <button
+      type="button"
+      className="big-button"
+      data-chapter={chapterKey}
+      onPointerDown={press.onPointerDown}
+      onPointerUp={press.onPointerUp}
+      onPointerLeave={press.onPointerLeave}
+      onPointerCancel={press.onPointerCancel}
+      onClick={() => {
+        if (press.consumeClick()) return;
+        onOpen();
+      }}
+    >
+      {title}
+    </button>
+  );
 }

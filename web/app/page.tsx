@@ -24,7 +24,7 @@ export default async function HomePage() {
           const line = openingLine(data.id);
           const chip = line ? sourceChip(line.source, data.name, line.date) : null;
           return (
-            <Link key={data.id} href={`/resident/${data.id}`} className="person-card">
+            <Link key={data.id} href={`/resident/${data.id}`} prefetch={false} className="person-card">
               <h2>{data.name}</h2>
               <p>{data.communication_style}</p>
               {line && chip ? (
@@ -40,6 +40,9 @@ export default async function HomePage() {
       </div>
       <Link href="/staff" className="big-link">
         I&apos;m staff
+      </Link>
+      <Link href="/pitch" className="big-link">
+        Pitch
       </Link>
     </AppShell>
   );

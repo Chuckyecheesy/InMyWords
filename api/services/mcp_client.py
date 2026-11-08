@@ -3,13 +3,21 @@ agents reach data. Reads server URLs from the environment (.env):
 
     MCP_PROFILE_URL  default http://127.0.0.1:8101/mcp
     MCP_EMH_URL      default http://127.0.0.1:8104/mcp
-    (memory :8102 and actions :8103 land in T2.5/T2.6)
+    MCP_MEMORY_URL   default http://127.0.0.1:8102/mcp
+    MCP_ACTIONS_URL  default http://127.0.0.1:8103/mcp
+
+Sessions are kept open and reused (see _session); a broken one is dropped and
+reopened on the next call.
 """
 
+import asyncio
 import json
 import os
+import weakref
 
+import httpx
 from fastmcp import Client
+from fastmcp.exceptions import ToolError
 
 _DEFAULTS = {
     "profile": "http://127.0.0.1:8101/mcp",
@@ -24,16 +32,97 @@ def _url(name: str) -> str:
     return url if url.rstrip("/").endswith("/mcp") else url.rstrip("/") + "/mcp"
 
 
+# One open MCP session per server, reused by every call. Opening a session per
+# call (connect + initialize) cost ~300 ms of the ~500 ms each call took.
+# Per event loop: a session belongs to the loop that opened it (uvicorn has one;
+# tests and scripts may run several). Weak keys, so a closed loop's sessions go away.
+_per_loop: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict]" = weakref.WeakKeyDictionary()
+
+
+def _loop_state() -> dict:
+    loop = asyncio.get_running_loop()
+    state = _per_loop.get(loop)
+    if state is None:
+        state = _per_loop[loop] = {
+            "sessions": {},
+            "lock": asyncio.Lock(),
+            # One call at a time per server. The streamable session is one
+            # connection; overlapping calls mix their replies and the route
+            # then 500s. Opening Marcus fires several of these at once.
+            "calls": {},
+        }
+    return state
+
+
+async def _session(server: str) -> Client:
+    state = _loop_state()
+    client = state["sessions"].get(server)
+    if client is not None and client.is_connected():
+        return client
+    async with state["lock"]:
+        client = state["sessions"].get(server)
+        if client is not None and client.is_connected():
+            return client
+        await _drop(server)
+        client = Client(_url(server))
+        await client.__aenter__()
+        state["sessions"][server] = client
+        return client
+
+
+async def _drop(server: str) -> None:
+    client = _loop_state()["sessions"].pop(server, None)
+    if client is not None:
+        try:
+            await client.__aexit__(None, None, None)
+        except Exception:
+            pass
+
+
+def _unpack(result):
+    data = getattr(result, "data", None)
+    if data is not None:
+        return data
+    # fallback for older client versions: parse first text content block
+    content = getattr(result, "content", result)
+    text = content[0].text if content else "{}"
+    return json.loads(text)
+
+
+def _call_lock(server: str) -> asyncio.Lock:
+    state = _loop_state()
+    lock = state["calls"].get(server)
+    if lock is None:
+        lock = state["calls"][server] = asyncio.Lock()
+    return lock
+
+
 async def _call(server: str, tool: str, args: dict):
-    async with Client(_url(server)) as client:
-        result = await client.call_tool(tool, args)
-        data = getattr(result, "data", None)
-        if data is not None:
-            return data
-        # fallback for older client versions: parse first text content block
-        content = getattr(result, "content", result)
-        text = content[0].text if content else "{}"
-        return json.loads(text)
+    async with _call_lock(server):
+        return await _call_locked(server, tool, args)
+
+
+async def _call_locked(server: str, tool: str, args: dict):
+    try:
+        client = await _session(server)
+    except Exception:
+        await _drop(server)
+        raise  # server down: the route falls back to mock JSON
+    try:
+        return _unpack(await client.call_tool(tool, args))
+    except ToolError:
+        raise  # the tool ran and failed; the session is fine
+    except httpx.ConnectError:
+        # The request never reached the server (it restarted): reconnect and
+        # retry once. Safe for writes, because nothing ran the first time.
+        await _drop(server)
+        client = await _session(server)
+        return _unpack(await client.call_tool(tool, args))
+    except Exception:
+        # Anything else may have happened after the tool ran, so never retry
+        # (a write could run twice). Drop the session; the next call reconnects.
+        await _drop(server)
+        raise
 
 
 # ---- resident-profile server ----
@@ -120,6 +209,19 @@ async def propose_update(resident, memory_id, reason):
 async def confirm_memory(resident, memory_id, confirmed):
     return await _call("memory", "confirm_memory",
                        {"resident": resident, "memory": memory_id, "confirmed": confirmed})
+
+async def log_input_events(events):
+    return await _call("memory", "log_input_events", {"events": events})
+
+async def get_input_profile(resident):
+    return await _call("memory", "get_input_profile", {"resident": resident})
+
+async def save_custom_gesture(resident, tile, samples):
+    return await _call("memory", "save_custom_gesture",
+                       {"resident": resident, "tile": tile, "samples": samples})
+
+async def get_custom_gestures(resident):
+    return await _call("memory", "get_custom_gestures", {"resident": resident})
 
 
 # ---- actions server ----

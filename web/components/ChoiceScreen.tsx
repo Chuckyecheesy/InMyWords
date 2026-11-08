@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { createChoice, decideChoice, speak } from "@/lib/api";
+import { createChoice, decideChoice, planActions, speak, type ActionPlan } from "@/lib/api";
 import { choicePrompt, NOT_DECIDED_LABEL, NOT_DECIDED_VALUE } from "@/lib/choice-prompts";
+import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import { tileImageUrl } from "@/lib/cloudinary";
 import { choiceStanding, consequence, money } from "@/lib/format";
 import type { ChoiceOption, ChoiceResult } from "@/lib/types";
+import { ApprovalCard } from "./ApprovalCard";
+import { BigButton } from "./shared";
 
 const LONG_PRESS_MS = 600;
 
@@ -28,7 +31,24 @@ export function ChoiceScreen({
   const [busy, setBusy] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
   const [status, setStatus] = useState<"chosen" | "not_yet_decided" | null>(null);
+  const [plan, setPlan] = useState<ActionPlan | null>(null);
   const pressed = useRef(false);
+
+  useEffect(() => {
+    if (status !== "chosen" || !chosen) return;
+    let cancel = false;
+    planActions({ resident_id: residentId, goal: chosen }).then((result) => {
+      if (cancel) return;
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setPlan(result.data);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [status, chosen, residentId]);
 
   useEffect(() => {
     if (!prompt) return;
@@ -127,8 +147,8 @@ export function ChoiceScreen({
               >
                 {calm && contrast ? (
                   <picture>
-                    <img className="choice-img choice-img-calm" src={calm} alt="" />
-                    <img className="choice-img choice-img-contrast" src={contrast} alt="" />
+                    <DeliveredPhoto publicId={option.photo ?? ""} mode="calm" className="choice-img choice-img-calm" />
+                    <DeliveredPhoto publicId={option.photo ?? ""} mode="contrast" className="choice-img choice-img-contrast" />
                   </picture>
                 ) : (
                   <span className="choice-letter" aria-hidden="true">
@@ -143,11 +163,24 @@ export function ChoiceScreen({
           })}
         </div>
         {status ? (
-          <p className="eyebrow" data-testid="choice-standing">
-            {choiceStanding(status, residentName, chosen)}
-          </p>
+          <>
+            <p className="eyebrow" data-testid="choice-standing">
+              {choiceStanding(status, residentName, chosen)}
+            </p>
+            <BigButton
+              onLongPress={hear}
+              onClick={() => {
+                setStatus(null);
+                setChosen(null);
+                setPlan(null);
+              }}
+            >
+              Undo
+            </BigButton>
+          </>
         ) : null}
       </section>
+      {plan ? <ApprovalCard residentId={residentId} plan={plan} /> : null}
     </div>
   );
 }

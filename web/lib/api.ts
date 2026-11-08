@@ -8,7 +8,6 @@ import {
   sampleStory,
 } from "./mock";
 import type {
-  ActionPlan,
   ActivityItem,
   ChoiceResult,
   CoachAnswer,
@@ -157,7 +156,10 @@ function normalizeMemory(value: unknown, index: number): PendingMemory | null {
   if (!content || !source) return null;
   if (type !== "preference" && type !== "event" && type !== "routine") return null;
   return {
-    id: text(row.id) ?? (typeof row.id === "number" ? String(row.id) : `memory-${index}`),
+    id:
+      typeof row.id === "number" && Number.isFinite(row.id)
+        ? String(row.id)
+        : text(row.id) ?? `memory-${index}`,
     type,
     content,
     source,
@@ -273,6 +275,12 @@ export function suggestSentences(input: {
   return sendJson<{ options: string[] }>("/suggest", input);
 }
 
+/** A signed URL to start one Story (T1.4) or Coach (T1.6) voice session. Null if unavailable. */
+export async function agentSession(kind: "story" | "coach"): Promise<string | null> {
+  const data = (await fetchJson(`/agents/${kind}/session`)) as { signed_url?: unknown } | null;
+  return typeof data?.signed_url === "string" ? data.signed_url : null;
+}
+
 export function speak(input: { resident_id: string; text: string }) {
   return sendJson<{ audio_url: string }>("/speak", input);
 }
@@ -336,25 +344,101 @@ export function decideChoice(choiceId: string, chosen: string) {
   );
 }
 
-export function planActions(input: { resident_id: string; goal: string }) {
-  return sendJson<ActionPlan>("/actions/plan", input);
+export type ActionStep = {
+  step: string;
+  detail: string;
+  cost: number;
+};
+
+export type StaffTaskStep = {
+  task: string;
+  due: string | null;
+};
+
+export type ActionPlan = {
+  plan_id: number;
+  goal: string;
+  online_steps: ActionStep[];
+  staff_tasks: StaffTaskStep[];
+  total_cost: number;
+  status: string;
+};
+
+function normalizePlan(value: unknown): ActionPlan | null {
+  const row = record(value);
+  if (!row) return null;
+  const planId = row.plan_id;
+  const goal = text(row.goal);
+  const steps = list(row.online_steps, "online_steps");
+  const tasks = list(row.staff_tasks, "staff_tasks");
+  const total = row.total_cost;
+  if (typeof planId !== "number" || !goal || !steps || !tasks || typeof total !== "number") {
+    return null;
+  }
+  return {
+    plan_id: planId,
+    goal,
+    total_cost: total,
+    status: text(row.status) ?? "proposed",
+    online_steps: steps.flatMap((item) => {
+      const step = record(item);
+      const name = step ? text(step.step) : null;
+      const detail = step ? text(step.detail) : null;
+      if (!step || !name || !detail) return [];
+      return [{ step: name, detail, cost: typeof step.cost === "number" ? step.cost : 0 }];
+    }),
+    staff_tasks: tasks.flatMap((item) => {
+      const task = record(item);
+      const name = task ? text(task.task) : null;
+      if (!task || !name) return [];
+      return [{ task: name, due: text(task.due) }];
+    }),
+  };
 }
 
-export function approveAction(planId: string) {
-  return sendJson<{ results: unknown[] }>(
-    `/actions/${encodeURIComponent(planId)}/approve`,
+export async function planActions(input: { resident_id: string; goal: string }) {
+  const result = await sendJson<unknown>("/actions/plan", input);
+  if (!result.ok) return result;
+  const plan = normalizePlan(result.data);
+  if (!plan) return { ok: false as const, error: "The plan did not include its steps." };
+  return { ok: true as const, data: plan };
+}
+
+export function approveAction(planId: string, residentId: string) {
+  const params = new URLSearchParams({ resident_id: residentId });
+  return sendJson<{ results?: { step: string; result: string }[]; status?: string }>(
+    `/actions/${encodeURIComponent(planId)}/approve?${params}`,
     {},
   );
 }
 
-export function confirmMemory(
-  memoryId: string,
-  answer: "yes" | "no",
-  residentId: string,
-) {
+export function cancelAction(planId: string, residentId: string) {
+  const params = new URLSearchParams({ resident_id: residentId });
+  return sendJson<{ plan_id?: number; status?: string; error?: string }>(
+    `/actions/${encodeURIComponent(planId)}/cancel?${params}`,
+    {},
+  );
+}
+
+export function confirmMemory(memoryId: string, answer: "yes" | "no", residentId: string) {
   return sendJson<{ ok: boolean }>(
     `/memories/${encodeURIComponent(memoryId)}/confirm`,
     { confirmed: answer === "yes", resident_id: residentId },
+  );
+}
+
+export type VoiceOption = {
+  voice_id: string;
+  label: string;
+  preview_text: string;
+  preview_url: string;
+};
+
+export function getVoices(residentId: string) {
+  return sendJson<{ current: string | null; options: VoiceOption[] }>(
+    `/voices/${encodeURIComponent(residentId)}`,
+    undefined,
+    "GET",
   );
 }
 
@@ -442,4 +526,59 @@ export async function savePhoto(input: {
   } catch {
     return { ok: false, error: "The API is not reachable." };
   }
+}
+
+// ---------- Gaze/gesture input (docs/GAZE_GESTURE_PLAN.md §7) ----------
+
+import type { InputEvent, InputProfile } from "./input/types";
+import { DEFAULT_PROFILE } from "./input/profile";
+
+/** Batched OUTCOME events from the input controller — never video. */
+export function postInputEvents(events: InputEvent[]) {
+  return sendJson<{ saved: number }>("/input-events", { events });
+}
+
+/** How this resident communicates best, from input history (G6/G7). */
+export async function getInputProfile(residentId: string): Promise<InputProfile> {
+  const raw = await fetchJson(`/input-profile/${residentId}`);
+  const row = record(raw);
+  if (!row) return { ...DEFAULT_PROFILE, resident_id: residentId };
+  return {
+    resident_id: residentId,
+    preferred_select:
+      row.preferred_select === "gaze" || row.preferred_select === "gesture"
+        ? row.preferred_select
+        : "touch",
+    preferred_yes: text(row.preferred_yes) ?? "touch",
+    dwell_ms: typeof row.dwell_ms === "number" ? row.dwell_ms : 1000,
+    rates: (record(row.rates) ?? {}) as InputProfile["rates"],
+    notes: Array.isArray(row.notes) ? row.notes.filter((n): n is string => typeof n === "string") : [],
+    events_counted: typeof row.events_counted === "number" ? row.events_counted : 0,
+    confidence:
+      row.confidence === "high" || row.confidence === "medium" ? row.confidence : "low",
+  };
+}
+
+// ---------- G8: personal gestures ----------
+
+import type { TaughtGesture } from "./input/custom-gestures";
+
+export function saveCustomGesture(input: {
+  resident_id: string;
+  tile: string;
+  samples: number[][];
+}) {
+  return sendJson<{ ok: boolean; tile: string }>("/custom-gestures", input);
+}
+
+export async function getCustomGestures(residentId: string): Promise<TaughtGesture[]> {
+  const raw = await fetchJson(`/custom-gestures/${residentId}`);
+  const rows = list(raw, "gestures");
+  if (!rows) return [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    const label = item ? text(item.tile_label) : null;
+    if (!item || !label || !Array.isArray(item.samples)) return [];
+    return [{ tile_label: label, samples: item.samples as number[][] }];
+  });
 }

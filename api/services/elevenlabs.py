@@ -14,7 +14,7 @@ main.py at /audio/<file>. A repeated sentence never hits ElevenLabs again,
 which keeps "approve → audio" instant and saves credits.
 
 Env (repo-root .env):
-    ELEVENLABS_ID            required for live audio; without it /speak stays in mock mode
+    ELEVENLABS_ID            required for live audio (ELEVENLABS_API_KEY also works); without it /speak stays in mock mode
     ELEVENLABS_TTS_MODEL          optional, default eleven_flash_v2_5 (low latency)
     ELEVENLABS_FALLBACK_VOICE_ID  optional (alias ELEVENLABS_DEFAULT_VOICE_ID), used before
                                   voices.json / profile has a voice
@@ -62,7 +62,9 @@ class ElevenLabsError(Exception):
 
 
 def api_key() -> str | None:
-    return os.environ.get("ELEVENLABS_ID") or None
+    # Both names are in use (local .env files say ELEVENLABS_API_KEY; c24639f renamed
+    # it to ELEVENLABS_ID). Accept either so a rename never silently mocks /speak.
+    return os.environ.get("ELEVENLABS_ID") or os.environ.get("ELEVENLABS_API_KEY") or None
 
 
 def configured() -> bool:
@@ -79,7 +81,7 @@ def _client() -> httpx.AsyncClient:
 def _headers() -> dict:
     key = api_key()
     if not key:
-        raise ElevenLabsError("ELEVENLABS_ID is not set (add it to the repo-root .env)")
+        raise ElevenLabsError("ELEVENLABS_ID (or ELEVENLABS_API_KEY) is not set (add it to the repo-root .env)")
     return {"xi-api-key": key}
 
 
@@ -157,6 +159,28 @@ def resident_voice(resident_id: str, profile_voice_id: str | None = None) -> str
 
 def has_override(resident_id: str) -> bool:
     return resident_id in _voice_overrides
+
+
+# ---------- conversational agents (T1.4 Story Interviewer, T1.6 Coach voice mode) ----------
+
+AGENTS = {"story": "ELEVENLABS_STORY_AGENT_ID", "coach": "ELEVENLABS_COACH_AGENT_ID"}
+
+
+def agent_id(kind: str) -> str | None:
+    """The configured agent for `kind` ("story" or "coach"), or None."""
+    env = AGENTS.get(kind)
+    return (os.environ.get(env) or None) if env else None
+
+
+async def signed_url(agent: str) -> str:
+    """A short-lived URL the browser uses to start one conversation with `agent`.
+
+    The API key and agent ID stay on the server; the browser only sees this URL.
+    """
+    resp = await _client().get(
+        "/convai/conversation/get-signed-url", params={"agent_id": agent}, headers=_headers())
+    _raise_for(resp, "agent session")
+    return resp.json()["signed_url"]
 
 
 # ---------- Voice Design (T1.1, used by scripts/design_voices.py) ----------

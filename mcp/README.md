@@ -16,6 +16,8 @@ Python FastMCP servers over **streamable HTTP**, so both our backend and Claude 
 
 Actions notes: `plan_actions` only **proposes** (deterministic placeholder until William's Action agent, T4.7 — same shape). `approve_plan` runs the steps from the allowlist, logs each to `action_results`, and the executing tools **refuse any plan that isn't approved** — the gate lives in the server, not the UI. `cancel_plan` works until steps have run. Email is real when `EMAIL_SENDER_*` creds exist, otherwise logged as sent. The mock booking page (`python mock-booking/app.py`, :8200) shows bookings landing live.
 
+Memory server also carries the gaze/gesture input layer (G5): `log_input_event`, `log_input_events` (batch), `get_input_profile` — events land in the `input_events` hypertable with the `input_daily` continuous aggregate (created by `db/reset.py`); profile rules are plain arithmetic in `store.build_input_profile`.
+
 Memory notes: `recall` ranks by keyword + recency (vector similarity joins the ranking once embeddings are backfilled after T3.1 — same output shape). Confirming a memory flips it to `confirmed` with `source = resident` ("in Marcus's words"); dismissing marks it `dismissed`. `remember` merges near-duplicates by word overlap and bumps `times_seen`.
 
 `pip install -r requirements.txt` first. The accessibility server also needs a browser: `python -m playwright install chromium`. Smoke test (servers running): `python test_servers.py`. Scorer tests (no browser): `python -m unittest test_a11y.py`.

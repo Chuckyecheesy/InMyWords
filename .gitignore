@@ -52,3 +52,6 @@ Thumbs.db
 
 # Seed-mode RAG vector cache (regenerated from db/seed by content hash)
 db/seed/.embeddings.json
+
+# MediaPipe model + WASM — fetched by web/scripts/fetch-vision-assets.mjs
+web/public/models/
