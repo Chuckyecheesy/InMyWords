@@ -8,8 +8,10 @@ from datetime import datetime
 def find_routines(events: list[dict], *, phrase, min_count: int = 3) -> list[dict]:
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for event in events:
-        at = datetime.fromisoformat(event["at"])
-        groups[(event["content"], at.strftime("%A"), at.hour)].append(event)
+        raw = event["at"]
+        at = datetime.fromisoformat(raw)
+        hour = at.hour if len(raw) > 10 else None  # date-only: no hour known
+        groups[(event["content"], at.strftime("%A"), hour)].append(event)
 
     found: list[dict] = []
     for (content, weekday, hour), items in groups.items():

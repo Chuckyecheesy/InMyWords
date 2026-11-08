@@ -1,0 +1,81 @@
+"""T4.6 wiring: adapters, observer entry point, routine scan, coach wording.
+All model and MCP calls are faked."""
+
+import sys
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from agents.coach_wording import coach_answer  # noqa: E402
+from agents.memory import wiring  # noqa: E402
+from agents.memory.routines import find_routines  # noqa: E402
+
+
+class CoachWordingTests(unittest.TestCase):
+    def test_pattern_is_labelled_and_not_confirmed(self):
+        out = coach_answer([{"content": "Likes tea now", "label": "Pattern noticed"}], "Marcus")
+        self.assertTrue(out.startswith("Pattern noticed"))
+        self.assertIn("not confirmed by Marcus yet", out)
+
+    def test_records_fact_keeps_its_label(self):
+        out = coach_answer([{"content": "Drinks coffee", "label": "From records, 2021"}], "Marcus")
+        self.assertTrue(out.startswith("From records, 2021:"))
+
+    def test_flagged_fact_is_called_out_as_possibly_out_of_date(self):
+        facts = [{"content": "Likes tea now", "label": "Pattern noticed"},
+                 {"content": "Drinks coffee", "label": "From records, 2021",
+                  "update_reason": "tea pattern"}]
+        self.assertIn("may be out of date: Drinks coffee", coach_answer(facts, "Marcus"))
+
+
+class ObserveSyncTests(unittest.TestCase):
+    def test_note_flows_through_consolidator_to_remember(self):
+        saved = []
+        cand = {"candidates": [{"type": "preference", "content": "Likes tea",
+                                "evidence": "chose tea at snack time", "topic": "drinks"}]}
+        wiring.observe_sync(
+            "Marcus chose tea at snack time.", "observation", "marcus",
+            extract=lambda p: cand, recall=lambda **k: [],
+            remember=lambda **r: saved.append(r), propose=lambda **k: None,
+            contradicts=lambda c, m: False)
+        self.assertEqual(saved[0]["source"], "staff")
+
+    def test_extraction_failure_never_raises_from_observe_event(self):
+        import asyncio
+        def boom(*a, **k):
+            raise RuntimeError("gemini down")
+        original = wiring.observe_sync
+        wiring.observe_sync = boom
+        try:
+            asyncio.run(wiring.observe_event("x", "sentence", "marcus"))
+        finally:
+            wiring.observe_sync = original
+
+
+class ScanRoutinesTests(unittest.TestCase):
+    EVENTS = [{"event": "Went bowling", "date": d}
+              for d in ("2026-10-17", "2026-10-24", "2026-10-31")]
+
+    def test_three_saturdays_become_a_pending_routine(self):
+        saved = []
+        out = wiring.scan_routines_sync(
+            "marcus", self.EVENTS, phrase=lambda g: "Bowling on Saturdays",
+            recall=lambda **k: [], remember=lambda **r: saved.append(r),
+            propose=lambda **k: None)
+        self.assertEqual(out[0]["count"], 3)
+        self.assertEqual(saved[0]["type"], "routine")
+        self.assertEqual(saved[0]["source"], "inferred")
+
+    def test_date_only_events_have_no_hour(self):
+        got = find_routines([{"content": "x", "at": d} for d in
+                             ("2026-10-17", "2026-10-24", "2026-10-31")], phrase=lambda g: "x")
+        self.assertIsNone(got[0]["hour"])
+
+    def test_plain_text_fallback_has_no_invented_number(self):
+        text = wiring.plain_routine_text({"content": "Went bowling", "weekday": "Saturday", "hour": None})
+        self.assertEqual(text, "Went bowling on Saturdays")
+
+
+if __name__ == "__main__":
+    unittest.main()

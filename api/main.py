@@ -15,12 +15,14 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mocks
+from agents.coach_wording import coach_answer
+from agents.memory.wiring import observe_event, scan_routines
 from agents.story import LocalBooks, McpBooks, StoryError, local_books, narrate, record_answer, draft as draft_chapter
 from agents.story import gemini_phrase
 from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
@@ -233,9 +235,11 @@ async def speak(body: SpeakBody, request: Request):
 
 
 @app.post("/sentences")
-async def log_sentence(body: SentenceBody):
+async def log_sentence(body: SentenceBody, background: BackgroundTasks):
     result, live = await _mcp(
         mcp_client.log_sentence(body.resident_id, body.chosen_text, body.approved, body.tiles), None)
+    if body.approved:  # nothing unapproved is ever learned from
+        background.add_task(observe_event, body.chosen_text, "sentence", body.resident_id)
     return {"id": result["id"]} if live else {"id": 9001}
 
 
@@ -326,9 +330,9 @@ async def coach_ask(body: CoachAskBody):
         if result["unknown"] or not facts:
             name = body.resident_id.capitalize()
             return {"answer": f"I don't know — it's best to ask {name}.", "sources": []}
-        top = facts[0]
+        name = body.resident_id.capitalize()
         return {
-            "answer": top["content"],
+            "answer": coach_answer(facts, name),
             "sources": [{"type": f["source"], "date": f["date"], "label": f["label"]} for f in facts[:3]],
         }
     if "favourite colour" in body.question.lower():
@@ -344,10 +348,12 @@ def create_choice(body: ChoicesBody):
 
 
 @app.post("/choices/{choice_id}/decide")
-async def decide_choice(choice_id: int, body: DecideBody):
+async def decide_choice(choice_id: int, body: DecideBody, background: BackgroundTasks):
     chosen = None if body.chosen == "not_yet_decided" else body.chosen
     result, live = await _mcp(
         mcp_client.log_choice("marcus", options=[], chosen=chosen), None)
+    if chosen:
+        background.add_task(observe_event, f"Marcus chose {chosen}.", "choice", "marcus")
     # TODO(T2.5): look up the choice's resident + options by choice_id once
     # choices are persisted at creation time (they're created by Ahmed's agent).
     return {"ok": True, "status": result["status"] if live else ("chosen" if chosen else "not_yet_decided")}
@@ -386,6 +392,16 @@ async def pending_memories(resident_id: str):
     return {"memories": mocks.PENDING_MEMORIES.get(resident_id, [])}
 
 
+@app.post("/memories/routines/scan/{resident_id}")
+async def scan_routine_patterns(resident_id: str):
+    """Staff/demo trigger: group significant events by weekday, suggest 3+ as routines."""
+    try:
+        return {"routines": await scan_routines(resident_id)}
+    except Exception as exc:
+        print(f"[routines] scan failed: {exc}")
+        raise HTTPException(503, "Couldn't look for routines right now.")
+
+
 @app.post("/memories/{memory_id}/confirm")
 async def confirm_memory(memory_id: int, body: ConfirmBody):
     result, live = await _mcp(
@@ -413,9 +429,10 @@ async def activity(resident_id: str):
 
 
 @app.post("/observations")
-async def add_observation(body: ObservationBody):
+async def add_observation(body: ObservationBody, background: BackgroundTasks):
     result, live = await _mcp(
         mcp_client.add_observation(body.resident_id, body.staff_id, body.note), None)
+    background.add_task(observe_event, body.note, "observation", body.resident_id)
     return {"ok": True, "id": result["id"]} if live else {"ok": True}
 
 
