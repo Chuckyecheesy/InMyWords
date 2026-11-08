@@ -55,7 +55,7 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 **My Planner** *(replaced My Story, Nov 8 — see §2.5)*
 - The resident inputs their own routine in plain, picture-and-time terms: who they want to see (a staff member), what time, how long, and which days. One choice at a time, big tiles, no typing required.
 - A weekly calendar (7 days a week) shows staff **visit hours** as blocks the resident can read at a glance. Example: Dana says "meet staff at 1:00pm for 2 hours" → the grid shows a **1:00p.m.–3:00p.m. Meeting** block, repeating every day of the week.
-- A Gemini **Planner subagent** turns the routine into appointments and books them on staff's calendar through a **Google Calendar MCP** server. If the MCP path doesn't work, a manually imported Google Calendar is rendered onto the UI instead (same grid, same blocks).
+- A Gemini **Planner subagent** turns the routine into appointments and books them on staff's calendar through a **Google Calendar MCP** server. If the MCP path doesn't work, staff **upload a .zip export of their Google Calendar** (Google Takeout) and its events are parsed and rendered onto the UI instead (same grid, same blocks).
 - Nothing is booked silently: the subagent proposes the slots on an approval card, the resident approves, **then** it books (product rules 1 and 5). The routine the resident typed is "in Dana's words"; any slot the subagent suggests on its own is "pattern noticed" until she confirms it.
 
 **Onboarding Coach**
@@ -104,12 +104,12 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 
 **What the Planner subagent does**
 - Reads the resident's routine (through the MCP servers, never the DB directly — rule 4) and turns it into a set of calendar events with explicit start/end times. Time math is **plain code, not the LLM** (rule 6); the LLM only phrases the proposal ("Meet staff at 1:00, finish by 3:00, every day this week?").
-- Books on staff's calendar via a **Google Calendar MCP** server. **Fallback**: if that MCP is unavailable by demo time, import a Google Calendar (iCal/export) once and render its events onto the same grid — the resident-facing UI is identical either way.
+- Books on staff's calendar via a **Google Calendar MCP** server. **Fallback**: if that MCP is unavailable by demo time, staff **upload a .zip export of their Google Calendar** (Google Takeout; the .zip holds one or more `.ics` files) once, and its events render onto the same grid — the resident-facing UI is identical either way.
 - Every booking first appears on an **approval card** with the times and the person shown; it runs only after the resident approves, from the actions allowlist, and is logged (rule 5).
 
 **Source labels**: the routine the resident entered is the resident's own words. A slot the subagent proposes from a noticed pattern is "pattern noticed" / `inferred` until confirmed. Staff-created visit hours imported from their calendar are labelled "from staff calendar, <date>".
 
-**Build tiers**: Core — routine input + weekly grid + approval card + DB-backed visit events. Should — Planner subagent proposes slots from the typed routine; Google Calendar MCP booking. Stretch — subagent suggests visits from noticed routines; two-way sync. Cut order: stretch → MCP booking (fall back to manual import) → subagent proposal (fall back to the resident setting each slot by hand).
+**Build tiers**: Core — routine input + weekly grid + approval card + DB-backed visit events. Should — Planner subagent proposes slots from the typed routine; Google Calendar MCP booking. Stretch — subagent suggests visits from noticed routines; two-way sync. Cut order: stretch → MCP booking (fall back to a staff-uploaded .zip calendar export) → subagent proposal (fall back to the resident setting each slot by hand).
 
 ### Stretch
 - Manager view across homes (profile freshness, checklist patterns, choice stats).
@@ -137,7 +137,7 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 | Agent | Job | Guardrails |
 |---|---|---|
 | Voice | Tiles to sentence suggestions | Short, faithful, never spoken without approval |
-| Planner | Turns the resident's routine into staff-visit appointments, books them via Google Calendar MCP | Approval card before booking; time math in code, not the LLM; manual-import fallback |
+| Planner | Turns the resident's routine into staff-visit appointments, books them via Google Calendar MCP | Approval card before booking; time math in code, not the LLM; .zip calendar-export fallback |
 | Coach | Answers staff questions, runs onboarding path | Always labels source, admits when unsure |
 | Handoff | Since-last-shift summary | Facts only, no guessing causes |
 | Choice | Options with consequences | No recommendations, no "staff decided" |
@@ -181,7 +181,7 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 | send_message | resident, contact, text | Message sent (real email or SMS) |
 | add_to_calendar | resident, event, time | Calendar entry |
 | book_staff_visit | resident, staff, start, end, recurrence (default daily ×7) | Visit booked on staff's Google Calendar (via Google Calendar MCP; DB row is source of truth) |
-| import_calendar | resident or staff, source | Staff visit hours parsed from an imported Google Calendar and rendered on the planner grid (MCP-unavailable fallback) |
+| import_calendar | resident or staff, calendar_zip (Google Takeout .zip of .ics files) | Staff visit hours parsed out and rendered on the planner grid (MCP-unavailable fallback) |
 | book_activity | resident, activity, time | Booking confirmation (mock site) |
 | next_bus | from, to | Next departures (Grand River Transit data, optional) |
 | create_staff_task | resident, task, time | Task in staff Handoff |
@@ -292,7 +292,7 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 - Gemini wrapper: structured JSON output + embeddings (used by T4 and T2 too).
 - Voice agent: profile-based sentence suggestions (2–3 short options), tested on 15 tile combinations.
 - Speak For Me screen: tile grid, sentence strip, suggestions with approve/reject, audio playback.
-- My Planner: routine-input screen (person/time/length/days, defaults to 7 days), weekly visit grid, Planner subagent that expands a routine into visit_events and books via Google Calendar MCP (manual-import fallback), reusing PhotoChoiceGrid for person/day picks.
+- My Planner: routine-input screen (person/time/length/days, defaults to 7 days), weekly visit grid, Planner subagent that expands a routine into visit_events and books via Google Calendar MCP (.zip calendar-export upload fallback), reusing PhotoChoiceGrid for person/day picks.
 - Choice agent (consequences, never recommends) + choice screen.
 - Action approval card, "pattern noticed, confirm?" screen, voice picker.
 - Accessibility pass on all resident screens (§9).

@@ -34,7 +34,7 @@ Companion to the [Project Plan](PROJECT_PLAN.md). This doc is the step-by-step b
 
 ### 2.1 Environment variables
 
-See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_ID` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the planner's Google Calendar MCP (manual-import fallback if unavailable).
+See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_ID` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the planner's Google Calendar MCP (.zip calendar-export upload fallback if unavailable).
 
 ## 3. Repo structure
 
@@ -232,14 +232,14 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 
 **T2.6 — Actions MCP server and mock services (hours 14–16)**
 
-- Tools: plan_actions (calls T4's Action agent), send_message (real email), add_to_calendar, book_staff_visit (planner — via Google Calendar MCP, dual-writes visit_events), import_calendar (planner fallback — parse an imported Google Calendar onto the grid), book_activity (writes to bookings), next_bus (optional), create_staff_task.
+- Tools: plan_actions (calls T4's Action agent), send_message (real email), add_to_calendar, book_staff_visit (planner — via Google Calendar MCP, dual-writes visit_events), import_calendar (planner fallback — staff upload a .zip Google Calendar export (Google Takeout, `.ics` files inside); parse it onto the grid), book_activity (writes to bookings), next_bus (optional), create_staff_task.
 - **Approval gate: action tools (incl. book_staff_visit) refuse to run unless the plan/visit status is approved.**
 - Mock booking page at /mock-booking showing current bookings.
 - Log every step to action_results.
 - **Google Calendar MCP (planner path)** — the Planner subagent books staff visits through a Google Calendar MCP server; fallback is manual import:
   - One Google Cloud project + Calendar API + one service account; key goes in `.env` as `GOOGLE_SERVICE_ACCOUNT_JSON`. Staff demo accounts in `GOOGLE_CALENDAR_STAFF_EMAILS`. Pre-create the night before the demo.
   - `book_staff_visit` dual-writes: `visit_events` row first (source of truth), then creates the event on the **staff member's** Google Calendar (so staff see the visit where they already look), with an "approved by Dana" note. If the Google/MCP call fails, DB-only still demos — same grid.
-  - **Fallback if the MCP server doesn't work**: `import_calendar` parses a one-time Google Calendar export and renders its events on the planner grid; no live booking, identical UI.
+  - **Fallback if the MCP server doesn't work**: staff upload a one-time **.zip export of their Google Calendar** (Settings → Export in Google Calendar, or Google Takeout — the .zip holds `.ics` files per calendar); `import_calendar` unzips, parses the `.ics` events, and renders them on the planner grid. No live booking, identical UI.
   - Only resident-approved visits ever reach Google — never notes, reasons, or health info. Those stay in Tiger Data where Handoff needs them.
   - Recurrence is plain code: a 7-days-a-week routine expands to one visit_event per day; the LLM only phrases the proposal.
 - ✅ Done when: approving a routine books a recurring staff visit on the calendar (or renders imported visits), sends any real email and creates a staff task.
@@ -295,7 +295,7 @@ You own everything the resident directly uses — the prompts AND the screens: S
 
 - `POST /planner/plan`: expand a saved routine into proposed visit_events — **recurrence math in plain code**, Gemini only phrases the proposal. Ready by hour 9 for T1's readback.
 - My Planner screens: routine-input screen, then a weekly grid (7 days) showing visit blocks (e.g. 1:00p.m.–3:00p.m.), with an approval card before booking.
-- Planner subagent books via the Google Calendar MCP (T2's `book_staff_visit`); manual-import fallback renders the same grid.
+- Planner subagent books via the Google Calendar MCP (T2's `book_staff_visit`); if that's down, a staff-uploaded .zip calendar export renders the same grid instead.
 - Sleep hours 9–12; up for **Milestone 2**.
 - ✅ Done when: a routine set by taps shows blocks on the weekly grid and an approved booking lands on the calendar.
 
@@ -416,7 +416,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 
 - PhotoChoiceGrid: a question plus 2–4 big photo tiles; reused by the planner to pick a staff person and days (with T1/T3).
 - Routine-input screen (person, start time, length, days — default all 7) and a weekly visit grid (7 days) showing blocks like 1:00p.m.–3:00p.m.
-- Approval card before any booking; booking goes via T2's `book_staff_visit` (Google Calendar MCP), with the manual-import fallback rendering the same grid.
+- Approval card before any booking; booking goes via T2's `book_staff_visit` (Google Calendar MCP), with a staff-uploaded .zip calendar export as the fallback, rendering the same grid.
 - ✅ Done when: a routine set by taps shows on the weekly grid and an approved visit lands on the calendar.
 
 **T4.5 — Staff screens (hours 10–14)**

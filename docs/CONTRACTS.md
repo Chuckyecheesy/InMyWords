@@ -37,7 +37,7 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 - **Speak**: in sentence + resident → out audio URL
 - **Ask about**: in resident + question → out answer, source (`resident | staff | emh | document | pattern`), date
 - **Save routine**: in resident + person + start + length + days → out routine ID + expanded visit blocks
-- **Book staff visit**: in resident + approved visit_events → out booked ids + google_event_ids (manual-import fallback if MCP down)
+- **Book staff visit**: in resident + approved visit_events → out booked ids + google_event_ids (fallback if MCP down: staff upload a .zip calendar export instead)
 - **Choice**: in resident + options (label, photo, cost) → out choice ID and status
 - **Handoff**: in staff + resident → out list of items with type and date
 - **Recall**: in resident + query + type → out memories with source and confirmed status

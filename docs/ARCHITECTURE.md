@@ -27,7 +27,7 @@ flowchart LR
     DB[("Tiger Data<br/>Postgres + pgvector(768)")]
     BOOK["mock-booking :8200"]
     CLOUD["Cloudinary<br/>tile recipe"]
-    GCAL["Google Calendar MCP<br/>(planner staff visits, dual-write;<br/>manual-import fallback)"]
+    GCAL["Google Calendar MCP<br/>(planner staff visits, dual-write;<br/>fallback: staff upload a .zip export)"]
     EMAIL["Email (send_message)"]
 
     WEB -->|lib/api.ts| API
