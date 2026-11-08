@@ -24,13 +24,13 @@ These are guardrails, not preferences. Never write code that violates them:
 | Path | Owner | What it is |
 |---|---|---|
 | `web/` | William (shell, design system, staff routes), Ahmed (resident routes) | Next.js + React + TypeScript app, tablet-first. All backend calls go through `web/lib/api.ts`. |
-| `api/` | Tiffany (routes); `agents/` split: Ahmed (voice, story, choice), William (coach, action, memory) | FastAPI backend. Routes in `main.py`; agents in `agents/`; `services/` has `gemini.py` (Ahmed), `elevenlabs.py` (James), `cloudinary.py`, `mcp_client.py`. |
+| `api/` | Tiffany (routes); `agents/` split: Ahmed (voice, planner, choice), William (coach, action, memory) | FastAPI backend. Routes in `main.py`; agents in `agents/`; `services/` has `gemini.py` (Ahmed), `elevenlabs.py` (James), `cloudinary.py`, `mcp_client.py`. |
 | `mcp/` | Tiffany | Four FastMCP servers over streamable HTTP: `profile_server`, `memory_server`, `actions_server`, `emh_server` (mock). |
 | `db/` | Tiffany | Tiger Data (Postgres + vector) `schema.sql`, `seed/`, reset script. |
 | `mock-booking/` | Tiffany | Tiny page listing bookings so the demo can show a booking landed. |
 | `docs/` | Everyone | Plans, contracts, architecture diagram, demo script. |
 
-Team roles: **T1 = James, Voice lead** (ElevenLabs, everything heard), **T2 = Tiffany, Data/MCP lead** (DB, MCP servers, backend routes, Handoff), **T3 = Ahmed, Resident experience & pitch lead** (prompts + screens for Speak For Me, My Story, Choice; approval card, voice picker, accessibility; Gemini wrapper; deck/video/Devpost/domain), **T4 = William, Staff experience lead** (prompts + screens for Coach, memory + binder import, actions, Handoff; app shell, design system, Cloudinary; judge AI-safety answers).
+Team roles: **T1 = James, Voice lead** (ElevenLabs, everything heard), **T2 = Tiffany, Data/MCP lead** (DB, MCP servers, backend routes, Handoff), **T3 = Ahmed, Resident experience & pitch lead** (prompts + screens for Speak For Me, My Planner, Choice; Planner subagent + Google Calendar MCP; approval card, voice picker, accessibility; Gemini wrapper; deck/video/Devpost/domain), **T4 = William, Staff experience lead** (prompts + screens for Coach, memory + binder import, actions, Handoff; app shell, design system, Cloudinary; judge AI-safety answers).
 
 ## Tech stack
 
@@ -38,7 +38,7 @@ Team roles: **T1 = James, Voice lead** (ElevenLabs, everything heard), **T2 = Ti
 - **Gaze/gesture input**: WebGazer (eye tracking) + MediaPipe Gesture Recognizer — **client-side dynamic imports only** (both touch `window`; SSR crashes), **one shared camera stream** (MediaPipe reads WebGazer's video element). Events land in a Tiger Data hypertable (`input_events`) with a daily continuous aggregate.
 - **Backend + MCP**: Python, FastAPI, FastMCP (streamable HTTP)
 - **LLM**: Gemini Flash with structured JSON output; Gemini embeddings (vector size fixed at setup — never change it)
-- **Voice**: ElevenLabs (Voice Design, low-latency TTS cached by `voice_id + text`, Agents for Story interview & Coach voice mode)
+- **Voice**: ElevenLabs (Voice Design, low-latency TTS cached by `voice_id + text`, Agents for spoken approval cards & Coach voice mode)
 - **DB**: Tiger Data (Postgres with vector search)
 - **Media**: Cloudinary (one tile transformation recipe, chosen hour 1)
 - Messaging action = email (not SMS). Booking action = our own `mock-booking` page.
@@ -49,7 +49,7 @@ Team roles: **T1 = James, Voice lead** (ElevenLabs, everything heard), **T2 = Ti
 - **Contracts frozen at hour 1.** The API table in `docs/BUILD_PLAN.md` §6 is the contract. Changing any input/output needs a heads-up in team chat first.
 - **Main always demos.** Work on branches (`t1/...`, `t2/...`, `t3/...`, `t4/...`), merge only when it runs, test the demo flow after every merge.
 - **Demo data resets with one command** (`db/` reset script).
-- **Feature freeze at hour 18.** After that: bug fixes and pre-approved stretch only. Cut order is in PROJECT_PLAN §12; never cut Speak For Me, My Story, Onboarding Coach, or the minimal Memory Layer.
+- **Feature freeze at hour 18.** After that: bug fixes and pre-approved stretch only. Cut order is in PROJECT_PLAN §12; never cut Speak For Me, My Planner, Onboarding Coach, or the minimal Memory Layer.
 
 ## Environment
 

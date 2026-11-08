@@ -52,10 +52,11 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 - Original tiles stay visible. "Speak tiles only" works without AI.
 - Spoken in a voice the resident chose from 3 previews.
 
-**My Story**
-- Picture-based interview, one question at a time, 2–4 photo choices per question.
-- Chapters: About me, Where I'm from, People who matter, Things I love, What upsets me and what helps, My day, What I want next.
-- Each chapter read back for approval, then becomes a page with photos and narration in the resident's voice.
+**My Planner** *(replaced My Story, Nov 8 — see §2.5)*
+- The resident inputs their own routine in plain, picture-and-time terms: who they want to see (a staff member), what time, how long, and which days. One choice at a time, big tiles, no typing required.
+- A weekly calendar (7 days a week) shows staff **visit hours** as blocks the resident can read at a glance. Example: Dana says "meet staff at 1:00pm for 2 hours" → the grid shows a **1:00–3:00 Meeting** block, repeating every day of the week.
+- A Gemini **Planner subagent** turns the routine into appointments and books them on staff's calendar through a **Google Calendar MCP** server. If the MCP path doesn't work, a manually imported Google Calendar is rendered onto the UI instead (same grid, same blocks).
+- Nothing is booked silently: the subagent proposes the slots on an approval card, the resident approves, **then** it books (product rules 1 and 5). The routine the resident typed is "in Dana's words"; any slot the subagent suggests on its own is "pattern noticed" until she confirms it.
 
 **Onboarding Coach**
 - Guided path: Essentials (2 min), Story (10 min), Routines timeline, Check understanding (stretch).
@@ -91,6 +92,25 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 - Guardrails: camera off by default with consent + visible indicator; video never stored or sent (outcome events only); every gaze/gesture selection still goes through confirmation.
 - Core G1–G5, should G6–G7, stretch G8 (teach a personal gesture). Cut order: G8 → G6 → G7.
 
+### 2.5 Added Nov 8: My Planner (replaces My Story)
+
+> *Dana decides when she wants company. She sets her routine; the planner books the staff visit and puts it on everyone's calendar.*
+
+My Story is **removed** from the resident app and its home slot is taken by **My Planner**. (The story interview, chapter writer, narration and PhotoChoiceGrid-for-chapters work is retired; PhotoChoiceGrid itself is reused by the planner for picking people and days.)
+
+**What the resident does**
+- Opens My Planner, picks a person to see (staff photo tiles), a start time, a length (e.g. 2 hours), and the day(s). Defaults to **7 days a week** (a daily recurring visit) unless the resident narrows it.
+- Sees the weekly grid fill with visit blocks. Example routine "1:00pm, 2 hours, every day" → a **1:00–3:00 Meeting** block on every day, starting Nov 8, 2026.
+
+**What the Planner subagent does**
+- Reads the resident's routine (through the MCP servers, never the DB directly — rule 4) and turns it into a set of calendar events with explicit start/end times. Time math is **plain code, not the LLM** (rule 6); the LLM only phrases the proposal ("Meet staff at 1:00, finish by 3:00, every day this week?").
+- Books on staff's calendar via a **Google Calendar MCP** server. **Fallback**: if that MCP is unavailable by demo time, import a Google Calendar (iCal/export) once and render its events onto the same grid — the resident-facing UI is identical either way.
+- Every booking first appears on an **approval card** with the times and the person shown; it runs only after the resident approves, from the actions allowlist, and is logged (rule 5).
+
+**Source labels**: the routine the resident entered is the resident's own words. A slot the subagent proposes from a noticed pattern is "pattern noticed" / `inferred` until confirmed. Staff-created visit hours imported from their calendar are labelled "from staff calendar, <date>".
+
+**Build tiers**: Core — routine input + weekly grid + approval card + DB-backed visit events. Should — Planner subagent proposes slots from the typed routine; Google Calendar MCP booking. Stretch — subagent suggests visits from noticed routines; two-way sync. Cut order: stretch → MCP booking (fall back to manual import) → subagent proposal (fall back to the resident setting each slot by hand).
+
 ### Stretch
 - Manager view across homes (profile freshness, checklist patterns, choice stats).
 - Scenario questions in the Coach.
@@ -117,7 +137,7 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 | Agent | Job | Guardrails |
 |---|---|---|
 | Voice | Tiles to sentence suggestions | Short, faithful, never spoken without approval |
-| Story | Picture interview, writes chapters | First person, approved chapter by chapter |
+| Planner | Turns the resident's routine into staff-visit appointments, books them via Google Calendar MCP | Approval card before booking; time math in code, not the LLM; manual-import fallback |
 | Coach | Answers staff questions, runs onboarding path | Always labels source, admits when unsure |
 | Handoff | Since-last-shift summary | Facts only, no guessing causes |
 | Choice | Options with consequences | No recommendations, no "staff decided" |
@@ -133,8 +153,8 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 | Tool | Input | Output |
 |---|---|---|
 | get_profile | resident | Routines, likes, dislikes, goals, communication style |
-| get_story | resident | Chapters with photos, text, narration audio |
-| save_story_chapter | resident, chapter, text, photos | Saved draft chapter |
+| get_planner | resident | Weekly visit blocks (start, end, person, day, source) |
+| save_routine | resident, person, start, length, days (default all 7) | Saved routine the planner expands into visit blocks |
 | ask_about | resident, question | Answer + source label + date |
 | suggest_sentence | resident, tiles, time of day | 2–3 sentence options |
 | log_sentence | resident, sentence, approved | Saved to history |
@@ -160,6 +180,8 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 | plan_actions | resident, goal | Online steps + staff tasks + total cost |
 | send_message | resident, contact, text | Message sent (real email or SMS) |
 | add_to_calendar | resident, event, time | Calendar entry |
+| book_staff_visit | resident, staff, start, end, recurrence (default daily ×7) | Visit booked on staff's Google Calendar (via Google Calendar MCP; DB row is source of truth) |
+| import_calendar | resident or staff, source | Staff visit hours parsed from an imported Google Calendar and rendered on the planner grid (MCP-unavailable fallback) |
 | book_activity | resident, activity, time | Booking confirmation (mock site) |
 | next_bus | from, to | Next departures (Grand River Transit data, optional) |
 | create_staff_task | resident, task, time | Task in staff Handoff |
@@ -183,7 +205,8 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 | homes | name, manager |
 | residents | name, home, voice_id, communication style |
 | profile_items | resident, section, content, source (resident \| staff), confirmed_at (built from confirmed memories) |
-| story_chapters | resident, chapter, text, photo_ids, audio_url, approved |
+| routines | resident, person, start_time, length_min, days (default all 7), source, created_at |
+| visit_events | resident, staff, starts_at, ends_at, source (resident \| staff \| inferred), google_event_id, approved |
 | tiles | resident, label, category, photo_id, times_used |
 | sentences | resident, tiles, sentence, approved, created_at |
 | choices | resident, options, chosen, status, created_at |
@@ -198,22 +221,21 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 
 | Person | Role | Owns |
 |---|---|---|
-| James (T1) | Voice lead | ElevenLabs voices, narration, Story interview agent, Coach voice mode, spoken approval cards and memory confirmations, all demo audio |
+| James (T1) | Voice lead | ElevenLabs voices, Coach voice mode, spoken approval cards (incl. planner visit proposals) and memory confirmations, all demo audio |
 | Tiffany (T2) | Data and MCP lead | Tiger Data, seed data, all four MCP servers (incl. memory store and mock action services), backend API, Handoff agent |
-| Ahmed (T3) | Resident experience & pitch lead (AI + screens) | Gemini wrapper; Voice agent + Speak For Me screen; Story chapter writer, interview questions, story screens + PhotoChoiceGrid; Choice agent + choice screen; approval card, "confirm?" screen, voice picker; accessibility; deck, demo video, Devpost, domain |
+| Ahmed (T3) | Resident experience & pitch lead (AI + screens) | Gemini wrapper; Voice agent + Speak For Me screen; Planner subagent + My Planner screen (routine input, weekly grid) + PhotoChoiceGrid; Choice agent + choice screen; approval card, "confirm?" screen, voice picker; accessibility; deck, demo video, Devpost, domain |
 | William (T4) | Staff experience lead (AI + screens) | App shell, design system, Cloudinary pipeline; Coach agent + Coach chat + onboarding path; memory subagents + binder importer; Action agent; Handoff screen, observations, activity log; judge AI-safety answers |
 
 ## 5. Work split by person
 
 ### James (T1): Voice lead
 
-**Owns**: everything the user hears. ElevenLabs account, credits, voices, agents. Story interview experience end to end (with Ahmed (T3) on chapter text). Demo audio quality and backup audio.
+**Owns**: everything the user hears. ElevenLabs account, credits, voices, agents. Spoken approval cards (incl. the planner's visit proposals) and memory confirmations. Demo audio quality and backup audio.
 
 **Deliverables**
 - 3 voice options each for Marcus and Dana (Voice Design).
 - Text-to-speech service: sentence in, audio out, with caching.
-- Story interview agent (ElevenLabs Agent) with tools to show photo choices and save answers.
-- Chapter readback and narration of approved chapters.
+- Spoken planner approval cards: read the proposed visit times aloud ("Meet staff at 1:00, finish by 3:00, every day?") with yes/no tiles.
 - Coach voice mode: staff ask out loud, hear the answer.
 - Spoken approval cards for actions ("Book bowling Saturday at 2pm, $15. Text Lisa.").
 - Spoken memory confirmations ("Do you like tea now?").
@@ -223,24 +245,24 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 |---|---|
 | 0–1 | Set up ElevenLabs, claim participant credits. Generate 3 voices each for Marcus and Dana. Agree interface contracts. |
 | 1–6 | Build TTS service with caching. Wire to T3's suggestions so approved sentences are spoken. **Milestone 1.** |
-| 6–12 | Story interview agent: prompt, chapter template, photo-choice tool, save tool. Chapter readback. Narrate approved chapters. **Milestone 2.** |
+| 6–12 | Spoken planner approval cards (visit-time readback with yes/no tiles). Coach voice mode. **Milestone 2.** |
 | 12–16 | Coach voice mode. Voice readout for Shift Handoff. Spoken approval cards and memory confirmations. |
-| 16–18 | Latency pass. Cache common phrases and story audio. Voice picker screen audio. |
+| 16–18 | Latency pass. Cache common phrases and approval-card audio. Voice picker screen audio. |
 | 18–20 | Help with stretch if stable, otherwise bug fixes. |
 | 20–24 | Pre-generate all demo audio. Lead demo rehearsals. Record voice-over for backup video. Present the demo. |
 
-**Needs from others**: T2 — save_story_chapter, ask_about, get_profile working (or mocked) by hour 6. T3 — suggestion output format by hour 2; chapter questions by hour 7; PhotoChoiceGrid by hour 7; voice picker screen. T4 — Coach answer format by hour 8; Coach chat embed.
+**Needs from others**: T2 — save_routine, book_staff_visit, ask_about, get_profile working (or mocked) by hour 6. T3 — suggestion output format by hour 2; planner routine fields by hour 7; PhotoChoiceGrid by hour 7; voice picker screen. T4 — Coach answer format by hour 8; Coach chat embed.
 
 **Hands off**: audio URLs (to T4 for playback); voice IDs per resident (to T2 for the residents table).
 
-**Done when**: a resident can pick a voice, approve a sentence and hear it in under 5 seconds. One full chapter can be interviewed, approved and narrated. Staff can ask the Coach a question out loud and hear a sourced answer. Every approval card and memory confirmation is spoken.
+**Done when**: a resident can pick a voice, approve a sentence and hear it in under 5 seconds. A planner visit proposal is read aloud and approved by tap. Staff can ask the Coach a question out loud and hear a sourced answer. Every approval card and memory confirmation is spoken.
 
 ### Tiffany (T2): Data and MCP lead
 
 **Owns**: Tiger Data database and schema. Seed data for both residents, homes, staff and 2 weeks of EMH mock data. All four MCP servers. Memory store (vectors + timestamps). Mock action services. Backend API. Handoff agent.
 
 **Deliverables**
-- Database schema (§3). Seed data: Marcus and Dana profiles, tiles, 2 draft story chapters, 2 weeks of contact notes, checklist entries with reasons, 3 staff, 2 homes.
+- Database schema (§3). Seed data: Marcus and Dana profiles, tiles, a seeded routine per resident (e.g. Dana: meet staff 1:00pm, 2h, daily) + its visit_events, 2 weeks of contact notes, checklist entries with reasons, 3 staff, 2 homes.
 - resident-profile MCP server (8 tools). emh mock MCP server (3 tools). memory MCP server (5 tools) with vector search. actions MCP server (6 tools) with a mock booking site and real message sending.
 - Seeded memory history: 2 weeks of events so patterns exist (e.g. Marcus switching to tea).
 - Backend API exposing MCP tools to the frontend and ElevenLabs agents. Handoff agent.
@@ -249,8 +271,8 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 | Hours | Tasks |
 |---|---|
 | 0–1 | Create Tiger Data service. Write schema. Agree contracts. Publish mock responses so others are not blocked. |
-| 1–6 | Seed data. Build get_profile, get_story, suggest_sentence (calls T3's prompt), log_sentence. Milestone 1 support. |
-| 6–12 | ask_about with source labels, save_story_chapter, add_observation. emh mock server. Milestone 2 support. |
+| 1–6 | Seed data. Build get_profile, get_planner, suggest_sentence (calls T3's prompt), log_sentence. Milestone 1 support. |
+| 6–12 | ask_about with source labels, save_routine, book_staff_visit (Google Calendar MCP + import fallback), add_observation. emh mock server. Milestone 2 support. |
 | 12–16 | log_choice. Memory server + seeded memory history. Actions server with mock booking and message sending. Handoff agent. |
 | 16–18 | Feature freeze. Test every tool. Fix data issues. Deploy backend. |
 | 18–20 | Stretch: Claude Desktop demo, manager view queries. |
@@ -264,13 +286,13 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 
 ### Ahmed (T3): Resident experience & pitch lead (AI + screens)
 
-**Owns**: everything the resident directly uses — both the prompts and the screens. Speak For Me, My Story, Supported Choice, approvals and confirmations. Accessibility lead. Shared Gemini wrapper. The pitch: deck, demo video, Devpost, domain.
+**Owns**: everything the resident directly uses — both the prompts and the screens. Speak For Me, My Planner, Supported Choice, approvals and confirmations. Accessibility lead. Shared Gemini wrapper. The pitch: deck, demo video, Devpost, domain.
 
 **Deliverables**
 - Gemini wrapper: structured JSON output + embeddings (used by T4 and T2 too).
 - Voice agent: profile-based sentence suggestions (2–3 short options), tested on 15 tile combinations.
 - Speak For Me screen: tile grid, sentence strip, suggestions with approve/reject, audio playback.
-- Story: 7 chapter templates + 3–5 picture-answerable questions each, chapter writer, story pages, PhotoChoiceGrid the Story agent triggers.
+- My Planner: routine-input screen (person/time/length/days, defaults to 7 days), weekly visit grid, Planner subagent that expands a routine into visit_events and books via Google Calendar MCP (manual-import fallback), reusing PhotoChoiceGrid for person/day picks.
 - Choice agent (consequences, never recommends) + choice screen.
 - Action approval card, "pattern noticed, confirm?" screen, voice picker.
 - Accessibility pass on all resident screens (§9).
@@ -281,19 +303,19 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 | 0–1 | Set up Gemini, build the wrapper. Agree output formats and contracts. |
 | 1–5 | Voice agent prompt and logic. Test with 15 tile combinations for both residents. |
 | 4–6 | Speak For Me screen on T4's design system. **Milestone 1.** |
-| 6–7 | PhotoChoiceGrid (to T1) + chapter questions (with T1). |
-| 7–9 | Story chapter writer (`/story/draft` by hour 9). Story pages. |
+| 6–7 | PhotoChoiceGrid + planner routine fields (with T1/T2). |
+| 7–9 | Planner subagent (`/planner/plan` by hour 9) + My Planner screens (routine input, weekly grid). |
 | 9–12 | Sleep. Up for **Milestone 2**. |
 | 12–16 | Choice agent + choice screen. Approval card, "confirm?" screen, voice picker. |
 | 16–18 | Accessibility pass across resident screens. Tablet testing. Freeze. |
 | 18–20 | Pitch deck draft. Bug fixes. |
 | 20–24 | Record and edit backup video (hour 20, with James's voice-over). Final deck. Devpost write-up. Point the GoDaddy domain at the app. |
 
-**Needs from others**: T2 — mock endpoints hour 1, profile/EMH data by hour 2. T4 — design system + shared components by hour 3. T1 — audio URLs (hour 4), interview answer format (hour 7).
+**Needs from others**: T2 — mock endpoints hour 1, profile/EMH data by hour 2, save_routine/book_staff_visit by hour 7. T4 — design system + shared components by hour 3. T1 — audio URLs (hour 4), spoken approval-card format (hour 7).
 
-**Hands off**: Gemini wrapper (to T4, T2 — hour 1). Suggestion format (to T1, T2). Chapter questions and text, PhotoChoiceGrid (to T1). Embedding function (to T2, hour 10).
+**Hands off**: Gemini wrapper (to T4, T2 — hour 1). Suggestion format (to T1, T2). Planner routine fields, PhotoChoiceGrid (to T1/T2). Embedding function (to T2, hour 10).
 
-**Done when**: Milestone 1 flow works end to end with suggestions that sound like Marcus and Dana on 15/15 tests. One chapter can be interviewed by taps only and read back. Choice agent never recommends and always offers "not decided yet". All resident screens usable on a tablet with no explanation. Deck, video, Devpost and live URL ready by hour 23.
+**Done when**: Milestone 1 flow works end to end with suggestions that sound like Marcus and Dana on 15/15 tests. A resident can set a routine by taps only, see visit blocks on the weekly grid and approve a booking. Choice agent never recommends and always offers "not decided yet". All resident screens usable on a tablet with no explanation. Deck, video, Devpost and live URL ready by hour 23.
 
 ### William (T4): Staff experience lead (AI + screens)
 
@@ -332,7 +354,7 @@ Pitch point: swap the mock EMH server for a real EMH connection and no agent cod
 |---|---|
 | 0–1 | Kickoff. Agree interface contracts. Everyone set up. |
 | 6 | **Milestone 1**: tap tiles → suggestions → approve → spoken. End to end. |
-| 12 | **Milestone 2**: one story chapter interviewed and narrated; Coach answers with sources. |
+| 12 | **Milestone 2**: a routine set by taps books a staff visit on the calendar (approved aloud); Coach answers with sources. |
 | 16 | Handoff, Supported Choice, memory layer and first 2 actions working. |
 | 18 | **Feature freeze.** Only bug fixes and stretch after this. |
 | 20 | Two full rehearsals. Record backup video. |
@@ -352,7 +374,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Tiffany (T2) publishes mo
 | Time | Beat | What happens | Driver |
 |---|---|---|---|
 | 0:00 | Hook | "Imagine learning about someone from a binder written years ago, by someone else." | T1 |
-| 0:20 | Story | Marcus's About me page plays in his voice. "Told once, heard by everyone." | T1 |
+| 0:20 | Planner | Dana sets "meet staff at 1:00, 2 hours, every day." The grid fills with 1:00–3:00 blocks; one approval books the staff visit on the shared calendar. "Her routine, her call." | T3 |
 | 0:45 | Speak | coffee + now → "Can I get a double-double from Tim's?" → approve → spoken. | T3 |
 | 1:10 | Choice + Action | Marcus picks bowling. One approval card: book lane, add to calendar, text Lisa. He approves. Staff task for the ride appears. | T3 |
 | 1:40 | Memory | Coach: "Marcus has been choosing tea lately (pattern noticed)." Marcus taps yes; now "in Marcus's words." | T4 |
@@ -377,9 +399,9 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Tiffany (T2) publishes mo
 | Category | Integration | Owner |
 |---|---|---|
 | Overall 1st/2nd/3rd | AAC, stories and onboarding: the partner's priorities | Everyone |
-| Cloudinary Community Impact | Residents' real photos become accessible tiles and story pages | T4 |
-| ElevenLabs | Chosen voices, narration, Story and Coach agents | T1 |
-| Gemini | All agents incl. memory subagents and Action agent; Computer Use (stretch) | T3 + T4 |
+| Cloudinary Community Impact | Residents' real photos become accessible tiles and staff visit cards | T4 |
+| ElevenLabs | Chosen voices, spoken approval cards, Coach agent | T1 |
+| Gemini | All agents incl. memory subagents, Action agent, and the Planner subagent (Google Calendar MCP); Computer Use (stretch) | T3 + T4 |
 | Tiger Data | Memory layer: vector search + timestamps in one database; EMH history; action log; input-events hypertable + continuous aggregate (gaze/gesture) | T2 |
 | Entire | Team coding sessions through Entire | Everyone |
 | GoDaddy | Project domain (e.g. inmywords.xyz) | T3 |
@@ -413,7 +435,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Tiffany (T2) publishes mo
 
 **Cut order**: manager view → camera mode → Computer Use → scenario questions → extra actions beyond the first → Supported Choice → Handoff.
 
-**Never cut**: Speak For Me, My Story, Onboarding Coach, Memory Layer (minimal version).
+**Never cut**: Speak For Me, My Planner, Onboarding Coach, Memory Layer (minimal version).
 
 ## 13. Submission checklist
 
