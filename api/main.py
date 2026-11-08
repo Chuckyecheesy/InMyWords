@@ -790,6 +790,77 @@ async def add_observation(body: ObservationBody, background: BackgroundTasks,
     return {"ok": True, "id": result["id"]} if live else {"ok": True}
 
 
+# ---------- Get staff help (ROADMAP Phase 6) ----------
+# In-app urgent notification to on-duty staff. NOT emergency services —
+# the resident UI says so on the confirmation card.
+
+class HelpBody(BaseModel):
+    resident_id: str
+
+
+class HelpAckBody(BaseModel):
+    staff_id: str
+
+
+# Mock-first fallback (in-process) so asking for help never 503s while the
+# actions server is down. Lost on restart; the real store is the live path.
+_local_help: list[dict] = []
+
+
+@app.post("/help")
+async def request_help(body: HelpBody, scope: dict = Depends(current_scope)):
+    """The resident confirmed 'Ask the on-duty staff member to come?'."""
+    require_access(scope, body.resident_id)
+    result, live = await _mcp(mcp_client.request_staff_help(body.resident_id), None)
+    if live and isinstance(result, dict) and result.get("request"):
+        return {"ok": True, "request": result["request"]}
+    row = {"id": 9000 + len(_local_help) + 1, "resident_id": body.resident_id,
+           "status": "open", "created_at": "", "acknowledged_by": None,
+           "acknowledged_at": None}
+    _local_help.append(row)
+    return {"ok": True, "request": row}
+
+
+@app.get("/help")
+async def help_requests(resident_id: str = "", open_only: bool = True,
+                        scope: dict = Depends(current_scope)):
+    """resident_id set: that resident's own requests (did someone see it?).
+    Unset: all open urgent requests, for the staff banner."""
+    if resident_id:
+        require_access(scope, resident_id)
+    else:
+        require_staff(scope)
+    result, live = await _mcp(mcp_client.get_help_requests(resident_id, open_only), None)
+    if live and isinstance(result, dict):
+        requests = result.get("requests", [])
+    else:
+        requests = [r for r in _local_help
+                    if (not resident_id or r["resident_id"] == resident_id)
+                    and (not open_only or r["status"] in ("open", "acknowledged"))]
+    # Staff see only their own residents' requests (managers see all).
+    session = scope["session"]
+    if not resident_id and session and session.get("role") == "staff":
+        requests = [r for r in requests if r["resident_id"] in scope["assignments"]]
+    return {"requests": requests}
+
+
+@app.post("/help/{task_id}/acknowledge")
+async def acknowledge_help(task_id: int, body: HelpAckBody,
+                           scope: dict = Depends(current_scope)):
+    require_staff(scope)
+    result, live = await _mcp(mcp_client.acknowledge_help(task_id, body.staff_id), None)
+    if live and isinstance(result, dict):
+        if result.get("error"):
+            raise HTTPException(404, result["error"])
+        return {"ok": True, "request": result["request"]}
+    row = next((r for r in _local_help if r["id"] == task_id), None)
+    if not row:
+        raise HTTPException(404, f"no help request {task_id}")
+    row["status"] = "acknowledged"
+    row["acknowledged_by"] = body.staff_id
+    return {"ok": True, "request": row}
+
+
 # ---------- Custom cards (ROADMAP Phase 4) ----------
 
 class TileBody(BaseModel):

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { Contrast, SlidersHorizontal, Type } from "lucide-react";
+import { Contrast, Pointer, SlidersHorizontal, Type } from "lucide-react";
 
-type Setting = { attr: "theme" | "text"; on: string; off: string; storage: string; event: string };
+type Setting = { attr: "theme" | "text" | "touch"; on: string; off: string; storage: string; event: string };
 
 const CONTRAST: Setting = {
   attr: "theme",
@@ -19,6 +19,15 @@ const LARGE: Setting = {
   storage: "imw-text",
   event: "imw-text",
 };
+// One-finger mode (ROADMAP Phase 6): wider spacing and bigger targets
+// everywhere, for residents who steady the screen with one hand.
+const ONE_FINGER: Setting = {
+  attr: "touch",
+  on: "onefinger",
+  off: "default",
+  storage: "imw-touch",
+  event: "imw-touch",
+};
 
 function useSetting(setting: Setting): [boolean, () => void] {
   const value = useSyncExternalStore(
@@ -33,8 +42,11 @@ function useSetting(setting: Setting): [boolean, () => void] {
   function toggle() {
     const root = document.documentElement;
     const next = root.dataset[setting.attr] === setting.on ? setting.off : setting.on;
-    if (setting.attr === "text" && next === setting.off) delete root.dataset.text;
-    else root.dataset[setting.attr] = next;
+    if ((setting.attr === "text" || setting.attr === "touch") && next === setting.off) {
+      delete root.dataset[setting.attr];
+    } else {
+      root.dataset[setting.attr] = next;
+    }
     try {
       localStorage.setItem(setting.storage, next);
     } catch {
@@ -51,6 +63,7 @@ export function DisplayMenu({ size = "md" }: { size?: "md" | "lg" }) {
   const [open, setOpen] = useState(false);
   const [contrast, toggleContrast] = useSetting(CONTRAST);
   const [large, toggleLarge] = useSetting(LARGE);
+  const [oneFinger, toggleOneFinger] = useSetting(ONE_FINGER);
   const ref = useRef<HTMLDivElement | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const panelId = useId();
@@ -106,6 +119,17 @@ export function DisplayMenu({ size = "md" }: { size?: "md" | "lg" }) {
           >
             <Contrast size={22} aria-hidden="true" />
             High contrast
+            <span className="toggle-dot" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="btn contrast-toggle"
+            data-size="lg"
+            aria-pressed={oneFinger}
+            onClick={toggleOneFinger}
+          >
+            <Pointer size={22} aria-hidden="true" />
+            One finger mode
             <span className="toggle-dot" aria-hidden="true" />
           </button>
         </div>
