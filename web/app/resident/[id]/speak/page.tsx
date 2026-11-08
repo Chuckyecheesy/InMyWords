@@ -12,7 +12,10 @@ export default async function SpeakPage({ params }: { params: Promise<{ id: stri
   if (!resident) notFound();
   return (
     <>
-      <nav className="speak-modes" aria-label="Other ways to say it">
+      <SpeakForMe resident={resident.data} />
+      <details className="speak-disclosure">
+        <summary>Other ways to communicate</summary>
+        <nav className="speak-modes" aria-label="Other ways to say it">
         <Link href={`/resident/${id}/type`} className="btn" data-variant="soft" data-size="lg">
           <Keyboard size={20} aria-hidden="true" />
           Type instead
@@ -25,8 +28,8 @@ export default async function SpeakPage({ params }: { params: Promise<{ id: stri
           <Sparkles size={20} aria-hidden="true" />
           Guide me
         </Link>
-      </nav>
-      <SpeakForMe resident={resident.data} />
+        </nav>
+      </details>
     </>
   );
 }

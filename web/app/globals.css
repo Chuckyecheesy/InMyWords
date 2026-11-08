@@ -5538,3 +5538,47 @@ button.entry-preview-play:disabled { opacity: 0.6; }
   background: var(--card);
   color: inherit;
 }
+
+/* Keep the picture-to-speech path primary; reveal optional tools on request. */
+.speak-intro {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.speak-intro h1 {
+  font-size: var(--text-h2);
+}
+
+.speak-disclosure {
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.speak-disclosure > summary {
+  min-height: 64px;
+  padding: 16px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.speak-disclosure[open] > :not(summary) {
+  margin: 0 16px 16px;
+}
+
+.speak .composer-actions {
+  flex-wrap: wrap;
+}
+
+.speak .composer-actions > .big-button {
+  order: -1;
+  flex: 1;
+}
+
+.speak-extra-actions {
+  flex-basis: 100%;
+}
+
+.speak-time {
+  flex-shrink: 0;
+}
