@@ -881,10 +881,108 @@ button:disabled {
   gap: var(--space-6);
 }
 
+.entry-intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: var(--space-7);
+  align-items: center;
+}
+
 .entry-title {
   display: grid;
   gap: var(--space-4);
-  max-width: 22ch;
+}
+
+.entry-title h1 {
+  max-width: 13ch;
+}
+
+.entry-preview {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: var(--space-5);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  border: var(--stroke) solid var(--line);
+  box-shadow: var(--shadow-3);
+  transform: rotate(-1.2deg);
+}
+
+.entry-preview-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.entry-preview-tile {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 8px 8px 10px;
+  border-radius: var(--r-md);
+  border: var(--stroke-strong) solid var(--line);
+  font-weight: 700;
+  font-size: var(--text-small);
+}
+
+.entry-preview-tile:first-child {
+  border-color: var(--accent);
+}
+
+.entry-preview-photo {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 5 / 4;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.entry-preview-quote {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--r-lg);
+  border-left: 6px solid var(--accent);
+  background: var(--accent-softer);
+  font-weight: 700;
+  font-size: var(--text-lead);
+  line-height: 1.25;
+}
+
+.entry-preview-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.entry-preview-voice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: var(--text-small);
+}
+
+[data-theme="contrast"] .entry-preview,
+[data-theme="contrast"] .entry-preview-tile {
+  border: 2px solid #000;
+  transform: none;
+}
+
+@media (max-width: 900px) {
+  .entry-intro {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  .entry-preview {
+    max-width: 520px;
+    transform: none;
+  }
 }
 
 .entry-title h1 {
@@ -904,7 +1002,7 @@ button:disabled {
 .entry-title p {
   font-size: var(--text-lead);
   color: var(--ink-2);
-  max-width: 36ch;
+  max-width: 34ch;
 }
 
 .entry-grid {

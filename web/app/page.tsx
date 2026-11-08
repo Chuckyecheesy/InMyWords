@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Building2, ClipboardList } from "lucide-react";
 import { DataBanner } from "@/components/DataBanner";
 import { DisplayMenu } from "@/components/DisplayMenu";
+import { EntryPreview } from "@/components/EntryPreview";
 import { Avatar, WordmarkMark } from "@/components/ui";
 import { getResident } from "@/lib/api";
 import { DEMO_RESIDENT_IDS, homeFor } from "@/lib/mock";
@@ -23,11 +24,14 @@ export default async function EntryPage() {
       </header>
 
       <main id="main" className="entry-hero">
-        <div className="entry-title">
-          <h1>
-            Your story, told once, in <em>your own voice.</em>
-          </h1>
-          <p>Your choices, made by you. Communication, life story and staff onboarding for supported living.</p>
+        <div className="entry-intro">
+          <div className="entry-title">
+            <h1>
+              Your story, told once, in <em>your own voice.</em>
+            </h1>
+            <p>Your choices, made by you. Communication, life story and staff onboarding for supported living.</p>
+          </div>
+          <EntryPreview />
         </div>
 
         {sample ? <DataBanner>Sample data — the API didn&apos;t answer, so these are the demo residents.</DataBanner> : null}
