@@ -220,6 +220,9 @@ class SeedStore:
         self.emh_checklist = emh["emh_checklist"]
         self.emh_events = emh["emh_events"]
         self.memories = [dict(m, id=i + 1) for i, m in enumerate(read("memories.json")["memories"])]
+        accounts = read("users.json")
+        self.users = [dict(u, id=i + 1) for i, u in enumerate(accounts["users"])]
+        self.assignments = accounts["staff_assignments"]
         # Seed-mode RAG: document vectors cached on disk by content hash
         # (gitignored), so recall is semantic even without the database.
         self._vectors = VectorCache(SEED_DIR / ".embeddings.json", embed_texts)
@@ -256,8 +259,57 @@ class SeedStore:
     def get_resident(self, rid):
         r = self.residents.get(rid)
         if not r:
+            self._reload_runtime()
+            r = next((x for x in self._runtime.get("residents_added", []) if x["id"] == rid), None)
+        if not r:
             return None
         return dict(r, tiles=self._tiles_for(rid))
+
+    # ---- accounts & scope (ROADMAP Phase 2) ----
+
+    def _users_all(self):
+        self._reload_runtime()
+        return self.users + self._runtime.get("users_added", [])
+
+    def get_user(self, login_id):
+        login = (login_id or "").strip().lower()
+        return next((dict(u) for u in self._users_all() if u["login_id"].lower() == login), None)
+
+    def list_resident_logins(self):
+        return [{"resident_id": u["resident_id"], "display_name": u["display_name"]}
+                for u in self._users_all() if u["role"] == "resident" and u.get("resident_id")]
+
+    def get_assignments(self, staff_id):
+        self._reload_runtime()
+        rows = self.assignments + self._runtime.get("assignments_added", [])
+        return sorted({a["resident_id"] for a in rows if a["staff_id"] == staff_id})
+
+    def create_resident(self, payload):
+        """Staff create-a-resident: resident row + starter tiles + login +
+        assignments, persisted to the shared runtime file."""
+        rid = payload["id"]
+        if self.get_resident(rid):
+            return {"error": f"resident id '{rid}' already exists"}
+        if self.get_user(rid):
+            return {"error": f"login '{rid}' already exists"}
+        self._reload_runtime()
+        self._runtime.setdefault("residents_added", []).append(
+            {"id": rid, "home_id": payload.get("home_id"), "first_name": payload["first_name"],
+             "voice_id": None, "communication_style": payload.get("communication_style") or "",
+             "weekly_budget": payload.get("weekly_budget")})
+        added = self._runtime.setdefault("tiles_added", [])
+        base_id = 2000 + len(added)
+        for i, tile in enumerate(payload.get("tiles", [])):
+            added.append({"id": base_id + i, "resident_id": rid, "label": tile["label"],
+                          "category": tile.get("category"), "cloudinary_id": tile.get("cloudinary_id")})
+        self._runtime.setdefault("users_added", []).append(
+            {"id": 100 + len(self._runtime.get("users_added", [])), "login_id": rid,
+             "role": "resident", "resident_id": rid, "staff_id": None,
+             "display_name": payload["first_name"], "secret_hash": payload["secret_hash"]})
+        self._runtime.setdefault("assignments_added", []).extend(
+            {"staff_id": sid, "resident_id": rid} for sid in payload.get("staff_ids", []))
+        self._save_runtime()
+        return self.get_resident(rid)
 
     def _tiles_for(self, rid):
         """Seed tiles plus staff-added photo tiles. Added tiles live in the
@@ -728,6 +780,51 @@ class PostgresStore:
             "SELECT id, label, category, cloudinary_id, times_used FROM tiles "
             "WHERE resident_id = %s AND NOT archived ORDER BY times_used DESC", (rid,))
         return r
+
+    # ---- accounts & scope (ROADMAP Phase 2) ----
+
+    def get_user(self, login_id):
+        return self._one(
+            "SELECT id, login_id, role, resident_id, staff_id, display_name, secret_hash "
+            "FROM users WHERE lower(login_id) = lower(%s)", ((login_id or "").strip(),))
+
+    def list_resident_logins(self):
+        return self._all(
+            "SELECT resident_id, display_name FROM users "
+            "WHERE role = 'resident' AND resident_id IS NOT NULL ORDER BY display_name")
+
+    def get_assignments(self, staff_id):
+        return [r["resident_id"] for r in self._all(
+            "SELECT resident_id FROM staff_assignments WHERE staff_id = %s ORDER BY resident_id",
+            (staff_id,))]
+
+    def create_resident(self, payload):
+        """Staff create-a-resident: resident row + starter tiles + login +
+        assignments, in one transaction."""
+        rid = payload["id"]
+        with self._conn() as conn:
+            if conn.execute("SELECT 1 FROM residents WHERE id = %s", (rid,)).fetchone():
+                return {"error": f"resident id '{rid}' already exists"}
+            if conn.execute("SELECT 1 FROM users WHERE lower(login_id) = lower(%s)", (rid,)).fetchone():
+                return {"error": f"login '{rid}' already exists"}
+            conn.execute(
+                """INSERT INTO residents (id, home_id, first_name, communication_style, weekly_budget)
+                   VALUES (%s,%s,%s,%s,%s)""",
+                (rid, payload.get("home_id"), payload["first_name"],
+                 payload.get("communication_style") or "", payload.get("weekly_budget")))
+            for tile in payload.get("tiles", []):
+                conn.execute(
+                    "INSERT INTO tiles (resident_id, label, category, cloudinary_id) VALUES (%s,%s,%s,%s)",
+                    (rid, tile["label"], tile.get("category"), tile.get("cloudinary_id")))
+            conn.execute(
+                """INSERT INTO users (login_id, role, resident_id, display_name, secret_hash)
+                   VALUES (%s,'resident',%s,%s,%s)""",
+                (rid, rid, payload["first_name"], payload["secret_hash"]))
+            for sid in payload.get("staff_ids", []):
+                conn.execute(
+                    "INSERT INTO staff_assignments (staff_id, resident_id) VALUES (%s,%s) ON CONFLICT DO NOTHING",
+                    (sid, rid))
+        return self.get_resident(rid)
 
     def save_tile(self, rid, label, category, cloudinary_id):
         """Add a photo tile, or give an existing tile (same label) its new photo.

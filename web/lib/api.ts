@@ -696,3 +696,60 @@ export function setTileArchived(tileId: string | number, residentId: string, arc
 export async function getResidentFresh(id: string): Promise<Resident | null> {
   return normalizeResident(id, await fetchJson(`/residents/${encodeURIComponent(id)}`));
 }
+
+// ---------- Accounts & privacy (ROADMAP Phase 2) ----------
+// Sessions are HTTP-only cookies set by the API; browser calls ride the
+// same-origin /backend proxy, so they flow without extra configuration.
+
+export type SessionUser = {
+  role: "resident" | "staff" | "manager";
+  resident_id: string | null;
+  staff_id: string | null;
+  display_name: string;
+};
+
+export type SessionInfo = {
+  mode: "open" | "required";
+  user: SessionUser | null;
+  assignments: string[];
+};
+
+export function login(loginId: string, secret: string) {
+  return sendJson<{ ok: boolean; user: SessionUser }>("/auth/login", {
+    login_id: loginId,
+    secret,
+  });
+}
+
+export function logout() {
+  return sendJson<{ ok: boolean }>("/auth/logout", {});
+}
+
+export async function getSession(): Promise<SessionInfo | null> {
+  const raw = record(await fetchJson("/auth/me"));
+  if (!raw) return null;
+  return raw as unknown as SessionInfo;
+}
+
+export async function getResidentLogins(): Promise<
+  { resident_id: string; display_name: string }[]
+> {
+  const raw = record(await fetchJson("/auth/residents"));
+  const rows = Array.isArray(raw?.residents) ? raw.residents : [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    if (!item || typeof item.resident_id !== "string") return [];
+    return [{ resident_id: item.resident_id, display_name: text(item.display_name) ?? item.resident_id }];
+  });
+}
+
+export function createResident(input: {
+  first_name: string;
+  pin: string;
+  home_id?: string;
+  communication_style?: string;
+  weekly_budget?: number | null;
+  staff_ids?: string[];
+}) {
+  return sendJson<{ ok: boolean; resident_id: string }>("/residents", input);
+}

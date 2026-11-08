@@ -297,5 +297,51 @@ def set_tile_archived(resident: str, tile_id: int, archived: bool = True) -> dic
     return {"ok": True, "tile_id": tile_id, "archived": archived, "store_mode": store.mode}
 
 
+@mcp.tool
+def get_auth_user(login_id: str) -> dict:
+    """Accounts (ROADMAP Phase 2): look up a login row by resident id or staff
+    email. Returns the PBKDF2 hash for the API to verify; never a raw secret.
+    This server stays internal (localhost) — the API is the sole gatekeeper."""
+    store = get_store()
+    user = store.get_user(login_id)
+    if not user:
+        return {"error": f"no user '{login_id}'"}
+    return {"user": user, "store_mode": store.mode}
+
+
+@mcp.tool
+def list_resident_logins() -> dict:
+    """The shared-tablet sign-in grid: residents who can log in (id + display
+    name only; no hashes)."""
+    store = get_store()
+    return {"residents": store.list_resident_logins(), "store_mode": store.mode}
+
+
+@mcp.tool
+def get_staff_assignments(staff_id: str) -> dict:
+    """Which residents a staff member supports. Scope rule: staff see assigned
+    residents only; managers see all; residents see themselves."""
+    store = get_store()
+    return {"resident_ids": store.get_assignments(staff_id), "store_mode": store.mode}
+
+
+@mcp.tool
+def create_resident(resident_id: str, first_name: str, home_id: str = "",
+                    communication_style: str = "", weekly_budget: float | None = None,
+                    secret_hash: str = "", staff_ids: list[str] | None = None,
+                    tiles: list[dict] | None = None) -> dict:
+    """Create-a-resident (staff): resident row + starter tiles + photo/PIN
+    login + staff assignments. Everything staff enters stays staff-provided
+    until the resident confirms it through the normal memory-confirm flow."""
+    store = get_store()
+    result = store.create_resident({
+        "id": resident_id, "first_name": first_name, "home_id": home_id or None,
+        "communication_style": communication_style, "weekly_budget": weekly_budget,
+        "secret_hash": secret_hash, "staff_ids": staff_ids or [], "tiles": tiles or []})
+    if isinstance(result, dict) and result.get("error"):
+        return result
+    return {"resident": result, "store_mode": store.mode}
+
+
 if __name__ == "__main__":
     mcp.run(transport="http", host="127.0.0.1", port=8101)
