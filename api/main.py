@@ -167,6 +167,13 @@ async def suggest(body: SuggestBody, request: Request):
         name = profile["name"]
     else:
         name = resident_id[:1].upper() + resident_id[1:] if resident_id else "Resident"
+    # Mock-first: local compose (generate=None). Live Gemini only when
+    # SUGGEST_USE_LLM=1 — flip that after the mock path demos cleanly.
+    use_llm = os.environ.get("SUGGEST_USE_LLM", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     try:
         return suggest_sentences(
             resident_id=resident_id,
@@ -174,6 +181,7 @@ async def suggest(body: SuggestBody, request: Request):
             tiles=tiles,
             time_of_day=body.time or "",
             memories=memories,
+            generate="auto" if use_llm else None,
         )
     except Exception as exc:
         print(f"[suggest fallback] {type(exc).__name__}: {exc}")

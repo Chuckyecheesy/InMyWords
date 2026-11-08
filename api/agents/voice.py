@@ -272,12 +272,12 @@ def suggest(
     tiles: list[str],
     time_of_day: str = "",
     memories: list[dict] | None = None,
-    generate="auto",
+    generate=None,
 ) -> dict:
     """Return {"options": [2 or 3 sentences]}.
 
-    generate="auto" calls Gemini. generate=None uses the faithful fallback.
-    Tests pass a fake generate(prompt, schema, **kwargs).
+    Mock-first: generate=None uses the faithful local compose (no Gemini).
+    generate="auto" calls Gemini. Tests pass a fake generate(prompt, schema, **kwargs).
     """
     tiles = clean_tiles(tiles)
     time_of_day = " ".join((time_of_day or "").split())[:20]
