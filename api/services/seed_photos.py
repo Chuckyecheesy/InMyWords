@@ -204,7 +204,7 @@ def generate_all_messy_photos() -> list[Path]:
 def configure_cloudinary(env: dict[str, str]) -> dict[str, str]:
     import cloudinary
 
-    cloud = env.get("CLOUDINARY_CLOUD_NAME", "").strip()
+    cloud = env.get("CLOUDINARY_CLOUD_NAME", "").strip().lower()
     key = env.get("CLOUDINARY_API_KEY", "").strip()
     secret = env.get("CLOUDINARY_API_SECRET", "").strip()
     if not cloud or not key or not secret:

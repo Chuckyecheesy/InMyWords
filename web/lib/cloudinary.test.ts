@@ -24,6 +24,12 @@ test("a high-contrast tile url sharpens and pads on white", () => {
   assert.match(url!, /\/tiles\/marcus_coffee$/);
 });
 
+test("a display cloud name is lowercased for the delivery host", () => {
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = "InMyWord";
+  const url = tileImageUrl("tiles/marcus_coffee", "calm");
+  assert.match(url!, /^https:\/\/res\.cloudinary\.com\/inmyword\/image\/upload\//);
+});
+
 test("a missing cloud name or public id builds no url", () => {
   delete process.env.CLOUDINARY_CLOUD_NAME;
   delete process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;

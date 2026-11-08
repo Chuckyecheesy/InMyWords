@@ -42,6 +42,15 @@ class UnsignedUploadTests(unittest.TestCase):
         self.assertNotIn("super-secret", blob)
         self.assertNotIn("12345", blob)
 
+    def test_display_cloud_name_is_lowercased(self):
+        params = unsigned_upload_params(
+            {
+                "CLOUDINARY_CLOUD_NAME": "InMyWord",
+                "CLOUDINARY_UPLOAD_PRESET": "staff_photos",
+            }
+        )
+        self.assertEqual(params["cloud_name"], "inmyword")
+
     def test_missing_preset_or_cloud_is_refused(self):
         with self.assertRaises(CloudinaryConfigError):
             unsigned_upload_params({"CLOUDINARY_CLOUD_NAME": "inmywords"})

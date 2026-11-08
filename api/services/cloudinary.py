@@ -19,7 +19,7 @@ _PUBLIC_ID = re.compile(r"^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$")
 
 
 def unsigned_upload_params(env: Mapping[str, str]) -> dict[str, str]:
-    cloud = env.get("CLOUDINARY_CLOUD_NAME", "").strip()
+    cloud = env.get("CLOUDINARY_CLOUD_NAME", "").strip().lower()
     preset = env.get("CLOUDINARY_UPLOAD_PRESET", "").strip()
     missing = [
         name
