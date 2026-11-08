@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.seed_photos import (  # noqa: E402
     PRESET_NAME,
+    cloud_name_candidates,
     demo_photo_files,
     generate_all_messy_photos,
     make_messy_photo,
@@ -35,6 +36,12 @@ class SeedPublicIdTests(unittest.TestCase):
             for chapter in data["story_chapters"]:
                 for photo_id in chapter["photo_ids"]:
                     self.assertIn(photo_id, ids)
+
+
+class CloudNameTests(unittest.TestCase):
+    def test_candidates_include_the_saved_name_and_the_product_cloud(self):
+        names = cloud_name_candidates({"CLOUDINARY_CLOUD_NAME": "InMyWord"})
+        self.assertEqual(names, ["InMyWord", "inmyword", "inmywords"])
 
 
 class DemoPhotoTests(unittest.TestCase):

@@ -130,6 +130,13 @@ cd $REMOTE
 cd web
 npm ci --no-audit --no-fund --loglevel=error
 set -a; . /etc/inmywords.env; set +a
+if cloud=\$(cd $REMOTE/api && /opt/inmywords-venv/bin/python -m scripts.print_cloud_name); then
+  export CLOUDINARY_CLOUD_NAME=\"\$cloud\"
+  export NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=\"\$cloud\"
+  echo \"Cloudinary cloud: \$cloud\"
+else
+  echo 'WARNING: Cloudinary did not accept the saved cloud name.' >&2
+fi
 # next build wipes .next first, so keep the running build until the new one succeeds.
 rm -rf /var/tmp/inmywords-next.prev; [ -d .next ] && cp -a .next /var/tmp/inmywords-next.prev
 if ! API_BASE_URL=http://127.0.0.1:8000 npm run build > /var/tmp/inmywords-build.log 2>&1; then
