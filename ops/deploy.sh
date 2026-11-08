@@ -129,7 +129,10 @@ cd $REMOTE
 /opt/inmywords-venv/bin/pip install -q -r api/requirements.txt -r mcp/requirements.txt fastmcp
 cd web
 npm ci --no-audit --no-fund --loglevel=error
-set -a; . /etc/inmywords.env; set +a
+# Parse dotenv values as data; never execute the secrets file as shell code.
+env_exports=\$(/opt/inmywords-venv/bin/python $REMOTE/api/scripts/shell_env.py /etc/inmywords.env)
+eval \"\$env_exports\"
+unset env_exports
 if cloud=\$(cd $REMOTE/api && /opt/inmywords-venv/bin/python -m scripts.print_cloud_name); then
   export CLOUDINARY_CLOUD_NAME=\"\$cloud\"
   export NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=\"\$cloud\"
@@ -156,7 +159,9 @@ ln -sfn /var/lib/inmywords/runtime.json $REMOTE/db/seed/.runtime.json"
 step "Uploading demo photos through the Cloudinary API"
 # Uses the cloud name, key, and secret already on the VM. Prints public ids only.
 ssh_root "set -eo pipefail
-set -a; . /etc/inmywords.env; set +a
+env_exports=\$(/opt/inmywords-venv/bin/python $REMOTE/api/scripts/shell_env.py /etc/inmywords.env)
+eval \"\$env_exports\"
+unset env_exports
 cd $REMOTE/api
 /opt/inmywords-venv/bin/python -m scripts.upload_demo_photos" \
   || echo "WARNING: Cloudinary upload did not finish. Tiles use the last photos that reached the cloud." >&2
