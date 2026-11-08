@@ -689,6 +689,40 @@ async def add_observation(body: ObservationBody, background: BackgroundTasks):
     return {"ok": True, "id": result["id"]} if live else {"ok": True}
 
 
+# ---------- Custom cards (ROADMAP Phase 4) ----------
+
+class TileBody(BaseModel):
+    resident_id: str
+    label: str
+    cloudinary_id: str
+    category: str = ""
+
+
+class TileArchiveBody(BaseModel):
+    resident_id: str
+    archived: bool = True
+
+
+@app.post("/tiles")
+async def add_tile(body: TileBody):
+    """Resident-facing Add card: label + photo -> a tile on their grid."""
+    result, live = await _mcp(
+        mcp_client.save_tile(body.resident_id, body.label, body.cloudinary_id, body.category), None)
+    if live and result.get("error"):
+        raise HTTPException(422, result["error"])
+    return {"ok": True, "tile": result.get("tile") if live else None}
+
+
+@app.post("/tiles/{tile_id}/archive")
+async def archive_tile(tile_id: int, body: TileArchiveBody):
+    """Hide or restore a card. Never deletes, so undo always works."""
+    result, live = await _mcp(
+        mcp_client.set_tile_archived(body.resident_id, tile_id, body.archived), None)
+    if live and result.get("error"):
+        raise HTTPException(404, result["error"])
+    return {"ok": True, "archived": body.archived}
+
+
 # ---------- Records library (ROADMAP Phase 3) ----------
 
 class RecordBody(BaseModel):

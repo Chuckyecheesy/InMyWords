@@ -9,6 +9,7 @@ test("Coach returns a sourced overview for an onboarding question", async ({ pag
       response.url().includes("/coach/ask") &&
       response.request().method() === "POST",
   );
+  // "Ask by voice" also matches a substring name of "Ask".
   await page.getByRole("button", { name: "Ask", exact: true }).click();
   const response = await responsePromise;
   expect(response.ok()).toBeTruthy();
@@ -17,12 +18,14 @@ test("Coach returns a sourced overview for an onboarding question", async ({ pag
     answer: string;
     sources: { type: string; date: string; label: string }[];
   };
-  // The natural-wording Coach (PR #23) phrases sources inline but freely
-  // ("From the 2021 records, ..."), so assert semantics, not exact strings.
+  // Spoken wording phrases sources inline ("From the 2021 records, ...").
+  // The answer lives in .msg-a; the source badges sit behind "View sources".
   expect(body.answer).not.toContain("I don't know");
-  expect(body.answer).toMatch(/records/i);
-  expect(body.answer).toMatch(/In Marcus's words/i);
-  expect(body.sources.length).toBeGreaterThan(0);
+  expect(body.answer).toContain("In Marcus's words");
+  expect(body.answer).toContain("From the 2021 records");
+  expect(body.sources.some((source) => source.type === "document")).toBeTruthy();
 
-  await expect(page.locator(".msg-a").last()).toContainText(/records/i, { timeout: 15_000 });
+  await expect(page.locator(".msg-a").last()).toContainText("From the 2021 records", {
+    timeout: 15_000,
+  });
 });

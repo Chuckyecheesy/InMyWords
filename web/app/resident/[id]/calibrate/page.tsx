@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CameraOff, Eye, Hand, Sparkles } from "lucide-react";
 import { hasCameraConsent } from "@/lib/input/consent";
 import {
+  cameraStartMessage,
   clearCalibration,
   currentGaze,
   freezeLearning,
@@ -36,7 +37,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   const distances = useRef<number[]>([]);
   const [result, setResult] = useState<"good" | "okay" | "retry" | null>(null);
   const [starting, setStarting] = useState(false);
-  const [cameraError, setCameraError] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hasCameraConsent(id)) setPhase("consent");
@@ -45,15 +46,15 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
 
   async function begin() {
     setStarting(true);
-    setCameraError(false);
+    setCameraError(null);
     try {
       clearCalibration();
       await startGaze();
       setPhase("calibrating");
       setTargetIndex(0);
       setTaps(0);
-    } catch {
-      setCameraError(true);
+    } catch (error) {
+      setCameraError(cameraStartMessage(error));
     } finally {
       setStarting(false);
     }
@@ -161,7 +162,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
           </button>
           {cameraError ? (
             <p className="note" role="status">
-              The camera could not start. Check permissions, then try again.
+              {cameraError}
             </p>
           ) : null}
         </div>

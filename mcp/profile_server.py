@@ -328,5 +328,16 @@ def get_planner(resident: str) -> dict:
     return {"resident": resident, "visits": [visit_view(v, r["first_name"]) for v in visits]}
 
 
+@mcp.tool
+def set_tile_archived(resident: str, tile_id: int, archived: bool = True) -> dict:
+    """Custom cards (ROADMAP Phase 4): hide a card from the resident's grid,
+    or restore it. Archived cards are never deleted, so undo always works."""
+    store = get_store()
+    ok = store.set_tile_archived(resident, tile_id, archived)
+    if not ok:
+        return {"error": f"no tile {tile_id} for '{resident}'"}
+    return {"ok": True, "tile_id": tile_id, "archived": archived, "store_mode": store.mode}
+
+
 if __name__ == "__main__":
     mcp.run(transport="http", host="127.0.0.1", port=8101)

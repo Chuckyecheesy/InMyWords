@@ -308,3 +308,7 @@ async def get_checklist(home, date=""):
 
 async def get_significant_events(resident):
     return await _call("emh", "get_significant_events", {"resident": resident})
+
+async def set_tile_archived(resident, tile_id, archived=True):
+    return await _call("profile", "set_tile_archived",
+                       {"resident": resident, "tile_id": tile_id, "archived": archived})

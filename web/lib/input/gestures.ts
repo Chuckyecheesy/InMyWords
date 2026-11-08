@@ -44,11 +44,26 @@ export async function startGestures(): Promise<void> {
   } catch {
     fileset = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
   }
-  recognizer = await vision.GestureRecognizer.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
-    runningMode: "VIDEO",
+  // WebGazer's face-mesh build leaves an Emscripten `Module` on window.
+  // GestureRecognizer reads `Module.noExitRuntime`, and that getter aborts
+  // the face-mesh runtime. Replace the global before the recognizer
+  // instantiates its own wasm. Face mesh keeps the object it closed over.
+  const host = window as unknown as { Module?: unknown };
+  host.Module = undefined;
+  const options = {
+    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" as const },
+    runningMode: "VIDEO" as const,
     numHands: 1,
-  });
+  };
+  try {
+    recognizer = await vision.GestureRecognizer.createFromOptions(fileset, options);
+  } catch {
+    // Some machines have no usable GPU delegate. CPU still reads the same camera.
+    recognizer = await vision.GestureRecognizer.createFromOptions(fileset, {
+      ...options,
+      baseOptions: { ...options.baseOptions, delegate: "CPU" },
+    });
+  }
   detector = new GestureDetector();
   loop();
 }

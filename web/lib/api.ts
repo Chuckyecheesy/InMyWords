@@ -673,3 +673,26 @@ export function addRecord(input: {
 }) {
   return sendJson<{ ok: boolean; id: number }>("/records", input);
 }
+
+// ---------- Custom cards (ROADMAP Phase 4) ----------
+
+export function addTile(input: {
+  resident_id: string;
+  label: string;
+  cloudinary_id: string;
+  category?: string;
+}) {
+  return sendJson<{ ok: boolean; tile: Tile | null }>("/tiles", input);
+}
+
+export function setTileArchived(tileId: string | number, residentId: string, archived: boolean) {
+  return sendJson<{ ok: boolean; archived: boolean }>(`/tiles/${tileId}/archive`, {
+    resident_id: residentId,
+    archived,
+  });
+}
+
+/** Uncached resident fetch for client components that just mutated tiles. */
+export async function getResidentFresh(id: string): Promise<Resident | null> {
+  return normalizeResident(id, await fetchJson(`/residents/${encodeURIComponent(id)}`));
+}

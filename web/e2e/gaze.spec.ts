@@ -46,11 +46,15 @@ test("G7: How I Communicate card sits in the onboarding communication step", asy
   await expect(page.getByText("From Marcus's input history")).toBeVisible({ timeout: 20_000 });
 });
 
-test("consent on: eye-grid toggle appears; camera path degrades without crashing", async ({
+test("consent on: eye grid opens and the camera indicator comes on", async ({
   page,
 }) => {
   const pageErrors: Error[] = [];
+  const warnings: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error));
+  page.on("console", (msg) => {
+    if (msg.type() === "warning" || msg.type() === "error") warnings.push(msg.text());
+  });
 
   await page.addInitScript(() => {
     window.localStorage.setItem("imw-camera-consent-marcus", "yes");
@@ -68,15 +72,21 @@ test("consent on: eye-grid toggle appears; camera path degrades without crashing
   await page.getByRole("button", { name: "coffee", exact: true }).click();
   await expect(page.locator(".composer-sentence")).toContainText("coffee");
 
-  // Give WebGazer + MediaPipe time against the fake camera, then the only
-  // hard requirement: no uncaught errors — consent on a camera-less box
-  // must degrade, never crash (the venue guarantee).
-  const indicator = page.getByText("Camera on");
-  const cameraCameUp = await indicator
-    .waitFor({ state: "visible", timeout: 30_000 })
-    .then(() => true)
-    .catch(() => false);
-  console.log(`[gaze e2e] camera indicator with fake webcam: ${cameraCameUp ? "yes" : "no (degraded cleanly)"}`);
+  // Fake webcam is enough for WebGazer to open the camera. The indicator
+  // is the proof the face-mesh files resolved and begin() finished.
+  await expect(page.getByText("Camera on")).toBeVisible({ timeout: 45_000 });
 
   expect(pageErrors, pageErrors.map((e) => e.message).join("\n")).toHaveLength(0);
+  const startupWarnings = warnings.filter((line) => /camera start failed|gesture start failed/i.test(line));
+  expect(startupWarnings, startupWarnings.join("\n")).toHaveLength(0);
+});
+
+test("teach screen: picking a picture starts the camera", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("imw-camera-consent-marcus", "yes");
+  });
+  await page.goto("/resident/marcus/teach");
+  await page.getByRole("button", { name: "coffee", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Capture" })).toBeEnabled({ timeout: 45_000 });
+  await expect(page.getByText(/could not start/i)).toHaveCount(0);
 });
