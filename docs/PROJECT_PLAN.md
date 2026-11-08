@@ -57,6 +57,7 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 - A weekly calendar (7 days a week) shows staff **visit hours** as blocks the resident can read at a glance. Example: Dana says "meet staff at 1:00pm for 2 hours" → the grid shows a **1:00p.m.–3:00p.m. Meeting** block, repeating every day of the week.
 - A Gemini **Planner subagent** turns the routine into appointments and books them on staff's calendar through a **Google Calendar MCP** server. If the MCP path doesn't work, staff **upload a .zip export of their Google Calendar** (Google Takeout) and its events are parsed and rendered onto the UI instead (same grid, same blocks).
 - Nothing is booked silently: the subagent proposes the slots on an approval card, the resident approves, **then** it books (product rules 1 and 5). The routine the resident typed is "in Dana's words"; any slot the subagent suggests on its own is "pattern noticed" until she confirms it.
+- The staff member then **accepts or rejects** each requested visit. Accepted → it shows on both the resident's and staff's calendar. Rejected → it disappears from both (see §2.5 "Staff accept or reject").
 
 **Onboarding Coach**
 - Guided path: Essentials (2 min), Story (10 min), Routines timeline, Check understanding (stretch).
@@ -106,6 +107,15 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 - Reads the resident's routine (through the MCP servers, never the DB directly — rule 4) and turns it into a set of calendar events with explicit start/end times. Time math is **plain code, not the LLM** (rule 6); the LLM only phrases the proposal ("Meet staff at 1:00, finish by 3:00, every day this week?").
 - Books on staff's calendar via a **Google Calendar MCP** server. **Fallback**: if that MCP is unavailable by demo time, staff **upload a .zip export of their Google Calendar** (Google Takeout; the .zip holds one or more `.ics` files) once, and its events render onto the same grid — the resident-facing UI is identical either way.
 - Every booking first appears on an **approval card** with the times and the person shown; it runs only after the resident approves, from the actions allowlist, and is logged (rule 5).
+
+**Staff accept or reject** *(added Nov 8)*
+- A visit the resident approved is a **request** to the staff member named on it, with status `pending`. It shows on both calendars (the resident's My Planner and the staff Planner tab) marked "Waiting for Sam", so nothing the resident asked for vanishes without an answer.
+- Only that staff member sees **Accept** / **Reject** on the visit in their Planner tab, per visit, plus **Accept all** for a routine's visits. Staff still cannot add or change a resident's visits; only the resident adds them.
+- **Accept** → status `accepted`. The visit shows on both ends as a normal booked block, and only now is it written to staff's Google Calendar (the Google write moves from resident approval to staff acceptance).
+- **Reject** → status `rejected`. The visit disappears from both calendars (and from Google, if it was there). The row is kept for the action log (rule 5) but never rendered.
+- On a reject the resident is told plainly, on screen and spoken in her chosen voice: "Sam can't come at 1:00 on Monday. You can pick another time." No reason text from staff is shown (no notes, reasons or health info on the planner), and the resident can choose again with "Add a visit".
+- This doesn't break rule 3: staff are answering about their own availability, not deciding for the resident. The resident's request stays her own words until staff answer.
+- Status changes are plain code (rule 6) and go through the MCP servers (rule 4); the decision, who made it and when are logged.
 
 **Source labels**: the routine the resident entered is the resident's own words. A slot the subagent proposes from a noticed pattern is "pattern noticed" / `inferred` until confirmed. Staff-created visit hours imported from their calendar are labelled "from staff calendar, <date>".
 
@@ -161,7 +171,7 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 | Tool | Input | Output |
 |---|---|---|
 | get_profile | resident | Routines, likes, dislikes, goals, communication style |
-| get_planner | resident | Weekly visit blocks (start, end, person, day, source) |
+| get_planner | resident | Weekly visit blocks (start, end, person, day, source, status `pending`\|`accepted`; `rejected` never returned) |
 | save_routine | resident, person, start, length, days (default all 7) | Saved routine the planner expands into visit blocks |
 | ask_about | resident, question | Answer + source label + date |
 | suggest_sentence | resident, tiles, time of day | 2–3 sentence options |
@@ -188,7 +198,8 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 | plan_actions | resident, goal | Online steps + staff tasks + total cost |
 | send_message | resident, contact, text | Message sent (real email or SMS) |
 | add_to_calendar | resident, event, time | Calendar entry |
-| book_staff_visit | resident, staff, start, end, recurrence (default daily ×7) | Visit booked on staff's Google Calendar (via Google Calendar MCP; DB row is source of truth) |
+| book_staff_visit | resident, staff, start, end, recurrence (default daily ×7) | Visit requested from staff (status `pending`; DB row is source of truth) |
+| respond_to_visit | staff, visit ids, decision (`accept` \| `reject`) | Updated visits. Accept writes to staff's Google Calendar via Google Calendar MCP; reject hides the visit on both ends and removes any Google event |
 | import_calendar | resident or staff, calendar_zip (Google Takeout .zip of .ics files) | Staff visit hours parsed out and rendered on the planner grid (MCP-unavailable fallback; display only, no live write) |
 | propose_calendar_import | staff, calendar_zip | Parsed, timezone-normalized events + duplicate flags, for an approval card (stretch) |
 | commit_calendar_import | staff, approved event ids | google_event_ids — each approved event written live via Google Calendar `events.insert` (stretch) |

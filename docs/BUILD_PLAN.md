@@ -101,7 +101,7 @@ Everything fits in free tiers plus participant credits for a 24-hour build. Bigg
 | staff | id, name, role (staff \| manager), last_shift_end |
 | tiles | id, resident_id, label, category, cloudinary_id, times_used |
 | routines | id, resident_id, person (staff_id), start_time, length_min, days (default all 7), source, created_at |
-| visit_events | id, resident_id, staff_id, starts_at, ends_at, source (resident \| staff \| inferred), google_event_id, approved, created_at |
+| visit_events | id, resident_id, staff_id, starts_at, ends_at, source (resident \| staff \| inferred), google_event_id, approved, status (pending \| accepted \| rejected), responded_by, responded_at, created_at |
 | sentences | id, resident_id, tiles, options, chosen_text, approved, created_at |
 | choices | id, resident_id, question, options (label, photo, cost), chosen, status (chosen \| not_yet_decided), created_at |
 | memories | id, resident_id, type (preference \| event \| routine), content, embedding, source (resident \| staff \| emh \| document \| inferred), source_date, times_seen, first_seen, last_seen, status (confirmed \| pending \| dismissed) |
@@ -239,6 +239,7 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 - **Google Calendar MCP (planner path)** — the Planner subagent books staff visits through a Google Calendar MCP server; fallback is manual import:
   - One Google Cloud project + Calendar API + one service account; key goes in `.env` as `GOOGLE_SERVICE_ACCOUNT_JSON`. Staff demo accounts in `GOOGLE_CALENDAR_STAFF_EMAILS`. Pre-create the night before the demo.
   - `book_staff_visit` dual-writes: `visit_events` row first (source of truth), then creates the event on the **staff member's** Google Calendar (so staff see the visit where they already look), with an "approved by Dana" note. If the Google/MCP call fails, DB-only still demos — same grid.
+  - *Nov 8 change:* the row starts `pending`; the Google write moves to `respond_to_visit` when staff **accept**. **Reject** sets `rejected` (row kept for the log, hidden on both grids) and deletes any Google event. See PROJECT_PLAN §2.5 "Staff accept or reject" and `POST /planner/respond` in CONTRACTS.md.
   - **Fallback if the MCP server doesn't work**: staff upload a one-time **.zip export of their Google Calendar** (Settings → Export in Google Calendar, or Google Takeout — the .zip holds `.ics` files per calendar); `import_calendar` unzips, parses the `.ics` events, and renders them on the planner grid. No live booking, identical UI.
   - Only resident-approved visits ever reach Google — never notes, reasons, or health info. Those stay in Tiger Data where Handoff needs them.
   - Recurrence is plain code: a 7-days-a-week routine expands to one visit_event per day; the LLM only phrases the proposal.
