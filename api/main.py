@@ -25,6 +25,7 @@ from agents.action import build_plan
 from agents.choice import SEED_BUDGETS, build_choice
 from agents.coach_wording import coach_answer
 from agents.memory.wiring import observe_event, scan_routines
+from agents.photos.wiring import add_photo_tile
 from agents.story import LocalBooks, McpBooks, StoryError, local_books, narrate, record_answer, draft as draft_chapter
 from agents.story import gemini_phrase
 from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
@@ -130,6 +131,7 @@ class PhotoBody(BaseModel):
     resident_id: str
     public_id: str
     label: str | None = None
+    confirmed: bool = False  # staff chose "save anyway" after a needs_review
 
 
 # ---------- residents ----------
@@ -558,7 +560,10 @@ def media_upload():
 
 
 @app.post("/media/photos")
-def save_photo(body: PhotoBody):
+async def save_photo(body: PhotoBody):
+    """Staff photo -> picture tile, via the photo subagents (agents/photos).
+    status: saved | needs_review (nothing saved until staff confirm) | error.
+    Old fields (resident_id, cloudinary_id, label) stay for existing callers."""
     try:
         record = photo_record(
             resident_id=body.resident_id,
@@ -567,7 +572,15 @@ def save_photo(body: PhotoBody):
         )
     except PublicIdError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return save_photo_record(record, _photos)
+    result, live = await _mcp(
+        add_photo_tile(record["resident_id"], record["cloudinary_id"], record["label"] or "",
+                       confirmed=body.confirmed), None)
+    if not live:  # MCP down: keep the photo id so the upload isn't lost
+        return {**save_photo_record(record, _photos), "status": "saved_offline",
+                "reason": "Saved the photo, but it isn't a tile yet (profile server is down)."}
+    if result["status"] == "error":
+        raise HTTPException(400, result["reason"])
+    return {**record, **result}
 
 
 _VERSION_FILE = Path(__file__).resolve().parents[1] / "VERSION"  # written by ops/deploy.sh

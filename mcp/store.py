@@ -189,7 +189,39 @@ class SeedStore:
         r = self.residents.get(rid)
         if not r:
             return None
-        return dict(r, tiles=self.tiles.get(rid, []))
+        return dict(r, tiles=self._tiles_for(rid))
+
+    def _tiles_for(self, rid):
+        """Seed tiles plus staff-added photo tiles. Added tiles live in the
+        shared runtime file so every server process sees them."""
+        self._reload_runtime()
+        tiles = [dict(t) for t in self.tiles.get(rid, [])]
+        for added in self._runtime.get("tiles_added", []):
+            if added["resident_id"] != rid:
+                continue
+            same = next((t for t in tiles if t["label"].lower() == added["label"].lower()), None)
+            if same:
+                same.update(cloudinary_id=added["cloudinary_id"],
+                            category=added.get("category") or same.get("category"))
+            else:
+                tiles.append({"id": added["id"], "label": added["label"],
+                              "category": added.get("category"),
+                              "cloudinary_id": added["cloudinary_id"], "times_used": 0})
+        return tiles
+
+    def save_tile(self, rid, label, category, cloudinary_id):
+        """Add a photo tile, or give an existing tile (same label) its new photo.
+        Returns (tile, replaced)."""
+        existing = next((t for t in self._tiles_for(rid) if t["label"].lower() == label.lower()), None)
+        added = self._runtime.setdefault("tiles_added", [])
+        added[:] = [a for a in added if not (a["resident_id"] == rid and a["label"].lower() == label.lower())]
+        new_id = existing["id"] if existing else 1000 + len(added) + sum(len(v) for v in self.tiles.values())
+        added.append({"id": new_id, "resident_id": rid, "label": existing["label"] if existing else label,
+                      "category": category or (existing or {}).get("category"),
+                      "cloudinary_id": cloudinary_id})
+        self._save_runtime()
+        tile = next(t for t in self._tiles_for(rid) if t["label"].lower() == label.lower())
+        return tile, existing is not None
 
     def get_story(self, rid):
         return [c for c in self.chapters if c["resident_id"] == rid]
@@ -540,6 +572,24 @@ class PostgresStore:
             "SELECT id, label, category, cloudinary_id, times_used FROM tiles "
             "WHERE resident_id = %s ORDER BY times_used DESC", (rid,))
         return r
+
+    def save_tile(self, rid, label, category, cloudinary_id):
+        """Add a photo tile, or give an existing tile (same label) its new photo.
+        Returns (tile, replaced)."""
+        existing = self._one(
+            "SELECT id FROM tiles WHERE resident_id = %s AND lower(label) = lower(%s) ORDER BY id LIMIT 1",
+            (rid, label))
+        if existing:
+            tile = self._one(
+                "UPDATE tiles SET cloudinary_id = %s, category = coalesce(%s, category) WHERE id = %s "
+                "RETURNING id, label, category, cloudinary_id, times_used",
+                (cloudinary_id, category, existing["id"]))
+            return tile, True
+        tile = self._one(
+            "INSERT INTO tiles (resident_id, label, category, cloudinary_id) VALUES (%s,%s,%s,%s) "
+            "RETURNING id, label, category, cloudinary_id, times_used",
+            (rid, label, category, cloudinary_id))
+        return tile, False
 
     def get_story(self, rid):
         return self._all("SELECT * FROM story_chapters WHERE resident_id = %s ORDER BY id", (rid,))

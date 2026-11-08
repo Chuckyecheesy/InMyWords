@@ -400,12 +400,27 @@ export type SavedPhoto = {
   resident_id: string;
   cloudinary_id: string;
   label: string | null;
+  /** From the photo subagents (agents/photos). */
+  status?: "saved" | "needs_review" | "saved_offline";
+  /** saved: the tile as stored (a same-label tile gets the new photo). */
+  tile?: { id: number | string; label: string; category: string | null; cloudinary_id: string };
+  replaced?: boolean;
+  /** false when the photo check couldn't run; the staff label was used. */
+  checked?: boolean;
+  /** What the checker saw in the photo. */
+  shows?: string | null;
+  /** needs_review: why staff should look before saving. */
+  reasons?: string[];
+  category?: string;
+  reason?: string;
 };
 
 export async function savePhoto(input: {
   resident_id: string;
   public_id: string;
   label: string;
+  /** Staff chose "Save anyway" after a needs_review answer. */
+  confirmed?: boolean;
 }): Promise<MutationResult<SavedPhoto>> {
   try {
     const response = await fetch(`${apiBaseUrl()}/media/photos`, {

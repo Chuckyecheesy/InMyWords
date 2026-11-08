@@ -21,6 +21,10 @@ export function PhotoUpload({
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tile, setTile] = useState<Tile | null>(null);
+  // Cloudinary id of the photo already uploaded for this file, so a label fix
+  // or "Save anyway" doesn't upload it again.
+  const [uploadedId, setUploadedId] = useState<string | null>(null);
+  const [review, setReview] = useState<string[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,48 +38,82 @@ export function PhotoUpload({
     };
   }, []);
 
-  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function upload(): Promise<string | null> {
+    if (uploadedId) return uploadedId;
+    if (!config || !file) return null;
+    setStatus("Uploading the photo.");
+    const body = new FormData();
+    body.append("file", file);
+    body.append("upload_preset", config.upload_preset);
+    const uploaded = await fetch(
+      `https://api.cloudinary.com/v1_1/${encodeURIComponent(config.cloud_name)}/image/upload`,
+      { method: "POST", body },
+    );
+    const payload = (await uploaded.json()) as {
+      public_id?: string;
+      error?: { message?: string };
+    };
+    if (!uploaded.ok || !payload.public_id) {
+      setStatus(payload.error?.message ?? "Cloudinary did not accept the photo.");
+      return null;
+    }
+    setUploadedId(payload.public_id);
+    return payload.public_id;
+  }
+
+  async function save(confirmed: boolean) {
     if (!config || !file || !label.trim() || busy) return;
     setBusy(true);
-    setStatus("Uploading the photo.");
+    setReview(null);
     try {
-      const body = new FormData();
-      body.append("file", file);
-      body.append("upload_preset", config.upload_preset);
-      const uploaded = await fetch(
-        `https://api.cloudinary.com/v1_1/${encodeURIComponent(config.cloud_name)}/image/upload`,
-        { method: "POST", body },
-      );
-      const payload = (await uploaded.json()) as {
-        public_id?: string;
-        error?: { message?: string };
-      };
-      if (!uploaded.ok || !payload.public_id) {
-        setStatus(payload.error?.message ?? "Cloudinary did not accept the photo.");
-        return;
-      }
+      const publicId = await upload();
+      if (!publicId) return;
+      setStatus("Checking the photo.");
       const saved = await savePhoto({
         resident_id: residentId,
-        public_id: payload.public_id,
+        public_id: publicId,
         label: label.trim(),
+        confirmed,
       });
       if (!saved.ok) {
         setStatus(saved.error);
         return;
       }
+      const data = saved.data;
+      if (data.status === "needs_review") {
+        setReview(data.reasons ?? ["Please check this photo before saving."]);
+        setStatus("Not saved yet. Look at the photo, then choose.");
+        return;
+      }
+      if (data.status === "saved_offline") {
+        setStatus(data.reason ?? "Saved the photo, but it isn't a tile yet.");
+        return;
+      }
+      const stored = data.tile;
       setTile({
-        id: saved.data.cloudinary_id,
-        label: label.trim(),
-        category: "photo",
-        cloudinary_id: saved.data.cloudinary_id,
+        id: String(stored?.id ?? data.cloudinary_id),
+        label: stored?.label ?? label.trim(),
+        category: stored?.category ?? "photo",
+        cloudinary_id: stored?.cloudinary_id ?? data.cloudinary_id,
       });
-      setStatus("Saved. This photo uses the same tile crop as the others.");
+      const parts = [
+        data.replaced
+          ? `Saved. The "${stored?.label}" tile now uses this photo.`
+          : `Saved as a new "${stored?.label}" tile.`,
+      ];
+      if (data.checked === false) parts.push("The photo check was not available, so your label was used.");
+      setStatus(parts.join(" "));
+      setUploadedId(null);
     } catch {
       setStatus("The photo could not be uploaded.");
     } finally {
       setBusy(false);
     }
+  }
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void save(false);
   }
 
   const ready = Boolean(config) && !busy;
@@ -89,7 +127,10 @@ export function PhotoUpload({
           id="photo-label"
           className="field"
           value={label}
-          onChange={(event) => setLabel(event.target.value)}
+          onChange={(event) => {
+            setLabel(event.target.value);
+            setReview(null);
+          }}
           autoComplete="off"
         />
       </label>
@@ -99,13 +140,44 @@ export function PhotoUpload({
           type="file"
           accept="image/*"
           disabled={!ready}
-          onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          onChange={(event) => {
+            setFile(event.target.files?.[0] ?? null);
+            setUploadedId(null);
+            setReview(null);
+            setTile(null);
+          }}
         />
       </label>
       <button className="save-photo" type="submit" disabled={!ready || !file || !label.trim()}>
         {busy ? "Saving" : "Save photo"}
       </button>
       {status ? <p role="status">{status}</p> : null}
+      {review ? (
+        <div className="block photo-review" role="alert">
+          <ul>
+            {review.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+          <div className="photo-review-actions">
+            <button type="button" className="save-photo" disabled={busy} onClick={() => void save(true)}>
+              Save anyway
+            </button>
+            <button
+              type="button"
+              className="file-picker"
+              disabled={busy}
+              onClick={() => {
+                setReview(null);
+                setStatus("Change the label or choose another photo, then save.");
+                document.getElementById("photo-label")?.focus();
+              }}
+            >
+              Fix the label
+            </button>
+          </div>
+        </div>
+      ) : null}
       {tile ? (
         <div className="photo-preview">
           <WordTile tile={tile} />

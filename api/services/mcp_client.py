@@ -41,6 +41,10 @@ async def _call(server: str, tool: str, args: dict):
 async def get_profile(resident):
     return await _call("profile", "get_profile", {"resident": resident})
 
+async def save_tile(resident, label, cloudinary_id, category=""):
+    return await _call("profile", "save_tile", {"resident": resident, "label": label,
+                                                "cloudinary_id": cloudinary_id, "category": category or ""})
+
 async def get_story(resident):
     return await _call("profile", "get_story", {"resident": resident})
 
