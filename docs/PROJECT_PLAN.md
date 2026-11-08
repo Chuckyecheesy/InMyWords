@@ -80,6 +80,17 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
   - First actions (cap at 2 or 3): message a family member, add to calendar, book an activity (mock site). Optional: next bus from Grand River Transit open data.
   - Guardrails: picture approval card for every action, allowlist of actions, spending limits with cost shown, never sends money to people or shares personal info, activity log visible to staff, short cancel window.
 
+### Added Nov 8: Eye-gaze & gesture input (see [GAZE_GESTURE_PLAN.md](GAZE_GESTURE_PLAN.md))
+
+> *Not everyone can tap. In My Words lets residents speak with their eyes or a gesture, and learns how each person prefers to say things.*
+
+- **Eye-gaze selection**: look at a tile, hold your gaze, a ring fills — selected. WebGazer in the browser, 2×3 big-tile grid, 9-point calibration.
+- **Gestures**: thumbs up = approve, open palm = cancel (MediaPipe, on-device).
+- **Input profile**: learns each resident's preferred method, dwell time and time-of-day patterns from logged outcome events (Tiger Data hypertable).
+- **"How Marcus communicates" card** at the top of Essentials, labelled "From Marcus's input history".
+- Guardrails: camera off by default with consent + visible indicator; video never stored or sent (outcome events only); every gaze/gesture selection still goes through confirmation.
+- Core G1–G5, should G6–G7, stretch G8 (teach a personal gesture). Cut order: G8 → G6 → G7.
+
 ### Stretch
 - Manager view across homes (profile freshness, checklist patterns, choice stats).
 - Scenario questions in the Coach.
@@ -369,7 +380,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Tiffany (T2) publishes mo
 | Cloudinary Community Impact | Residents' real photos become accessible tiles and story pages | T4 |
 | ElevenLabs | Chosen voices, narration, Story and Coach agents | T1 |
 | Gemini | All agents incl. memory subagents and Action agent; Computer Use (stretch) | T3 + T4 |
-| Tiger Data | Memory layer: vector search + timestamps in one database; EMH history; action log | T2 |
+| Tiger Data | Memory layer: vector search + timestamps in one database; EMH history; action log; input-events hypertable + continuous aggregate (gaze/gesture) | T2 |
 | Entire | Team coding sessions through Entire | Everyone |
 | GoDaddy | Project domain (e.g. inmywords.xyz) | T3 |
 
@@ -385,6 +396,7 @@ See [CONTRACTS.md](CONTRACTS.md) — frozen at hour 1. Tiffany (T2) publishes mo
 - **Does the AI decide what residents like?** No. It notices patterns and labels them "pattern noticed". Only the resident can confirm them.
 - **What about years of existing binder history?** Imported once as "From records" facts with the document's date. Nothing imported is ever shown as the resident's words; the resident confirms what's still true, and stale binder facts get flagged when current behaviour contradicts them — the out-of-date binder is the problem we're fixing, so we never treat it as ground truth.
 - **Cost?** Mostly free tiers. Main ongoing cost is voice minutes, reduced by caching.
+- **A camera watching residents?** Only with the resident's consent, off by default, one-tap off, visible indicator. All video is processed on the tablet and never stored or sent — the backend receives only outcome events ("selected coffee by gaze"). And no gaze or gesture ever acts without the same confirmation step as a tap.
 
 ## 12. Risks and cut list
 
