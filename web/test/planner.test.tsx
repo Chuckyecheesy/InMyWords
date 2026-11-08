@@ -225,6 +225,20 @@ describe("My week", () => {
     assert.equal(container.querySelector(".cal-event .visit-label")?.textContent, "In Dana's words");
   });
 
+  test("one-hour visits put the meeting name before its time", () => {
+    const { container } = planner({
+      initialVisits: [visit("2026-11-09", {
+        staff: "jordan",
+        starts_at: "2026-11-09T10:00:00-05:00",
+        ends_at: "2026-11-09T11:00:00-05:00",
+        status: "pending",
+      })],
+    });
+    const block = container.querySelector(".visit-block") as HTMLElement;
+    assert.equal(block.firstElementChild?.textContent, "Meeting with Jordan");
+    assert.match(block.getAttribute("aria-label") ?? "", /10:00a\.m\.–11:00a\.m\., Meeting with Jordan.*waiting for Jordan/);
+  });
+
   test("a short event shows its title (its time is its place on the grid)", () => {
     const { container } = planner({
       initialVisits: [visit("2026-11-09", { read_only: true, title: "Breakfast", source: "staff",
@@ -280,8 +294,8 @@ describe("setting a routine", () => {
     const calls = stubApi((path) => (path === "/planner/preview" ? PREVIEW : {}));
     planner();
     await answerAll();
-    assert.deepEqual(calls.map((c) => c.path), ["/planner/preview"]);
-    assert.deepEqual(calls[0].body, {
+    assert.deepEqual(calls.filter((c) => c.body).map((c) => c.path), ["/planner/preview"]);
+    assert.deepEqual(calls.find((c) => c.path === "/planner/preview")?.body, {
       resident_id: "dana", person: "sam", start: "13:00", length_min: 120, days: null, start_date: "2026-11-08",
     });
     assert.ok(screen.getByText("Nothing is booked until you approve."));
@@ -318,7 +332,7 @@ describe("setting a routine", () => {
     tap("Cancel");
     assert.ok(screen.getByText("Cancelled. Nothing was booked."));
     await new Promise((r) => setTimeout(r, 300));
-    assert.deepEqual(calls.map((c) => c.path), ["/planner/preview"]);
+    assert.deepEqual(calls.filter((c) => c.body).map((c) => c.path), ["/planner/preview"]);
   });
 
   test("a calendar that is down still books in the app, and says so plainly", async () => {
@@ -362,7 +376,7 @@ describe("setting a routine", () => {
     assert.equal(screen.getByRole("button", { name: "Monday" }).getAttribute("aria-pressed"), "true");
     tap("Done");
     await screen.findByRole("heading", { name: "Meet Sam at 1:00p.m. for 2 hours, on Monday and Wednesday." });
-    assert.deepEqual(calls[0].body?.days, ["mon", "wed"]);
+    assert.deepEqual(calls.find((c) => c.path === "/planner/preview")?.body?.days, ["mon", "wed"]);
   });
 
   test("Back goes one question back without losing the resident's place", () => {
@@ -400,10 +414,11 @@ describe("fallback: a staff calendar file", () => {
     assert.match(legend, /From staff calendar, 2026-11-08 \(shown only, not booked\)/);
     const block = container.querySelector('.cal-event[data-kind="imported"]') as HTMLElement;
     assert.match(block.getAttribute("aria-label") ?? "", /Visit Dana, From staff calendar, 2026-11-08/);
-    assert.deepEqual(calls.map((c) => c.path), ["/planner/import"]);
-    assert.equal(typeof calls[0].body?.calendar_zip_b64, "string");
-    assert.equal(calls[0].body?.start_date, "2026-11-08", "the window starts at this week's Sunday");
-    assert.equal(calls[0].body?.days, 63);
+    assert.deepEqual(calls.filter((c) => c.body).map((c) => c.path), ["/planner/import"]);
+    const request = calls.find((c) => c.path === "/planner/import");
+    assert.equal(typeof request?.body?.calendar_zip_b64, "string");
+    assert.equal(request?.body?.start_date, "2026-11-08", "the window starts at this week's Sunday");
+    assert.equal(request?.body?.days, 63);
   });
 });
 
@@ -475,6 +490,65 @@ describe("staff accept or reject (PROJECT_PLAN §2.5)", () => {
     assert.equal(screen.queryByRole("button", { name: /^Accept/ }), null);
   });
 
+  test("an open staff planner picks up a new pending request on focus", async () => {
+    let visits: PlannerVisit[] = [];
+    stubApi(() => ({ visits, staff: STAFF, declined: [] }));
+    const { container } = staffPlanner({ visits: [], identityLocked: true });
+    visits = [PENDING];
+    fireEvent.focus(window);
+    await screen.findByRole("button", { name: /^Accept / });
+    assert.ok(screen.getByRole("button", { name: /^Reject / }));
+    assert.equal(container.querySelectorAll('.visit-block[data-status="pending"]').length, 1);
+  });
+
+  test("an open resident planner picks up a staff rejection on focus", async () => {
+    const rejected = { ...PENDING, status: "rejected" as const };
+    stubApi(() => ({ visits: [], staff: STAFF, declined: [rejected] }));
+    const { container } = planner({ initialVisits: [PENDING] });
+    fireEvent.focus(window);
+    await screen.findByText("Sam can't come at 1:00p.m. on Monday. You can pick another time.");
+    assert.equal(container.querySelectorAll(".visit-block").length, 0);
+  });
+
+  test("a failed refresh keeps the last visits and warns they may be stale", async () => {
+    globalThis.fetch = (async () => new Response("unavailable", { status: 503 })) as typeof fetch;
+    const { container } = staffPlanner({ visits: [PENDING] });
+    await screen.findByText(/planner couldn't refresh/);
+    assert.equal(container.querySelectorAll('.visit-block[data-status="pending"]').length, 1);
+    assert.ok(screen.getByRole("button", { name: /^Accept / }));
+  });
+
+  test("a visit appears without switching tabs", async () => {
+    let visits: PlannerVisit[] = [];
+    stubApi(() => ({ visits, staff: STAFF, declined: [] }));
+    const { container } = staffPlanner({ visits: [] });
+    visits = [PENDING];
+    await waitFor(() => {
+      assert.equal(container.querySelectorAll('.visit-block[data-status="pending"]').length, 1);
+    }, { timeout: 12_000, interval: 100 });
+    assert.ok(screen.getByRole("button", { name: /^Accept / }));
+  });
+
+  test("a stale refresh cannot undo a staff acceptance", async () => {
+    let finishOldRead!: (response: Response) => void;
+    let reads = 0;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      if (String(url).endsWith("/planner/respond")) {
+        return new Response(JSON.stringify({ visits: [{ ...PENDING, status: "accepted" }] }), { status: 200 });
+      }
+      if (init?.method !== "POST" && reads++ === 0) {
+        return new Promise<Response>((resolve) => { finishOldRead = resolve; });
+      }
+      return new Response(JSON.stringify({ visits: [{ ...PENDING, status: "accepted" }], staff: STAFF }), { status: 200 });
+    }) as typeof fetch;
+    const { container } = staffPlanner({ visits: [PENDING] });
+    fireEvent.click(screen.getByRole("button", { name: /^Accept / }));
+    await waitFor(() => assert.equal(container.querySelectorAll('.visit-block[data-status="accepted"]').length, 1));
+    finishOldRead(new Response(JSON.stringify({ visits: [PENDING], staff: STAFF }), { status: 200 }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(container.querySelectorAll('.visit-block[data-status="pending"]').length, 0);
+  });
+
   test("accept: one call, and the visit shows as booked on the grid", async () => {
     const calls = stubApi((path, body) =>
       path === "/planner/respond"
@@ -483,7 +557,8 @@ describe("staff accept or reject (PROJECT_PLAN §2.5)", () => {
     const { container } = staffPlanner();
     fireEvent.click(screen.getAllByRole("button", { name: /^Accept / })[0]);
     await waitFor(() => assert.equal(container.querySelectorAll('.visit-block[data-status="accepted"]').length, 1));
-    assert.deepEqual(calls.map((c) => c.body), [{ staff_id: "sam", visit_ids: [21], decision: "accept" }]);
+    assert.deepEqual(calls.filter((c) => c.path === "/planner/respond").map((c) => c.body),
+      [{ staff_id: "sam", visit_ids: [21], decision: "accept" }]);
     assert.equal(container.querySelectorAll(".visit-block").length, 2);
   });
 
@@ -495,7 +570,8 @@ describe("staff accept or reject (PROJECT_PLAN §2.5)", () => {
     const { container } = staffPlanner();
     fireEvent.click(screen.getAllByRole("button", { name: /^Reject / })[0]);
     await waitFor(() => assert.equal(container.querySelectorAll(".visit-block").length, 1));
-    assert.deepEqual(calls[0].body, { staff_id: "sam", visit_ids: [21], decision: "reject" });
+    assert.deepEqual(calls.find((c) => c.path === "/planner/respond")?.body,
+      { staff_id: "sam", visit_ids: [21], decision: "reject" });
   });
 
   test("accept all answers every waiting visit in one call", async () => {
@@ -505,8 +581,9 @@ describe("staff accept or reject (PROJECT_PLAN §2.5)", () => {
         : {});
     staffPlanner();
     fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
-    await waitFor(() => assert.equal(calls.length, 1));
-    assert.deepEqual(calls[0].body, { staff_id: "sam", visit_ids: [21, 22], decision: "accept" });
+    await waitFor(() => assert.equal(calls.filter((c) => c.path === "/planner/respond").length, 1));
+    assert.deepEqual(calls.find((c) => c.path === "/planner/respond")?.body,
+      { staff_id: "sam", visit_ids: [21, 22], decision: "accept" });
     await waitFor(() => assert.equal(screen.queryByRole("button", { name: "Accept all" }), null));
   });
 

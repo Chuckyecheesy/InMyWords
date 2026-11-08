@@ -5440,9 +5440,9 @@ button.entry-preview-play:disabled { opacity: 0.6; }
 }
 
 .cal {
-  --cal-hour-h: 64px;     /* one hour; >= the tap floor */
+  --cal-hour-h: 128px;
   --cal-gutter: 92px;
-  --cal-col-min: 128px;
+  --cal-col-min: 180px;
   border-radius: var(--r-lg);
   background: var(--surface);
   border: var(--stroke) solid var(--line-strong);
@@ -5451,6 +5451,11 @@ button.entry-preview-play:disabled { opacity: 0.6; }
   max-height: max(480px, calc(100vh - 300px));
   overflow: auto;
   overscroll-behavior: contain;
+}
+
+[data-text="large"] .cal {
+  --cal-hour-h: 160px;
+  --cal-col-min: 210px;
 }
 
 .cal:focus-visible {
@@ -5569,9 +5574,7 @@ button.entry-preview-play:disabled { opacity: 0.6; }
 }
 
 .visit-block {
-  /* Column, not grid: in a fixed-height grid an overflow:hidden row can
-     collapse to 0px and lose "Meeting with Sam". Time and what never shrink;
-     only the trailing label is clipped when the block is short. */
+  /* Keep the title first so time and status cannot obscure it. */
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -5730,21 +5733,14 @@ button.entry-preview-play:disabled { opacity: 0.6; }
   overflow-wrap: break-word;
 }
 
-/* Under an hour: one line, start time + what; the full range is in aria-label. */
+/* Short events show their title; the grid and aria-label give the time. */
 .visit-block[data-short] {
-  flex-direction: row;
-  gap: var(--space-2);
   padding-top: 2px;
   padding-bottom: 2px;
-  white-space: nowrap;
 }
 
 .visit-block[data-short] .visit-what {
-  flex-shrink: 1;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .visit-label,

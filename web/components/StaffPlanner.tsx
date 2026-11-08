@@ -5,6 +5,7 @@ import { Check, X } from "lucide-react";
 import { respondToVisits } from "@/lib/api";
 import { useCalendarImport, WeekView } from "./MyPlanner";
 import { localDate, staffName, timeRange, weekFrom, type PlannerVisit, type StaffOption } from "@/lib/planner";
+import { usePlannerUpdates } from "./usePlannerUpdates";
 
 /**
  * Staff see the same week the resident sees. They can't add or change a
@@ -35,6 +36,7 @@ export function StaffPlanner({
   const [answeringAs, setAnsweringAs] = useState(me);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const updatesUnavailable = usePlannerUpdates(residentId, !busy, setVisits);
   const { imported, importNote, showCalendarFile } = useCalendarImport(residentId, today);
 
   const waiting = visits
@@ -65,6 +67,9 @@ export function StaffPlanner({
 
   return (
     <div className="stack">
+      {updatesUnavailable ? (
+        <p className="note" role="status">The planner couldn&apos;t refresh. These visits may be out of date.</p>
+      ) : null}
       <section className="panel planner-answer" aria-labelledby="planner-answer-h">
         <div className="panel-head">
           <h2 id="planner-answer-h">Waiting for your answer</h2>
