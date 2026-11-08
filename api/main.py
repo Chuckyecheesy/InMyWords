@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mocks
+from agents.action import build_plan
 from agents.choice import SEED_BUDGETS, build_choice
 from agents.coach_wording import coach_answer
 from agents.memory.wiring import observe_event, scan_routines
@@ -451,7 +452,20 @@ async def decide_choice(choice_id: int, body: DecideBody, background: Background
 
 @app.post("/actions/plan")
 async def plan_actions(body: ActionPlanBody):
-    result, live = await _mcp(mcp_client.plan_actions(body.resident_id, body.goal), None)
+    async def agent_plan():
+        # Memories via MCP -> Action agent (pure code) -> MCP save_plan.
+        seen: dict = {}
+        for query in (body.goal, "usual time", "family sister contact"):
+            for m in (await mcp_client.recall(body.resident_id, query)).get("memories", []):
+                # Unconfirmed patterns never set plan details.
+                if m.get("status") not in ("pending", "rejected"):
+                    seen[m.get("id", m.get("content"))] = m
+        plan = build_plan(body.goal, list(seen.values()))
+        return await mcp_client.save_plan(body.resident_id, body.goal, plan["steps"])
+
+    result, live = await _mcp(agent_plan(), None)
+    if not live:  # agent path failed: the server's own placeholder planner
+        result, live = await _mcp(mcp_client.plan_actions(body.resident_id, body.goal), None)
     return result if live else mocks.ACTION_PLAN
 
 

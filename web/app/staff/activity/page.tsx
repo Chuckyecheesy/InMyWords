@@ -1,27 +1,12 @@
 import Link from "next/link";
+import { ActivityLog } from "@/components/ActivityLog";
 import { AppShell } from "@/components/AppShell";
 import { DataBanner } from "@/components/DataBanner";
 import { StaffNav } from "@/components/StaffNav";
 import { getActivity, getResident } from "@/lib/api";
-import { formatWhen } from "@/lib/format";
 import { DEMO_RESIDENT_IDS } from "@/lib/mock";
-import type { ActivityItem } from "@/lib/types";
 
 export const metadata = { title: "Activity" };
-
-const KIND_LABEL: Record<ActivityItem["kind"], string> = {
-  sentence: "Sentence",
-  choice: "Choice",
-  action: "Action",
-};
-
-function standing(item: ActivityItem, name: string): string {
-  if (item.status === "not_yet_decided") return "Not decided yet.";
-  if (item.kind === "choice" && item.status === "chosen") return `${name} chose this.`;
-  if (item.status === "approved") return "Approved.";
-  if (!item.status) return "";
-  return item.status.replaceAll("_", " ");
-}
 
 export default async function ActivityPage({
   searchParams,
@@ -63,22 +48,7 @@ export default async function ActivityPage({
         ))}
       </nav>
       <StaffNav id={person.data.id} />
-      <div className="stack">
-        {activity.data.length === 0 ? (
-          <p>Nothing has been logged yet.</p>
-        ) : (
-          activity.data.map((item) => (
-            <article key={`${item.kind}-${item.created_at}-${item.text}`} className="fact">
-              <p className="eyebrow">{KIND_LABEL[item.kind]}</p>
-              <p>{item.text}</p>
-              <p>
-                {formatWhen(item.created_at)}
-                {standing(item, person.data.name) ? ` · ${standing(item, person.data.name)}` : ""}
-              </p>
-            </article>
-          ))
-        )}
-      </div>
+      <ActivityLog items={activity.data} residentName={person.data.name} />
     </AppShell>
   );
 }

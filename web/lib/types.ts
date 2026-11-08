@@ -116,3 +116,12 @@ export type Result<T> = {
 export type MutationResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+export type ActionPlan = {
+  plan_id: number;
+  goal: string;
+  online_steps: { step: string; detail: string; cost: number }[];
+  staff_tasks: { task: string; due: string | null }[];
+  total_cost: number;
+  status: "proposed";
+};

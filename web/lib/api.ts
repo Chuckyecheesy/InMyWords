@@ -8,6 +8,7 @@ import {
   sampleStory,
 } from "./mock";
 import type {
+  ActionPlan,
   ActivityItem,
   ChoiceResult,
   CoachAnswer,
@@ -336,11 +337,7 @@ export function decideChoice(choiceId: string, chosen: string) {
 }
 
 export function planActions(input: { resident_id: string; goal: string }) {
-  return sendJson<{
-    steps: unknown[];
-    staff_tasks: unknown[];
-    total_cost: number;
-  }>("/actions/plan", input);
+  return sendJson<ActionPlan>("/actions/plan", input);
 }
 
 export function approveAction(planId: string) {

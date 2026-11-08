@@ -120,6 +120,9 @@ async def confirm_memory(resident, memory_id, confirmed):
 async def plan_actions(resident, goal):
     return await _call("actions", "plan_actions", {"resident": resident, "goal": goal})
 
+async def save_plan(resident, goal, steps):
+    return await _call("actions", "save_plan", {"resident": resident, "goal": goal, "steps": steps})
+
 async def approve_plan(resident, plan_id):
     return await _call("actions", "approve_plan", {"resident": resident, "plan_id": plan_id})
 
