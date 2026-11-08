@@ -127,6 +127,8 @@ describe("T4.6 frontend — confirm queue", () => {
     const no = buttons.find((b) => /no/i.test(b.textContent!))!;
     assert.ok(yes && no);
     await userEvent.click(yes);
+    assert.equal(calls.length, 0); // held until Next (T4.7 undo)
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
     await waitFor(() => assert.equal(calls.length, 1));
     assert.ok(calls[0].url.endsWith(`/memories/${memories.find((m) => /tea/i.test(m.content))!.id}/confirm`));
     // Backend contract: ConfirmBody {confirmed: bool, resident_id}.

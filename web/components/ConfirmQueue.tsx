@@ -22,8 +22,23 @@ export function ConfirmQueue({
 }) {
   const [answered, setAnswered] = useState<Record<string, "yes" | "no">>({});
   const [failed, setFailed] = useState<string | null>(null);
+  // An answer is held here until the resident taps Next. Undo drops it, so
+  // nothing is saved to memory that they could still change their mind on.
+  const [held, setHeld] = useState<Record<string, "yes" | "no">>({});
 
-  async function answer(id: string, value: "yes" | "no") {
+  function hold(id: string, value: "yes" | "no") {
+    setFailed(null);
+    setHeld((prev) => ({ ...prev, [id]: value }));
+  }
+
+  function undo(id: string) {
+    setFailed(null);
+    setHeld(({ [id]: _dropped, ...rest }) => rest);
+  }
+
+  async function save(id: string) {
+    const value = held[id];
+    if (!value) return;
     setFailed(null);
     const result = await confirmMemory(id, value, residentId);
     if (!result.ok) {
@@ -59,15 +74,33 @@ export function ConfirmQueue({
                 ⚠️ May have changed. {memory.update_reason}.
               </p>
             ) : null}
-            <p className="note">Is this still true for {residentName}?</p>
-            <div className="actions">
-              <BigButton tone="approve" onLongPress={hear} onClick={() => answer(memory.id, "yes")}>
-                Yes
-              </BigButton>
-              <BigButton tone="reject" onLongPress={hear} onClick={() => answer(memory.id, "no")}>
-                No
-              </BigButton>
-            </div>
+            {held[memory.id] ? (
+              <>
+                <p className="note">
+                  You said {held[memory.id] === "yes" ? "Yes" : "No"}.
+                </p>
+                <div className="actions">
+                  <BigButton tone="neutral" onLongPress={hear} onClick={() => undo(memory.id)}>
+                    Undo
+                  </BigButton>
+                  <BigButton tone="approve" onLongPress={hear} onClick={() => save(memory.id)}>
+                    Next
+                  </BigButton>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="note">Is this still true for {residentName}?</p>
+                <div className="actions">
+                  <BigButton tone="approve" onLongPress={hear} onClick={() => hold(memory.id, "yes")}>
+                    Yes
+                  </BigButton>
+                  <BigButton tone="reject" onLongPress={hear} onClick={() => hold(memory.id, "no")}>
+                    No
+                  </BigButton>
+                </div>
+              </>
+            )}
             {failed === memory.id ? (
               <p className="note">That did not save. Try again.</p>
             ) : null}
