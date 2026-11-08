@@ -4973,3 +4973,194 @@ textarea {
   color: var(--success);
   font-weight: 800;
 }
+
+/* ---------- Entry stage: dark hero band (judge-facing surfaces only).
+   Reference DNA: bracketed mono kicker, two-tone display headline,
+   white proof-card on a deep backdrop, mono status chips, built-with
+   wall. Resident screens stay calm — this band appears on / and /pitch
+   only. All colors meet WCAG AA on the dark surface; high-contrast
+   theme flips the whole band to black-on-white. ---------- */
+
+.entry-stage {
+  --stage-bg: #16242e;
+  --stage-ink: #f6f4ef;
+  --stage-muted: #b3c3c6;
+  --stage-accent: #f1a58d;
+  --stage-soft: #8fd0c6;
+  background:
+    radial-gradient(1100px 480px at 88% -12%, rgba(36, 125, 120, 0.38), transparent 62%),
+    radial-gradient(700px 420px at -8% 110%, rgba(241, 165, 141, 0.14), transparent 55%),
+    var(--stage-bg);
+  color: var(--stage-ink);
+  border-radius: var(--radius-3);
+  padding: clamp(1.75rem, 4vw, 3.25rem);
+  display: grid;
+  gap: var(--space-5);
+}
+
+.entry-stage .entry-title h1 {
+  color: var(--stage-ink);
+}
+
+.entry-stage .entry-title h1 em {
+  color: var(--stage-accent);
+}
+
+.entry-stage .entry-sub {
+  color: var(--stage-muted);
+}
+
+.entry-stage .hl {
+  color: var(--stage-soft);
+  font-weight: 700;
+}
+
+.kicker {
+  font-family: var(--font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--stage-kicker, #d9efe9);
+  margin: 0 0 var(--space-3);
+}
+
+.kicker::before { content: "[ "; }
+.kicker::after { content: " ]"; }
+
+.builtwith {
+  margin: 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid rgba(246, 244, 239, 0.16);
+  font-family: var(--font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--stage-muted);
+}
+
+.builtwith span {
+  color: var(--stage-soft);
+  margin-right: var(--space-3);
+}
+
+/* The proof card pops as the one bright object on the stage. */
+.entry-stage .entry-preview {
+  box-shadow: 0 18px 50px rgba(8, 18, 24, 0.45);
+}
+
+.chip-mono {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-family: var(--font-mono, ui-monospace, "Cascadia Mono", Consolas, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chip-mono[data-tone="resident"] {
+  background: var(--src-resident-bg);
+  color: var(--src-resident);
+}
+
+/* Recompile-style listening dots — gentle, slow, never a flash. */
+.voice-dots {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  align-items: center;
+}
+
+.voice-dots span {
+  width: 4px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.85;
+  animation: voice-wave 1.8s ease-in-out infinite;
+}
+
+.voice-dots span:nth-child(1) { height: 7px; animation-delay: 0s; }
+.voice-dots span:nth-child(2) { height: 12px; animation-delay: 0.18s; }
+.voice-dots span:nth-child(3) { height: 16px; animation-delay: 0.36s; }
+.voice-dots span:nth-child(4) { height: 11px; animation-delay: 0.54s; }
+.voice-dots span:nth-child(5) { height: 7px; animation-delay: 0.72s; }
+
+@keyframes voice-wave {
+  50% { transform: scaleY(0.55); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-dots span { animation: none; }
+}
+
+/* High-contrast theme: the stage flips to black on white, heavy border. */
+[data-theme="contrast"] .entry-stage {
+  --stage-bg: #ffffff;
+  --stage-ink: #000000;
+  --stage-muted: #000000;
+  --stage-accent: #000000;
+  --stage-soft: #000000;
+  background: #ffffff;
+  border: 3px solid #000000;
+}
+
+[data-theme="contrast"] .builtwith {
+  border-top-color: #000000;
+}
+
+[data-theme="contrast"] .entry-stage .entry-preview {
+  box-shadow: none;
+}
+
+/* Pitch deck on the stage treatment. */
+.pitch-stage {
+  gap: var(--space-3);
+}
+
+.pitch-stage h2 {
+  color: var(--stage-ink);
+  font-size: clamp(2rem, 4.5vw, 3.1rem);
+  line-height: 1.12;
+  max-width: 24ch;
+  margin: 0;
+}
+
+.kicker-accent {
+  color: var(--stage-accent);
+  margin-bottom: 0;
+}
+
+.pitch-line {
+  color: var(--stage-muted);
+  font-size: 1.3rem;
+  line-height: 1.55;
+  max-width: 58ch;
+  margin: 0;
+}
+
+.pitch-stage .speak-actions {
+  margin-top: var(--space-4);
+}
+
+/* The white proof card must keep dark text — not inherit the stage ink. */
+.entry-stage .entry-preview {
+  color: var(--ink);
+}
+
+/* Kicker tone is defined per stage so the contrast theme can zero it out. */
+.entry-stage { --stage-kicker: #d9efe9; }
+[data-theme="contrast"] .entry-stage { --stage-kicker: #000000; }
+
+/* The accent kicker line on the pitch needs AA at its size too. */
+.kicker-accent { color: #f6c0ae; }
+[data-theme="contrast"] .kicker-accent { color: #000000; }
+
+/* .entry-title p outranks .kicker (0,1,1 vs 0,1,0) — the audit caught the
+   kicker rendering in --ink-2 on the dark stage at 2.04:1. Two classes win. */
+.entry-stage .kicker {
+  color: var(--stage-kicker, #d9efe9);
+}

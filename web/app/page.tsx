@@ -24,15 +24,25 @@ export default async function EntryPage() {
       </header>
 
       <main id="main" className="entry-hero">
-        <div className="entry-intro">
-          <div className="entry-title">
-            <h1>
-              Your story, told once, in <em>your own voice.</em>
-            </h1>
-            <p>Your choices, made by you. Communication, life story and staff onboarding for supported living.</p>
+        <section className="entry-stage" aria-labelledby="entry-headline">
+          <div className="entry-intro">
+            <div className="entry-title">
+              <p className="kicker">Speak · Story · Choices</p>
+              <h1 id="entry-headline">
+                Your story, told once, in <em>your own voice.</em>
+              </h1>
+              <p className="entry-sub">
+                Your choices, made by you. <span className="hl">Communication</span>,{" "}
+                <span className="hl">life story</span> and <span className="hl">staff onboarding</span>{" "}
+                for supported living — in one place.
+              </p>
+            </div>
+            <EntryPreview />
           </div>
-          <EntryPreview />
-        </div>
+          <p className="builtwith">
+            <span>Built with</span> ElevenLabs · Gemini · Tiger Data · Cloudinary · MCP
+          </p>
+        </section>
 
         {sample ? <DataBanner>Sample data — the API didn&apos;t answer, so these are the demo residents.</DataBanner> : null}
 
