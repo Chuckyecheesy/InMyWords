@@ -5188,3 +5188,31 @@ textarea {
 [data-theme="contrast"] .pitch-logo-dark { display: none; }
 .pitch-logo-light { display: none; }
 [data-theme="contrast"] .pitch-logo-light { display: block; }
+
+/* Playable entry preview: tiles are buttons now. */
+button.entry-preview-tile {
+  cursor: pointer;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  font: inherit;
+  font-weight: 700;
+}
+
+button.entry-preview-tile[aria-pressed="true"] {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-soft);
+}
+
+button.entry-preview-play {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font: inherit;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+}
+
+button.entry-preview-play:disabled { opacity: 0.6; }

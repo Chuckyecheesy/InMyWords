@@ -2,11 +2,11 @@
 
 Two backends, picked automatically:
 - PostgresStore  when DATABASE_URL is set and reachable (Tiger Data).
-- SeedStore      otherwise — reads db/seed/*.json so every tool works
+- SeedStore      otherwise, reads db/seed/*.json so every tool works
                  before the database exists. Writes go to memory only
                  (lost on restart) and are clearly marked in the result.
 
-Agents NEVER import this directly — they go through the MCP servers.
+Agents NEVER import this directly, they go through the MCP servers.
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ _query_vec_cache: dict[str, list[float]] = {}
 
 def embed_text(text, task_type="RETRIEVAL_QUERY"):
     """Best-effort embedding via Ahmed's wrapper (api/services/gemini.py).
-    Returns None when the key is missing or the call fails — callers fall
+    Returns None when the key is missing or the call fails, callers fall
     back to keyword ranking. Query embeddings are cached (a repeated Coach
     question costs no extra call, which protects the 4s latency budget)."""
     if not os.environ.get("GEMINI_API_KEY") or not (text or "").strip():
@@ -121,7 +121,7 @@ def _window(hour: int) -> str:
 
 def build_input_profile(events, resident_id):
     """Input-profile rules (GAZE_GESTURE_PLAN §4.6) over a list of event
-    dicts from the last 14 days. Plain arithmetic — no LLM. Shared by both
+    dicts from the last 14 days. Plain arithmetic, no LLM. Shared by both
     store backends so seed mode and Postgres agree exactly."""
     from statistics import median
 
@@ -190,7 +190,7 @@ def source_label(source: str, name: str, date: str | None) -> str:
     if source == "document":
         year = (date or "")[:4]
         return f"From records, {year}" if year else "From records"
-    return "Pattern noticed"  # inferred — never shown as fact
+    return "Pattern noticed"  # inferred, never shown as fact
 
 
 class SeedStore:
@@ -223,7 +223,7 @@ class SeedStore:
         # Seed-mode RAG: document vectors cached on disk by content hash
         # (gitignored), so recall is semantic even without the database.
         self._vectors = VectorCache(SEED_DIR / ".embeddings.json", embed_texts)
-        # In-memory writes (lost on restart — fine for pre-DB development)
+        # In-memory writes (lost on restart, fine for pre-DB development)
         self.sentences, self.choices, self.observations, self.story_answers = [], [], [], []
         # Action-related writes persist to a shared runtime file so the
         # actions server, backend and mock-booking page (separate processes)
@@ -630,7 +630,7 @@ class SeedStore:
         for p in self._runtime["action_plans"]:
             if p["resident_id"] == rid:
                 items.append({"kind": "action", "date": p["created_at"],
-                              "text": f"Plan '{p['goal']}' — {p['status']}"})
+                              "text": f"Plan '{p['goal']}', {p['status']}"})
         for r in self._runtime["action_results"]:
             plan = next((p for p in self._runtime["action_plans"] if p["id"] == r["plan_id"]), None)
             if plan and plan["resident_id"] == rid:
@@ -1084,7 +1084,7 @@ class PostgresStore:
                SELECT 'choice', created_at, 'Choice: ' || coalesce(chosen, 'not decided yet')
                FROM choices WHERE resident_id = %s
                UNION ALL
-               SELECT 'action', ap.created_at, 'Plan ''' || ap.goal || ''' — ' || ap.status
+               SELECT 'action', ap.created_at, 'Plan ''' || ap.goal || ''', ' || ap.status
                FROM action_plans ap WHERE ap.resident_id = %s
                UNION ALL
                SELECT 'action', ar.created_at, ar.result

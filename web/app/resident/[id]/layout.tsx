@@ -24,7 +24,7 @@ export default async function ResidentLayout({
     <ResidentChrome id={id} name={resident.data.name}>
       {resident.origin === "sample" ? (
         <div className="r-banner">
-          <DataBanner>Sample data — the API didn&apos;t answer, so this is the demo profile.</DataBanner>
+          <DataBanner>Sample data, the API didn&apos;t answer, so this is the demo profile.</DataBanner>
         </div>
       ) : null}
       {children}

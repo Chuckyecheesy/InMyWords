@@ -1,6 +1,6 @@
 /**
  * MediaPipe Gesture Recognizer wrapper (GAZE_GESTURE_PLAN G4).
- * VIDEO mode, 1 hand, reading WebGazer's video element — ONE shared camera
+ * VIDEO mode, 1 hand, reading WebGazer's video element, ONE shared camera
  * stream, never a second getUserMedia. Client-side dynamic import only.
  * All processing stays on the device.
  */
@@ -62,7 +62,7 @@ export function stopGestures(): void {
 
 /**
  * Screens that accept gestures subscribe; everywhere else nothing listens
- * (§4.4 — gestures are ignored on screens that don't opt in).
+ * (§4.4, gestures are ignored on screens that don't opt in).
  */
 export function onGesture(cb: (fired: FiredGesture) => void): () => void {
   listeners.add(cb);
@@ -83,7 +83,7 @@ export function onCustomGesture(cb: (tileLabel: string) => void): () => void {
   return () => customListeners.delete(cb);
 }
 
-/** Latest frame's 21 hand landmarks — the teach screen captures these. */
+/** Latest frame's 21 hand landmarks, the teach screen captures these. */
 export function latestLandmarks(): Landmark[] | null {
   return lastLandmarks;
 }

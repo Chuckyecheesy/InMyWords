@@ -21,7 +21,7 @@ const SAMPLES_NEEDED = 5;
 
 /**
  * G8 teach screen: pick a tile, hold your hand shape, capture 5 samples,
- * then try it live. Landmarks only — never video. The taught gesture
+ * then try it live. Landmarks only, never video. The taught gesture
  * selects its tile and still goes through the normal confirmation flow.
  */
 export function TeachGesture({ resident }: { resident: Resident }) {
@@ -73,7 +73,7 @@ export function TeachGesture({ resident }: { resident: Resident }) {
     }
     const normalized = normalizeLandmarks(landmarks);
     if (!normalized) {
-      setMessage("That frame didn't work — try again.");
+      setMessage("That frame didn't work, try again.");
       return;
     }
     setMessage(null);

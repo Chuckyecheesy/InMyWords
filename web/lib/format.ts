@@ -179,7 +179,7 @@ export function greeting(now = new Date()): string {
  */
 export function forSpeech(text: string): string {
   const cleaned = text
-    .replace(/\s*(?:—|–|--)\s*/g, ". ")
+    .replace(/\s*(?:, |–|--)\s*/g, ". ")
     .replace(/\s+([,.!?;:])/g, "$1")
     .replace(/([.!?])(?:\s*\1)+/g, "$1")
     .replace(/\s+/g, " ")

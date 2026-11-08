@@ -14,7 +14,7 @@ import type { ChipTone, Highlight, SourceType } from "@/lib/types";
 /* Brand ------------------------------------------------------------------ */
 
 export function WordmarkMark({ size = 34 }: { size?: number }) {
-  // The real brand icon (web/public/brand/icon.svg) — a speech bubble of
+  // The real brand icon (web/public/brand/icon.svg), a speech bubble of
   // tiles. It carries its own colors, so the chip background goes away.
   return (
     <span className="wordmark-mark" data-brand="" style={{ width: size, height: size }} aria-hidden="true">

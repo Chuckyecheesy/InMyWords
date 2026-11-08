@@ -26,11 +26,11 @@ export default async function ActivityPage({
   return (
     <>
       <StaffHead eyebrow="Log" title="Activity log">
-        Everything {name} said, chose or approved through the app — logged as it happened.
+        Everything {name} said, chose or approved through the app, logged as it happened.
       </StaffHead>
       {sample ? (
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <DataBanner>Sample data — the API didn&apos;t answer, so this is the demo log.</DataBanner>
+          <DataBanner>Sample data, the API didn&apos;t answer, so this is the demo log.</DataBanner>
         </div>
       ) : null}
       <nav className="switch" aria-label="Choose a resident">

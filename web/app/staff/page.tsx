@@ -40,7 +40,7 @@ export default async function StaffDashboard() {
 
       {sample ? (
         <div style={{ marginBottom: "var(--space-5)" }}>
-          <DataBanner>Sample data — the API didn&apos;t answer, so these are the demo residents.</DataBanner>
+          <DataBanner>Sample data, the API didn&apos;t answer, so these are the demo residents.</DataBanner>
         </div>
       ) : null}
 
@@ -53,7 +53,7 @@ export default async function StaffDashboard() {
             <div>
               <h2 id="shift-title">Start your shift</h2>
               <p>
-                First shift — showing the last two weeks.{" "}
+                First shift, showing the last two weeks.{" "}
                 {attention.length > 0 ? `${attention.length} things to know about.` : "Nothing urgent."}
               </p>
             </div>

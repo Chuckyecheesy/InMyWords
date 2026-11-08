@@ -468,8 +468,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
                 ? "The audio didn't play. Nothing else was changed."
                 : playback.kind === "preview"
                   ? playback.state === "playing"
-                    ? "Preview — not saved."
-                    : "Preview finished — not saved."
+                    ? "Preview, not saved."
+                    : "Preview finished, not saved."
                   : playback.state === "playing"
                     ? `Speaking in ${name}'s voice…`
                     : `Said in ${name}'s voice.`}
@@ -888,7 +888,7 @@ function ReviewDialog({
             onClick={() => !hold.consumed() && onCancel()}
           >
             <X size={22} aria-hidden="true" />
-            Cancel — choose another
+            Cancel, choose another
           </button>
         </div>
         <GestureHint enabled={gestures} onYes={onGestureApprove} onNo={onCancel} />

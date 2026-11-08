@@ -590,7 +590,7 @@ export async function savePhoto(input: {
 import type { InputEvent, InputProfile } from "./input/types";
 import { DEFAULT_PROFILE } from "./input/profile";
 
-/** Batched OUTCOME events from the input controller — never video. */
+/** Batched OUTCOME events from the input controller, never video. */
 export function postInputEvents(events: InputEvent[]) {
   return sendJson<{ saved: number }>("/input-events", { events });
 }

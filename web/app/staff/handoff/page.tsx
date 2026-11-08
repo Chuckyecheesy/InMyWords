@@ -45,7 +45,7 @@ export default async function HandoffPage({
 
       {sample ? (
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <DataBanner>Sample data — the API didn&apos;t answer, so these are the demo residents.</DataBanner>
+          <DataBanner>Sample data, the API didn&apos;t answer, so these are the demo residents.</DataBanner>
         </div>
       ) : null}
 
@@ -87,7 +87,7 @@ async function HandoffItems({
     <>
       {handoff.origin === "sample" ? (
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <DataBanner>Sample data — the API didn&apos;t answer, so this is the demo handoff.</DataBanner>
+          <DataBanner>Sample data, the API didn&apos;t answer, so this is the demo handoff.</DataBanner>
         </div>
       ) : null}
       {handoff.data.length === 0 ? (

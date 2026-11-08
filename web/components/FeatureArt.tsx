@@ -1,7 +1,7 @@
 import { Check, Clapperboard, Coffee, Heart, Sun } from "lucide-react";
 import { BasketballIcon, BowlingIcon } from "@/lib/pictograms";
 
-/** Calm, adult compositions of the same pictogram set — no clip art. */
+/** Calm, adult compositions of the same pictogram set, no clip art. */
 export function FeatureArt({ kind }: { kind: "speak" | "story" | "choice" }) {
   if (kind === "speak") {
     return (

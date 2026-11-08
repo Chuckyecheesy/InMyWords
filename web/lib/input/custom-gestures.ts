@@ -1,11 +1,11 @@
 /**
- * G8 — teach a personal gesture (GAZE_GESTURE_PLAN §G8). Pure logic,
+ * G8, teach a personal gesture (GAZE_GESTURE_PLAN §G8). Pure logic,
  * unit-tested. 21 hand landmarks are normalized so position and distance
  * from the camera don't matter: wrist (landmark 0) moves to the origin,
  * everything scales by hand size. Recognition is nearest-match against
  * the taught samples with a distance threshold; a frame where a BUILT-IN
  * gesture scores high is never matched (no false triggers from Thumb_Up
- * and friends — the G8 done-when).
+ * and friends, the G8 done-when).
  */
 
 export type Landmark = { x: number; y: number; z?: number };
@@ -64,7 +64,7 @@ export class CustomGestureMatcher {
 
   /**
    * Match one frame. Returns the taught tile label, or null when nothing
-   * is close enough — or when a built-in gesture owns the frame.
+   * is close enough, or when a built-in gesture owns the frame.
    */
   matchFrame(
     landmarks: Landmark[] | null,

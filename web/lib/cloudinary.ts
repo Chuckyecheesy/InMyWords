@@ -4,11 +4,11 @@ import { TILE_PAD } from "./tokens";
  * Tile recipe, chosen in T4.1 and used for every photo tile.
  *
  * Chain, applied left to right:
- * 1. c_fill,g_auto,w_640,h_640 — square crop, automatic subject and face focus
- * 2. e_background_removal — drop the room behind the person or object
- * 3. c_pad,w_720,h_720 — 40px of the same padding on every side
- * 4. r_48 — the same rounded corners
- * 5. f_auto/q_auto — format and quality chosen at delivery
+ * 1. c_fill,g_auto,w_640,h_640, square crop, automatic subject and face focus
+ * 2. e_background_removal, drop the room behind the person or object
+ * 3. c_pad,w_720,h_720, 40px of the same padding on every side
+ * 4. r_48, the same rounded corners
+ * 5. f_auto/q_auto, format and quality chosen at delivery
  *
  * High contrast adds e_contrast:50 and e_sharpen:80, and pads on white.
  * Pad colours come from lib/tokens.ts so they match --card.

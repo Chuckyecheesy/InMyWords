@@ -1,5 +1,5 @@
 /**
- * WebGazer wrapper (GAZE_GESTURE_PLAN G2). Client-side dynamic import ONLY —
+ * WebGazer wrapper (GAZE_GESTURE_PLAN G2). Client-side dynamic import ONLY , 
  * WebGazer touches `window` and the camera; importing it during server
  * rendering crashes the build. The camera starts only after consent.
  */
@@ -103,7 +103,7 @@ export function onGaze(cb: (point: GazePoint | null, lost: boolean) => void): ()
   return () => listeners.delete(cb);
 }
 
-/** One calibration click at screen position (x, y) — trains the ridge model. */
+/** One calibration click at screen position (x, y), trains the ridge model. */
 export function recordCalibrationPoint(x: number, y: number): void {
   webgazer?.recordScreenPosition(x, y, "click");
 }
@@ -122,7 +122,7 @@ export function clearCalibration(): void {
   smoother.reset();
 }
 
-/** The shared <video> element WebGazer created — MediaPipe reads this. */
+/** The shared <video> element WebGazer created, MediaPipe reads this. */
 export function gazeVideoElement(): HTMLVideoElement | null {
   return document.getElementById("webgazerVideoFeed") as HTMLVideoElement | null;
 }

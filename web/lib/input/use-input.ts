@@ -42,7 +42,7 @@ export function useInputLayer(residentId: string) {
     setConsentState(hasCameraConsent(residentId));
     void getInputProfile(residentId).then((fetched) => {
       setProfile(fetched);
-      // G6: gaze-first residents start on the eye grid — unless a
+      // G6: gaze-first residents start on the eye grid, unless a
       // time-of-day note says touch works better right now.
       if (fetched.preferred_select === "gaze" && !startOnTouchGrid(fetched)) {
         setEyeMode(true);

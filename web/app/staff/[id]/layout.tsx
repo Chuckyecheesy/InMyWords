@@ -46,7 +46,7 @@ export default async function StaffResidentLayout({
       </div>
       {resident.origin === "sample" ? (
         <div style={{ marginBottom: "var(--space-4)" }}>
-          <DataBanner>Sample data — the API didn&apos;t answer, so this is the demo profile.</DataBanner>
+          <DataBanner>Sample data, the API didn&apos;t answer, so this is the demo profile.</DataBanner>
         </div>
       ) : null}
       <StaffNav id={id} />

@@ -1,4 +1,4 @@
-"""resident-profile MCP server (BUILD_PLAN T2.3) — 8 tools.
+"""resident-profile MCP server (BUILD_PLAN T2.3), 8 tools.
 
 Run:  python mcp/profile_server.py          (streamable HTTP on :8101)
 
@@ -135,7 +135,7 @@ def save_story_chapter(resident: str, chapter: str, text: str, photos: list[str]
 
 @mcp.tool
 def ask_about(resident: str, question: str) -> dict:
-    """Retrieval only — returns matching facts with source + date + label.
+    """Retrieval only, returns matching facts with source + date + label.
     William's Coach agent does the wording; if facts is empty the Coach
     must answer 'I don't know, ask <name>'."""
     store = get_store()
@@ -192,7 +192,7 @@ def suggest_sentence(resident: str, tiles: list[str], time_of_day: str = "") -> 
 
 @mcp.tool
 def log_sentence(resident: str, sentence: str, approved: bool, tiles: list[str] | None = None) -> dict:
-    """Record a spoken (or rejected) sentence. approved=False is still logged —
+    """Record a spoken (or rejected) sentence. approved=False is still logged , 
     rejections teach the memory layer too."""
     store = get_store()
     sentence_id = store.log_sentence(resident, tiles or [], sentence, approved)
@@ -201,7 +201,7 @@ def log_sentence(resident: str, sentence: str, approved: bool, tiles: list[str] 
 
 @mcp.tool
 def log_choice(resident: str, options: list[dict], chosen: str | None = None, question: str = "") -> dict:
-    """Record a choice. chosen=None means 'not decided yet' — there is NO
+    """Record a choice. chosen=None means 'not decided yet', there is NO
     'staff decided' path, by design."""
     store = get_store()
     status = "chosen" if chosen else "not_yet_decided"
@@ -212,7 +212,7 @@ def log_choice(resident: str, options: list[dict], chosen: str | None = None, qu
 @mcp.tool
 def get_observations(resident: str, since: str = "") -> dict:
     """Staff observations for a resident, optionally since an ISO timestamp.
-    (Additive read tool — the Handoff agent needs it.)"""
+    (Additive read tool, the Handoff agent needs it.)"""
     store = get_store()
     rows = store.get_observations(resident, since or None)
     return {"observations": [{"staff": o["staff_id"], "note": o["note"],
@@ -222,7 +222,7 @@ def get_observations(resident: str, since: str = "") -> dict:
 @mcp.tool
 def get_choices(resident: str, since: str = "") -> dict:
     """Choices with status, optionally since an ISO timestamp.
-    (Additive read tool — the Handoff agent needs it.)"""
+    (Additive read tool, the Handoff agent needs it.)"""
     store = get_store()
     rows = store.get_choices(resident, since or None)
     return {"choices": [{"chosen": c["chosen"], "status": c["status"],
@@ -232,7 +232,7 @@ def get_choices(resident: str, since: str = "") -> dict:
 
 @mcp.tool
 def add_observation(resident: str, staff: str, note: str) -> dict:
-    """Save a staff observation — stored separately from the resident's words,
+    """Save a staff observation, stored separately from the resident's words,
     never overwrites them."""
     store = get_store()
     obs_id = store.add_observation(resident, staff, note)

@@ -23,7 +23,7 @@ export function ObservationForm({ residentId, name }: { residentId: string; name
     const result = await addObservation({ resident_id: residentId, staff_id: DEMO_STAFF.id, note: text });
     setBusy(false);
     if (!result.ok) {
-      setError("Couldn't save the note. It's still in the box — try again.");
+      setError("Couldn't save the note. It's still in the box, try again.");
       return;
     }
     setAdded((current) => [

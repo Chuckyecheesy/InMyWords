@@ -131,7 +131,7 @@ SCHEMAS: dict[str, dict] = {
         "consequences": _object(
             "Supported Choice. One short neutral line per option, including "
             '"not decided yet". Do not recommend. Do not write prices or money '
-            "left — code calculates those and appends them onto each option.",
+            "left, code calculates those and appends them onto each option.",
             {
                 "options": {
                     "type": "array",
@@ -261,7 +261,7 @@ SCHEMAS: dict[str, dict] = {
             "Action agent. Steps from the allowlist only. "
             "create_staff_task is staff_tasks, not an online step. "
             "cost is the price the prompt supplied for that step, copied, not calculated. "
-            "Do not include a total — code sums cost.",
+            "Do not include a total, code sums cost.",
             {
                 "online_steps": {
                     "type": "array",
@@ -405,7 +405,7 @@ EXAMPLES: dict[str, dict] = {
                 },
                 {
                     "step": "add_to_calendar",
-                    "detail": "Bowling — Saturday 2:00pm",
+                    "detail": "Bowling, Saturday 2:00pm",
                     "cost": 0,
                 },
                 {

@@ -1,4 +1,4 @@
-"""One function per MCP tool (BUILD_PLAN T2.3) — the only way routes and
+"""One function per MCP tool (BUILD_PLAN T2.3), the only way routes and
 agents reach data. Reads server URLs from the environment (.env):
 
     MCP_PROFILE_URL  default http://127.0.0.1:8101/mcp

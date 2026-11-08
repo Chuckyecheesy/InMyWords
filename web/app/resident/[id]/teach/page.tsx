@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getResident } from "@/lib/api";
 import { TeachGesture } from "@/components/TeachGesture";
 
-/** G8 — teach a personal gesture. Server shell; the camera work is client-side. */
+/** G8, teach a personal gesture. Server shell; the camera work is client-side. */
 export default async function TeachPage({
   params,
 }: {

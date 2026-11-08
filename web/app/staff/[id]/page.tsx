@@ -169,7 +169,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ id: st
                       {chapter.status === "approved" ? (
                         <Badge tone="resident" label={`Approved by ${name}`} />
                       ) : (
-                        <Badge tone="warning" label="Draft — not shared" />
+                        <Badge tone="warning" label="Draft, not shared" />
                       )}
                     </div>
                   </div>

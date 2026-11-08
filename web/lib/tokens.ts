@@ -1,5 +1,5 @@
 /**
- * JS mirrors of app/tokens.css — keep pad colours in lockstep with Cloudinary.
+ * JS mirrors of app/tokens.css, keep pad colours in lockstep with Cloudinary.
  * Prefer CSS vars in the UI; use these only where CSS cannot reach (image URLs).
  */
 
@@ -26,7 +26,7 @@ export const TOKENS = {
   },
 } as const;
 
-/** Cloudinary pad hex without # — matches --card in each theme. */
+/** Cloudinary pad hex without #, matches --card in each theme. */
 export const TILE_PAD = {
   calm: TOKENS.calm.card.slice(1),
   contrast: TOKENS.contrast.card.slice(1),

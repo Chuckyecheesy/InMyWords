@@ -294,7 +294,7 @@ def upload_seed_photo(public_id: str, path: Path) -> str:
     return uploaded
 
 
-# Same chain as web/lib/cloudinary.ts — keep in lockstep.
+# Same chain as web/lib/cloudinary.ts, keep in lockstep.
 TILE_RECIPES = {
     "calm": (
         "c_fill,g_auto,w_640,h_640/e_background_removal/"

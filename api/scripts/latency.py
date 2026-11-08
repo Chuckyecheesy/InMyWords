@@ -8,7 +8,7 @@ Targets:
   approve -> audio (cached)     < 2 s    POST /speak, a pre-generated line, then fetch the mp3
   approve -> audio (new line)   < 2 s    POST /speak, a line that is not cached yet
   Coach answer                  < 4 s    POST /coach/ask
-  voice agent session (info)    —        GET /agents/story/session
+  voice agent session (info)   ,        GET /agents/story/session
 
 Only read routes and the speech cache are touched: nothing is saved as a
 resident's words. The "new line" check makes one short ElevenLabs request
@@ -106,7 +106,7 @@ def main() -> None:
         else:
             verdict = "ok" if median < target else "SLOW"
             failed |= verdict == "SLOW"
-        shown = f"{median:5.2f}s" if median is not None else "   —  "
+        shown = f"{median:5.2f}s" if median is not None else "  ,  "
         goal = f"< {target:.0f}s" if target else "     "
         print(f"  {verdict:4}  {name:30} {shown}  {goal}  {note}")
     sys.exit(1 if failed else 0)

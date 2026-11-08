@@ -1,4 +1,4 @@
-"""Handoff agent (BUILD_PLAN T2.7) — "since your last shift" summary.
+"""Handoff agent (BUILD_PLAN T2.7), "since your last shift" summary.
 
 Gathers through the MCP servers only (never the database): EMH notes,
 checklist misses with reasons, observations, choices, open staff tasks,
@@ -7,7 +7,7 @@ date, no guessed causes.
 
 Phrasing: plain code builds correct bullets; if GEMINI_API_KEY is set we
 let Gemini smooth the wording (facts and dates pass through), and fall
-back to the plain bullets on any error — the demo never blocks on an LLM.
+back to the plain bullets on any error, the demo never blocks on an LLM.
 """
 
 from services import mcp_client
@@ -32,7 +32,7 @@ async def build_handoff(staff_id: str, resident_id: str) -> dict:
     items = []
     for t in tasks["tasks"]:
         if t["status"] == "open":
-            due = f" — due {str(t['due'])[:16].replace('T', ' ')}" if t["due"] else ""
+            due = f", due {str(t['due'])[:16].replace('T', ' ')}" if t["due"] else ""
             items.append({"type": "staff_task", "date": "open", "text": f"{t['task']}{due}"})
     for c in choices["choices"]:
         what = c["chosen"] if c["status"] == "chosen" else "not decided yet"
@@ -42,7 +42,7 @@ async def build_handoff(staff_id: str, resident_id: str) -> dict:
     for row in checklist["items"]:
         if not row["happened"] and (not since or str(row["date"]) >= since[:10]):
             items.append({"type": "emh_checklist", "date": row["date"],
-                          "text": f"{row['item']} didn't happen — {row['reason']}"})
+                          "text": f"{row['item']} didn't happen, {row['reason']}"})
     for m in changes["memories"]:
         items.append({"type": "memory", "date": m["date"],
                       "text": f"Confirmed by {name}: {m['content']} (now in {name}'s words)"})
@@ -53,7 +53,7 @@ async def build_handoff(staff_id: str, resident_id: str) -> dict:
 
     items = _maybe_polish(items, name)
     return {"staff": staff.get("name", staff_id), "resident": name,
-            "since": since or "first shift — showing everything", "items": items}
+            "since": since or "first shift, showing everything", "items": items}
 
 
 def _maybe_polish(items, name):

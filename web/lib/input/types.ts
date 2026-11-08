@@ -1,6 +1,6 @@
 /**
  * Gaze/gesture input layer (docs/GAZE_GESTURE_PLAN.md).
- * Only OUTCOME events leave the device — never video, never raw gaze.
+ * Only OUTCOME events leave the device, never video, never raw gaze.
  */
 
 export type InputType = "touch" | "gaze" | "gesture";

@@ -1,7 +1,7 @@
 """Hard-coded mock responses for every endpoint (BUILD_PLAN T2.1).
 
 Everyone builds against these from hour 1. Real logic replaces each one
-inside main.py without changing shapes — shapes are the frozen contract
+inside main.py without changing shapes, shapes are the frozen contract
 (docs/CONTRACTS.md). If a shape here looks wrong, flag it in team chat
 BEFORE hour 1, not after.
 """
@@ -133,7 +133,7 @@ ACTION_PLAN = {
     "goal": "bowling Saturday",
     "online_steps": [
         {"step": "book_activity", "detail": "Lane at KW Bowl, Saturday 2:00pm", "cost": 15.00},
-        {"step": "add_to_calendar", "detail": "Bowling — Saturday 2:00pm", "cost": 0},
+        {"step": "add_to_calendar", "detail": "Bowling, Saturday 2:00pm", "cost": 0},
         {"step": "send_message", "detail": "Email Lisa: 'Marcus is going bowling Saturday at 2pm. Want to come?'", "cost": 0},
     ],
     "staff_tasks": [
@@ -156,7 +156,7 @@ HANDOFF = {
     "items": [
         {"type": "choice", "date": "2026-11-06", "text": "Marcus chose bowling for Saturday (his choice, approved the plan himself)."},
         {"type": "staff_task", "date": "2026-11-07", "text": "Ride needed: drive Marcus to KW Bowl, Saturday 1:30pm."},
-        {"type": "emh_checklist", "date": "2026-11-05", "text": "Grocery shopping didn't happen — bus was cancelled."},
+        {"type": "emh_checklist", "date": "2026-11-05", "text": "Grocery shopping didn't happen, bus was cancelled."},
         {"type": "pattern", "date": "2026-11-06", "text": "Pattern noticed (not confirmed): Marcus has picked tea 5 times this week."},
         {"type": "emh_note", "date": "2026-11-04", "text": "Quiet afternoon; Marcus listened to music in his room after the day program."},
     ]

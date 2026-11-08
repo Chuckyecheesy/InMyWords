@@ -41,7 +41,7 @@ import {
  *
  * Mapping is by tile label, so live tiles from the API pick up the same
  * pictogram. Unknown labels fall back to a Cloudinary photo (if any) and
- * then to the word itself — never a random icon.
+ * then to the word itself, never a random icon.
  */
 
 export type IconProps = SVGProps<SVGSVGElement> & {

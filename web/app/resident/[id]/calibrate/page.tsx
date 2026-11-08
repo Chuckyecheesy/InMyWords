@@ -17,7 +17,7 @@ import {
  * 9-point calibration + accuracy check (GAZE_GESTURE_PLAN §5, G2).
  * Targets at 10/50/90% of width and height, 5 taps each while looking.
  * Accuracy: 5 random points; Good < 15% of screen width, Okay 15–25%,
- * Try again > 25%. Session-only — nothing persists.
+ * Try again > 25%. Session-only, nothing persists.
  */
 
 const POSITIONS = [0.1, 0.5, 0.9].flatMap((y) => [0.1, 0.5, 0.9].map((x) => ({ x, y })));
