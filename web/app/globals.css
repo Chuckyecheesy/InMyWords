@@ -4695,3 +4695,204 @@ button:disabled {
   /* Display menu toggles (Larger text, High contrast) */
   min-height: var(--tap-min);
 }
+
+/* ---------- Gaze setup screens: calibrate + teach (token-aligned) ---------- */
+
+.setup-card {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  text-align: center;
+  max-width: 640px;
+  margin-inline: auto;
+}
+
+.setup-icon {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.setup-icon[data-tone="success"] {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.setup-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setup-steps li {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: var(--space-3);
+  border-radius: var(--radius-2);
+  background: var(--accent-softer);
+  font-size: 1rem;
+  color: var(--ink-2);
+}
+
+.setup-steps strong {
+  color: var(--ink);
+}
+
+.setup-step-icon {
+  font-size: 1.9rem;
+  line-height: 1;
+}
+
+.setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+.result-card h1 {
+  margin: 0;
+}
+
+.calibrate-hud {
+  position: absolute;
+  top: 3vh;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  white-space: nowrap;
+}
+
+.calibrate-hud-label {
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.calibrate-hud-hint {
+  color: var(--ink-2);
+}
+
+.tap-dots {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.tap-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  transition: background-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+
+.tap-dot[data-done="true"] {
+  background: var(--accent);
+  transform: scale(1.15);
+}
+
+/* Calm, slow breathing — never a flash (PROJECT_PLAN SS9). */
+.pulse-slow {
+  animation: pulse-slow 2.6s ease-in-out infinite;
+}
+
+@keyframes pulse-slow {
+  50% { transform: translate(-50%, -50%) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-slow { animation: none; }
+}
+
+.teach-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.teach-steps li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px var(--space-3);
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  font-weight: 700;
+  color: var(--ink-3);
+}
+
+.teach-steps li[data-state="active"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.teach-steps li[data-state="done"] {
+  border-color: transparent;
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.teach-step-num {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  color: var(--surface);
+  background: var(--ink-3);
+}
+
+.teach-steps li[data-state="active"] .teach-step-num {
+  background: var(--accent);
+}
+
+.teach-steps li[data-state="done"] .teach-step-num {
+  background: var(--success);
+}
+
+.sample-dots {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.sample-dot {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px dashed var(--line-strong);
+  background: var(--surface);
+  font-weight: 800;
+  color: var(--ink-3);
+  transition: all var(--dur-2) var(--ease);
+}
+
+.sample-dot[data-done="true"] {
+  border-style: solid;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.try-status[data-hit="true"] {
+  color: var(--success);
+  font-weight: 800;
+}
