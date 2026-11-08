@@ -100,6 +100,7 @@ async function answerAll() {
   assert.ok(screen.getByRole("heading", { name: "Which days?" }));
   tap("Every day");
   await screen.findByRole("heading", { name: "Meet Sam at 1:00p.m. for 2 hours, every day." });
+  await screen.findAllByText("1:00p.m.–3:00p.m.");
 }
 
 const PREVIEW = { visits: WEEK.map(({ staff, starts_at, ends_at }) => ({ staff, starts_at, ends_at })) };
@@ -261,6 +262,20 @@ describe("My week", () => {
 });
 
 describe("setting a routine", () => {
+  test("approval stays disabled until the preview finishes loading", async () => {
+    let finishPreview!: (value: Response) => void;
+    globalThis.fetch = (() => new Promise<Response>((resolve) => {
+      finishPreview = resolve;
+    })) as typeof fetch;
+    planner();
+    const answering = answerAll();
+    await screen.findByText("Working out your week…");
+    assert.equal((screen.getByRole("button", { name: "Approve" }) as HTMLButtonElement).disabled, true);
+    finishPreview(new Response(JSON.stringify(PREVIEW), { status: 200 }));
+    await answering;
+    assert.equal((screen.getByRole("button", { name: "Approve" }) as HTMLButtonElement).disabled, false);
+  });
+
   test("one question at a time, then a card that saves nothing yet (rule 1)", async () => {
     const calls = stubApi((path) => (path === "/planner/preview" ? PREVIEW : {}));
     planner();
