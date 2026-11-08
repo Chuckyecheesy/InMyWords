@@ -27,6 +27,7 @@ import memory_server  # noqa: E402
 import profile_server  # noqa: E402
 
 from agents.memory.consolidator import consolidate  # noqa: E402
+from agents.coach_wording import coach_answer  # noqa: E402
 from agents.memory.observer import observe  # noqa: E402
 from agents.memory.retriever import retrieve  # noqa: E402
 
@@ -91,6 +92,33 @@ class DoneWhenTests(unittest.TestCase):
         tea = [f for f in out["facts"] if "tea" in f["content"].lower()]
         self.assertTrue(tea, "Coach retrieval did not return the tea pattern")
         self.assertEqual(tea[0]["label"].lower(), "pattern noticed")
+
+    def test_onboarding_question_returns_source_labeled_profile_overview(self):
+        out = tool(profile_server.ask_about)(
+            resident="marcus", question="Explain Marcus's onboarding")
+
+        self.assertFalse(out["unknown"])
+        contents = [fact["content"] for fact in out["facts"]]
+        self.assertTrue(any("communicates with single words" in text for text in contents))
+        self.assertTrue(any("When overwhelmed" in text for text in contents))
+        communication = next(
+            fact for fact in out["facts"]
+            if "communicates with single words" in fact["content"]
+        )
+        self.assertEqual(communication["source"], "document")
+        self.assertEqual(communication["date"], "2021-03-15")
+        self.assertEqual(communication["label"], "From records, 2021")
+
+        answer = coach_answer(out["facts"], "Marcus")
+        self.assertIn("From records, 2021:", answer)
+        self.assertIn("In Marcus's words:", answer)
+        self.assertIn("Pattern noticed, not confirmed by Marcus yet:", answer)
+
+    def test_unrelated_question_still_returns_no_matches(self):
+        out = tool(profile_server.ask_about)(
+            resident="marcus", question="zzzqqq")
+        self.assertTrue(out["unknown"])
+        self.assertEqual(out["facts"], [])
 
     def test_binder_coffee_fact_is_flagged_against_the_tea_pattern(self):
         result = consolidate(
