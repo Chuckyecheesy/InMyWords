@@ -116,6 +116,7 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 - On a reject the resident is told plainly, on screen and spoken in her chosen voice: "Sam can't come at 1:00 on Monday. You can pick another time." No reason text from staff is shown (no notes, reasons or health info on the planner), and the resident can choose again with "Add a visit".
 - This doesn't break rule 3: staff are answering about their own availability, not deciding for the resident. The resident's request stays her own words until staff answer.
 - Status changes are plain code (rule 6) and go through the MCP servers (rule 4); the decision, who made it and when are logged.
+- Open planner views refresh while visible and when brought back into focus, so pending requests and staff responses reach both sides without a manual reload. If a refresh fails, the last view stays visible with an out-of-date warning.
 
 **Source labels**: the routine the resident entered is the resident's own words. A slot the subagent proposes from a noticed pattern is "pattern noticed" / `inferred` until confirmed. Staff-created visit hours imported from their calendar are labelled "from staff calendar, <date>".
 
