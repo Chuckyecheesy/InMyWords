@@ -1,0 +1,73 @@
+"use client";
+
+import { useState } from "react";
+import { confirmMemory } from "@/lib/api";
+import { sourceChip } from "@/lib/format";
+import type { PendingMemory } from "@/lib/types";
+import { SourceChip } from "./SourceChip";
+import { BigButton } from "./shared";
+
+/**
+ * "Pattern noticed, confirm?" queue. Inferred and imported facts stay labelled
+ * as such until the resident answers yes or no. Staff never answer for them.
+ */
+export function ConfirmQueue({
+  residentName,
+  residentId = residentName.toLowerCase(),
+  memories,
+}: {
+  residentName: string;
+  residentId?: string;
+  memories: PendingMemory[];
+}) {
+  const [answered, setAnswered] = useState<Record<string, "yes" | "no">>({});
+  const [failed, setFailed] = useState<string | null>(null);
+
+  async function answer(id: string, value: "yes" | "no") {
+    setFailed(null);
+    const result = await confirmMemory(id, value, residentId);
+    if (!result.ok) {
+      setFailed(id);
+      return;
+    }
+    setAnswered((prev) => ({ ...prev, [id]: value }));
+  }
+
+  const waiting = memories.filter((memory) => !answered[memory.id]);
+  if (waiting.length === 0) {
+    return <p>Nothing is waiting for {residentName} to confirm.</p>;
+  }
+
+  return (
+    <>
+      {waiting.map((memory) => {
+        const chip = sourceChip(memory.source, residentName, memory.source_date);
+        const seen = memory.times_seen && memory.times_seen > 1 ? memory.times_seen : null;
+        return (
+          <article key={memory.id} className="fact">
+            <p>{memory.content}</p>
+            <SourceChip tone={chip.tone} label={chip.label} />
+            {seen ? <p className="note">Seen {seen} times.</p> : null}
+            {memory.update_reason ? (
+              <p className="note" role="note">
+                ⚠️ May have changed. {memory.update_reason}.
+              </p>
+            ) : null}
+            <p className="note">Is this still true for {residentName}?</p>
+            <div className="actions">
+              <BigButton tone="approve" onClick={() => answer(memory.id, "yes")}>
+                Yes
+              </BigButton>
+              <BigButton tone="reject" onClick={() => answer(memory.id, "no")}>
+                No
+              </BigButton>
+            </div>
+            {failed === memory.id ? (
+              <p className="note">That did not save. Try again.</p>
+            ) : null}
+          </article>
+        );
+      })}
+    </>
+  );
+}

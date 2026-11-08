@@ -45,6 +45,9 @@ export type PendingMemory = {
   content: string;
   source: SourceType;
   source_date: string | null;
+  times_seen: number | null;
+  /** Set when the Consolidator put a confirmed fact back in the queue. */
+  update_reason: string | null;
 };
 
 export type HandoffItem = {
@@ -64,6 +67,8 @@ export type ActivityItem = {
 export type SourcedFact = {
   type: SourceType;
   date: string | null;
+  label?: string;
+  update_reason?: string | null;
 };
 
 export type CoachAnswer = {

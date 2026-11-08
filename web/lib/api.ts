@@ -156,11 +156,13 @@ function normalizeMemory(value: unknown, index: number): PendingMemory | null {
   if (!content || !source) return null;
   if (type !== "preference" && type !== "event" && type !== "routine") return null;
   return {
-    id: text(row.id) ?? `memory-${index}`,
+    id: text(row.id) ?? (typeof row.id === "number" ? String(row.id) : `memory-${index}`),
     type,
     content,
     source,
     source_date: text(row.source_date) ?? text(row.date),
+    times_seen: typeof row.times_seen === "number" ? row.times_seen : null,
+    update_reason: text(row.update_reason),
   };
 }
 
@@ -348,10 +350,14 @@ export function approveAction(planId: string) {
   );
 }
 
-export function confirmMemory(memoryId: string, answer: "yes" | "no") {
+export function confirmMemory(
+  memoryId: string,
+  answer: "yes" | "no",
+  residentId: string,
+) {
   return sendJson<{ ok: boolean }>(
     `/memories/${encodeURIComponent(memoryId)}/confirm`,
-    { answer },
+    { confirmed: answer === "yes", resident_id: residentId },
   );
 }
 

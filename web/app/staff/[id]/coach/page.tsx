@@ -22,7 +22,7 @@ export default async function CoachPage({
         </p>
       </div>
 
-      <CoachChat residentName={resident.data.name} />
+      <CoachChat residentName={resident.data.name} residentId={resident.data.id} />
     </div>
   );
 }
