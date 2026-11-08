@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { LoadingNotice } from "@/components/LoadingNotice";
 import { AppShell } from "@/components/AppShell";
 import { DataBanner } from "@/components/DataBanner";
 import { SourceChip } from "@/components/SourceChip";
@@ -21,8 +23,7 @@ export default async function HandoffPage({
   const person =
     people.find((item) => item.data.id === requested?.toLowerCase()) ?? people[0];
   if (!person) return null;
-  const handoff = await getHandoff(DEMO_STAFF.id, person.data.id);
-  const sample = person.origin === "sample" || handoff.origin === "sample";
+  const sample = person.origin === "sample";
 
   return (
     <AppShell
@@ -34,7 +35,7 @@ export default async function HandoffPage({
     >
       {sample ? (
         <DataBanner>
-          Sample data. The API did not answer, so this is the demo handoff.
+          Sample data. The API did not answer, so these are the demo residents.
         </DataBanner>
       ) : null}
       <nav className="switch" aria-label="Choose a resident">
@@ -49,21 +50,44 @@ export default async function HandoffPage({
         ))}
       </nav>
       <StaffNav id={person.data.id} />
-      <div className="stack">
-        {handoff.data.length === 0 ? (
-          <p>Nothing new since the last shift.</p>
-        ) : (
-          handoff.data.map((item) => {
-            const chip = handoffChip(item, person.data.name);
-            return (
-              <article key={`${item.type}-${item.date}-${item.text}`} className="fact">
-                <p>{item.text}</p>
-                <SourceChip tone={chip.tone} label={chip.label} />
-              </article>
-            );
-          })
-        )}
-      </div>
+      <Suspense
+        key={person.data.id}
+        fallback={<LoadingNotice message="Loading updates since your last shift…" />}
+      >
+        <HandoffItems residentId={person.data.id} residentName={person.data.name} />
+      </Suspense>
     </AppShell>
+  );
+}
+
+async function HandoffItems({
+  residentId,
+  residentName,
+}: {
+  residentId: string;
+  residentName: string;
+}) {
+  const handoff = await getHandoff(DEMO_STAFF.id, residentId);
+  return (
+    <div className="stack">
+      {handoff.origin === "sample" ? (
+        <DataBanner>
+          Sample data. The API did not answer, so this is the demo handoff.
+        </DataBanner>
+      ) : null}
+      {handoff.data.length === 0 ? (
+        <p>Nothing new since the last shift.</p>
+      ) : (
+        handoff.data.map((item) => {
+          const chip = handoffChip(item, residentName);
+          return (
+            <article key={`${item.type}-${item.date}-${item.text}`} className="fact">
+              <p>{item.text}</p>
+              <SourceChip tone={chip.tone} label={chip.label} />
+            </article>
+          );
+        })
+      )}
+    </div>
   );
 }

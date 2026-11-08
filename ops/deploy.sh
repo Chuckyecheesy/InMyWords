@@ -246,16 +246,19 @@ write_caddy() {  # $1 = tls | plain
   local conf
   if [ "$1" = tls ]; then
     conf="$DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:3000
 }
 
 $API_DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:8000
 }
 
 $BOOKING_DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:8200
 }
@@ -266,16 +269,19 @@ http://$HOST {
 "
   else
     conf="http://$DOMAIN, http://$HOST {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:3000
 }
 
 http://$API_DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:8000
 }
 
 http://$BOOKING_DOMAIN {
+	encode zstd gzip
 	header -Server
 	reverse_proxy 127.0.0.1:8200
 }
