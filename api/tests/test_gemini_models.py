@@ -13,7 +13,6 @@ from services import gemini  # noqa: E402
 
 class ModelChoiceTests(unittest.TestCase):
     def test_waiting_features_use_the_steady_model_first(self):
-        self.assertEqual(gemini.models_for("voice")[0], "gemini-3.5-flash")
         self.assertEqual(gemini.models_for("coach")[0], "gemini-3.5-flash")
 
     def test_hard_features_use_steady_then_the_newer_model(self):
@@ -24,8 +23,9 @@ class ModelChoiceTests(unittest.TestCase):
         self.assertEqual(gemini.models_for("memory_easy"),
                          ["gemini-3.5-flash-lite", "gemini-3.5-flash"])
 
-    def test_voice_has_no_second_model(self):
-        self.assertEqual(len(gemini.models_for("voice")), 1)
+    def test_voice_uses_lite_first_then_steady(self):
+        self.assertEqual(gemini.models_for("voice"),
+                         ["gemini-3.5-flash-lite", "gemini-3.5-flash"])
 
     def test_environment_overrides_primary(self):
         with mock.patch.dict(os.environ, {"GEMINI_MODEL_MEMORY": "gemini-x"}):
@@ -68,10 +68,10 @@ class FallbackTests(unittest.TestCase):
         out, calls = self.run_with([RuntimeError("a"), RuntimeError("b")])
         self.assertEqual(str(out), "b")
 
-    def test_voice_makes_a_single_call_and_raises(self):
-        out, calls = self.run_with([RuntimeError("504")], feature="voice")
-        self.assertEqual(len(calls), 1)
-        self.assertIsInstance(out, RuntimeError)
+    def test_voice_falls_back_to_steady_when_lite_fails(self):
+        out, calls = self.run_with([RuntimeError("429"), {"ok": 1}], feature="voice")
+        self.assertEqual([m for m, _ in calls], ["gemini-3.5-flash-lite", "gemini-3.5-flash"])
+        self.assertEqual(out, {"ok": 1})
 
     def test_empty_prompt_is_not_retried(self):
         out, calls = self.run_with([ValueError("prompt is empty")])

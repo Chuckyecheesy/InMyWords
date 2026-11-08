@@ -47,7 +47,7 @@ LITE_MODEL = "gemini-3.5-flash-lite"
 # one overloaded model does not stop a feature.
 # Override with GEMINI_MODEL_<FEATURE> and GEMINI_MODEL_<FEATURE>_FALLBACK.
 FEATURE_MODELS = {
-    "voice": (STEADY_MODEL, None),   # compose() is Voice's own fallback
+    "voice": (LITE_MODEL, STEADY_MODEL),   # fastest first; compose() is the last fallback
     "coach": (STEADY_MODEL, FLASH_MODEL),
     "handoff": (STEADY_MODEL, FLASH_MODEL),
     "story": (STEADY_MODEL, FLASH_MODEL),
