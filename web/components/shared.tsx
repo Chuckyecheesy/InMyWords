@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useId,
   useRef,
   useState,
   type PointerEvent,
@@ -153,11 +154,17 @@ export function AudioPlayback({
   src,
   label = "Play",
   autoPlay = false,
+  transcript,
+  transcriptId,
 }: {
   src: string;
   label?: string;
   autoPlay?: boolean;
+  transcript?: string;
+  transcriptId?: string;
 }) {
+  const generatedId = useId();
+  const describedBy = transcriptId ?? (transcript ? generatedId : undefined);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [current, setCurrent] = useState(src);
 
@@ -174,17 +181,40 @@ export function AudioPlayback({
     }
   }, [current, autoPlay]);
 
+  function stop() {
+    const node = audioRef.current;
+    if (!node) return;
+    node.pause();
+    node.currentTime = 0;
+  }
+
   return (
     <div className="audio-playback">
-      <audio ref={audioRef} src={current} preload="auto" autoPlay={autoPlay} />
-      <BigButton
-        tone="neutral"
-        onClick={() => {
-          void audioRef.current?.play().catch(() => {});
-        }}
-      >
-        {label}
-      </BigButton>
+      <audio
+        ref={audioRef}
+        src={current}
+        preload="auto"
+        autoPlay={autoPlay}
+        aria-describedby={describedBy}
+      />
+      {transcript && describedBy ? (
+        <p id={describedBy} className="transcript" data-transcript="">
+          {transcript}
+        </p>
+      ) : null}
+      <div className="speak-actions">
+        <BigButton
+          tone="neutral"
+          onClick={() => {
+            void audioRef.current?.play().catch(() => {});
+          }}
+        >
+          {label}
+        </BigButton>
+        <BigButton tone="neutral" onClick={stop}>
+          Stop
+        </BigButton>
+      </div>
     </div>
   );
 }
