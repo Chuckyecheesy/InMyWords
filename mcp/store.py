@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -445,11 +447,32 @@ class PostgresStore:
         self._psycopg = psycopg
         self._dict_row = dict_row
         self.url = url
+        # One long-lived connection, reused by every query. Opening a TLS
+        # connection to Tiger Data per query cost ~0.25 s each.
+        self._db = None
+        self._lock = threading.Lock()
         with self._conn() as conn:  # fail fast if unreachable
             conn.execute("SELECT 1")
 
+    @contextmanager
     def _conn(self):
-        return self._psycopg.connect(self.url, row_factory=self._dict_row)
+        """Yield the shared connection (reconnecting if it dropped). Commits on
+        success, rolls back on error. Serialised: psycopg connections are not
+        safe to use from two threads at once."""
+        with self._lock:
+            if self._db is None or self._db.closed or self._db.broken:
+                self._db = self._psycopg.connect(
+                    self.url, row_factory=self._dict_row,
+                    keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3)
+            try:
+                yield self._db
+                self._db.commit()
+            except Exception:
+                try:
+                    self._db.rollback()
+                except Exception:
+                    self._db.close()  # broken; the next call reconnects
+                raise
 
     def _all(self, sql, params=()):
         with self._conn() as conn:
