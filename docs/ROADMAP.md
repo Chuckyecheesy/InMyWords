@@ -100,7 +100,7 @@ Builds directly on the shipped gaze stack (calibration, dwell, smoothing, consen
 
 1. **"Playable"** = the entry preview becomes a real bounded mini-interaction (tap tile → sentence updates → hear pre-generated audio). Full flows stay in the app itself.
 2. **Images** = residents' own photos via the existing Cloudinary upload + tile recipe; licensed consistent placeholder set for demo profiles.
-3. **Voice augmentation** = personalized voice output (exists) + standard TTS; no speech-to-text yet.
+3. **Voice augmentation** = personalized voice output (exists) + standard TTS; no speech-to-text yet. Why: "STT" is three different features — resident speech input, staff dictation, amplified output — and the first is the risky one: core personas don't speak, the residents it would serve (partial/dysarthric speech) are exactly where standard ASR error rates are worst, and misrecognition puts plausible-but-wrong words into the approval card, turning approval into fatigue instead of protection. It also needs the full mic-consent architecture (indicator, one-tap off, on-device processing) to keep the "stays on this tablet" promise. Path in, when wanted: staff dictation first (standard ASR, transcript shown before save) → resident read-back-before-approval → specialized atypical-speech input only with a named resident's needs, on-device processing, and per-resident consent mirroring the camera flow.
 4. **Get staff help** = in-app urgent notification to on-duty staff now; telephony later.
 5. **Mailbox** = in-app, backed by the existing approval-gated `send_message`.
 6. **Story** = removed from resident navigation, content kept and reachable (staff onboarding still links it).
