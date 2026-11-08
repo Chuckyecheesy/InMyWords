@@ -17,6 +17,7 @@ from agents.memory.binder import (  # noqa: E402
     import_binder,
     parse_document_date,
 )
+from agents.memory.marcus_extract import marcus_binder_extract  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 BINDER = (ROOT / "db" / "seed" / "marcus_binder.md").read_text(encoding="utf-8")
@@ -56,6 +57,28 @@ class ExtractionPromptTests(unittest.TestCase):
 
 
 class ImportBinderTests(unittest.TestCase):
+    def test_offline_extract_includes_searchable_onboarding_support_facts(self):
+        saved = import_binder(
+            BINDER,
+            resident_id="marcus",
+            extract=marcus_binder_extract,
+            remember=lambda **kwargs: None,
+        )
+        contents = {fact["content"] for fact in saved}
+        self.assertIn(
+            "Marcus communicates with single words, gestures, and picture cards; "
+            "speak normally, not slowly",
+            contents,
+        )
+        self.assertIn(
+            "When overwhelmed, Marcus covers his ears and looks for the door; "
+            "give him space and somewhere quiet",
+            contents,
+        )
+        self.assertTrue(all(fact["source"] == "document" for fact in saved))
+        self.assertTrue(all(fact["source_date"] == "2021-03-15" for fact in saved))
+        self.assertTrue(all(fact["status"] == "pending" for fact in saved))
+
     def test_undated_document_is_refused_before_the_model_is_called(self):
         called = {"extract": 0, "remember": 0}
 
