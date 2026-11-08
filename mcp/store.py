@@ -71,6 +71,8 @@ def vector_literal(vec):
 
 def source_label(source: str, name: str, date: str | None) -> str:
     """The product's source-label rule, in one place (CLAUDE.md guardrail #2)."""
+    if date is not None and not isinstance(date, str):
+        date = str(date)
     if source == "resident":
         return f"In {name}'s words"
     if source == "staff":
@@ -210,14 +212,37 @@ class SeedStore:
         return self.observations[-1]["id"]
 
     def save_story_answer(self, rid, chapter_key, question, answer):
+        """One row per question. A second tap replaces the answer instead of adding another."""
         self._reload_runtime()
         answers = self._runtime.setdefault("story_answers", [])
-        row = {"id": len(answers) + 1, "resident_id": rid, "chapter_key": chapter_key,
+        for row in answers:
+            if (row["resident_id"] == rid and row["chapter_key"] == chapter_key
+                    and row["question"] == question):
+                row["answer"] = answer
+                row["created_at"] = _now()
+                self._save_runtime()
+                return row["id"]
+        next_id = max((row.get("id") or 0) for row in answers) + 1 if answers else 1
+        row = {"id": next_id, "resident_id": rid, "chapter_key": chapter_key,
                "question": question, "answer": answer, "created_at": _now()}
         answers.append(row)
         self.story_answers.append(row)
         self._save_runtime()
         return row["id"]
+
+    def get_chapter(self, chapter_id):
+        for chapter in self.chapters:
+            if chapter["id"] == chapter_id:
+                return chapter
+        return None
+
+    def approve_story_chapter(self, chapter_id, audio_url):
+        chapter = self.get_chapter(chapter_id)
+        if not chapter:
+            return None
+        chapter["status"] = "approved"
+        chapter["audio_url"] = audio_url
+        return chapter
 
     def get_story_answers(self, rid, chapter_key=None):
         self._reload_runtime()
@@ -510,9 +535,31 @@ class PostgresStore:
             (rid, staff_id, note))
 
     def save_story_answer(self, rid, chapter_key, question, answer):
+        found = self._one(
+            "SELECT id FROM story_answers WHERE resident_id = %s AND chapter_key = %s AND question = %s "
+            "ORDER BY id DESC LIMIT 1",
+            (rid, chapter_key, question))
+        if found:
+            with self._conn() as conn:
+                conn.execute(
+                    "UPDATE story_answers SET answer = %s, created_at = now() WHERE id = %s",
+                    (answer, found["id"]))
+                conn.commit()
+            return found["id"]
         return self._insert(
             "INSERT INTO story_answers (resident_id, chapter_key, question, answer) VALUES (%s,%s,%s,%s)",
             (rid, chapter_key, question, answer))
+
+    def get_chapter(self, chapter_id):
+        return self._one("SELECT * FROM story_chapters WHERE id = %s", (chapter_id,))
+
+    def approve_story_chapter(self, chapter_id, audio_url):
+        with self._conn() as conn:
+            row = conn.execute(
+                "UPDATE story_chapters SET status = 'approved', audio_url = %s WHERE id = %s RETURNING *",
+                (audio_url, chapter_id)).fetchone()
+            conn.commit()
+            return dict(row) if row else None
 
     def get_story_answers(self, rid, chapter_key=None):
         if chapter_key:

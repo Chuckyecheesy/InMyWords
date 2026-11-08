@@ -24,6 +24,12 @@ if (fs.existsSync(rootEnv)) {
   }
 }
 
+// Client tiles read NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME. The shared .env
+// stores the same cloud name without that prefix.
+if (!process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME) {
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+}
+
 const nextConfig: NextConfig = {
   devIndicators: false,
   images: {

@@ -3,7 +3,7 @@
 import { use, useEffect, useRef, useState } from "react";
 import { AudioPlayback, BigButton } from "@/components/shared";
 import { PhotoChoiceGrid } from "@/components/PhotoChoiceGrid";
-import { getStoryAnswers, saveStoryAnswer, speak } from "@/lib/api";
+import { approveStory, draftStory, getStoryAnswers, saveStoryAnswer, speak } from "@/lib/api";
 import {
   STORY_CHAPTERS,
   questionsFor,
@@ -41,6 +41,8 @@ export default function StoryInterviewPage({
   const [error, setError] = useState<string | null>(null);
   const [audioSrc, setAudioSrc] = useState<string | null>(null);
   const [review, setReview] = useState<{ question: string; answer: string }[]>([]);
+  const [draftText, setDraftText] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const waiter = useRef<Waiter | null>(null);
   const runId = useRef(0);
@@ -215,12 +217,71 @@ export default function StoryInterviewPage({
               </li>
             ))}
           </ul>
+          {draftText ? (
+            <section className="block">
+              <h3>Read this back?</h3>
+              <p>{draftText}</p>
+              {audioSrc ? <AudioPlayback src={audioSrc} label="Play narration" autoPlay /> : null}
+              <div className="story-nav">
+                <BigButton
+                  tone="approve"
+                  disabled={busy || !draftId}
+                  onClick={() => {
+                    if (!draftId) return;
+                    setBusy(true);
+                    void approveStory({ chapter_id: draftId }).then((spoken) => {
+                      setBusy(false);
+                      if (!spoken.ok) {
+                        setError(spoken.error);
+                        return;
+                      }
+                      setAudioSrc(spoken.data.audio_url);
+                    });
+                  }}
+                >
+                  Yes, read it
+                </BigButton>
+                <BigButton
+                  disabled={busy}
+                  onClick={() => {
+                    setDraftText(null);
+                    setDraftId(null);
+                    setAudioSrc(null);
+                  }}
+                >
+                  Not yet
+                </BigButton>
+              </div>
+            </section>
+          ) : null}
           <div className="story-nav">
+            <BigButton
+              disabled={busy}
+              onClick={() => {
+                if (!chapter) return;
+                setBusy(true);
+                setError(null);
+                void draftStory({ resident_id: id, chapter: chapter.chapter_key }).then((result) => {
+                  setBusy(false);
+                  if (!result.ok) {
+                    setError(result.error);
+                    return;
+                  }
+                  setDraftText(result.data.text);
+                  setDraftId(result.data.chapter_id);
+                  setAudioSrc(null);
+                });
+              }}
+            >
+              Make my chapter
+            </BigButton>
             <BigButton
               onClick={() => {
                 setMode("pick");
                 setChapter(null);
                 setReview([]);
+                setDraftText(null);
+                setDraftId(null);
               }}
             >
               All chapters

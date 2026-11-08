@@ -52,6 +52,13 @@ async def get_story_answers(resident, chapter=""):
     return await _call("profile", "get_story_answers",
                        {"resident": resident, "chapter": chapter})
 
+async def get_story_chapter(chapter_id):
+    return await _call("profile", "get_story_chapter", {"chapter_id": int(chapter_id)})
+
+async def approve_story_chapter(chapter_id, audio_url):
+    return await _call("profile", "approve_story_chapter",
+                       {"chapter_id": int(chapter_id), "audio_url": audio_url})
+
 async def save_story_chapter(resident, chapter, text, photos=None):
     return await _call("profile", "save_story_chapter",
                        {"resident": resident, "chapter": chapter, "text": text, "photos": photos or []})

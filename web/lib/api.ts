@@ -298,11 +298,14 @@ export function getStoryAnswers(residentId: string, chapter?: string) {
 }
 
 export function draftStory(input: { resident_id: string; chapter: string }) {
-  return sendJson<{ text: string }>("/story/draft", input);
+  return sendJson<{ text: string; chapter_id: number; status: string; audio_url: string | null }>(
+    "/story/draft",
+    input,
+  );
 }
 
-export function approveStory(input: { chapter_id: string }) {
-  return sendJson<{ audio_url: string }>("/story/approve", input);
+export function approveStory(input: { chapter_id: number }) {
+  return sendJson<{ audio_url: string; cached?: boolean }>("/story/approve", input);
 }
 
 export function askCoach(input: { resident_id: string; question: string }) {

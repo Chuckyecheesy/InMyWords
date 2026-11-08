@@ -9,6 +9,7 @@ export default defineConfig({
   timeout: 90_000,
   fullyParallel: false,
   workers: 1,
+  retries: 1,
   use: {
     baseURL: "http://127.0.0.1:3210",
     trace: "retain-on-failure",

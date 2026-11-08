@@ -95,6 +95,38 @@ def get_story_answers(resident: str, chapter: str = "") -> dict:
     return {"answers": [_answer_row(row) for row in rows], "store_mode": store.mode}
 
 
+def _chapter_row(row: dict) -> dict:
+    return {
+        "id": row.get("id"),
+        "resident_id": row.get("resident_id"),
+        "chapter": row.get("chapter_key") or row.get("chapter"),
+        "text": row.get("text"),
+        "status": row.get("status") or "draft",
+        "audio_url": row.get("audio_url"),
+        "photo_ids": row.get("photo_ids") or [],
+    }
+
+
+@mcp.tool
+def get_story_chapter(chapter_id: int) -> dict:
+    """One chapter, including draft text. audio_url is empty until the resident approves."""
+    store = get_store()
+    row = store.get_chapter(int(chapter_id))
+    if not row:
+        return {"error": f"no chapter '{chapter_id}'"}
+    return {"chapter": _chapter_row(row), "store_mode": store.mode}
+
+
+@mcp.tool
+def approve_story_chapter(chapter_id: int, audio_url: str) -> dict:
+    """Mark a draft approved and store the narration URL. Call only after a yes."""
+    store = get_store()
+    row = store.approve_story_chapter(int(chapter_id), audio_url)
+    if not row:
+        return {"error": f"no chapter '{chapter_id}'"}
+    return {"chapter": _chapter_row(row), "store_mode": store.mode}
+
+
 @mcp.tool
 def save_story_chapter(resident: str, chapter: str, text: str, photos: list[str] | None = None) -> dict:
     """Save a draft story chapter (status=draft until the resident approves it)."""

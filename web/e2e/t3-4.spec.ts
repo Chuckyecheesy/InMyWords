@@ -133,6 +133,63 @@ test.describe("T3.4 picture interview", () => {
     expect(body.answers.map((item) => item.answer)).toEqual(["Lisa", "Tea", "Quiet helps"]);
   });
 
+  test("draft stays silent and approve speaks the answers", async ({ page }) => {
+    test.skip(!elevenLabsConfigured(), "ELEVENLABS_API_KEY is not set");
+    const api = "http://127.0.0.1:8000";
+    const chapter = "exec_day";
+    const answers = [
+      { question: "Morning drink?", answer: "Tea" },
+      { question: "When it is loud?", answer: "Quiet" },
+    ];
+    for (const item of answers) {
+      const saved = await page.request.post(`${api}/story/answer`, {
+        data: { resident_id: "marcus", chapter, ...item },
+      });
+      expect(saved.ok()).toBeTruthy();
+    }
+    const replaced = await page.request.post(`${api}/story/answer`, {
+      data: { resident_id: "marcus", chapter, question: "Morning drink?", answer: "Tea" },
+    });
+    expect(replaced.ok()).toBeTruthy();
+
+    const drafted = await page.request.post(`${api}/story/draft`, {
+      data: { resident_id: "marcus", chapter },
+    });
+    expect(drafted.ok()).toBeTruthy();
+    const draftBody = (await drafted.json()) as { text: string; chapter_id: number; audio_url: string | null };
+    expect(draftBody.audio_url).toBeNull();
+    expect(draftBody.text.toLowerCase()).toContain("tea");
+    expect(draftBody.text.toLowerCase()).toContain("quiet");
+    expect(draftBody.text.toLowerCase()).not.toContain("raptors");
+    expect(draftBody.text.toLowerCase()).not.toContain("double-double");
+
+    const approved = await page.request.post(`${api}/story/approve`, {
+      data: { chapter_id: draftBody.chapter_id },
+    });
+    expect(approved.ok()).toBeTruthy();
+    const audio = (await approved.json()) as { audio_url: string; cached: boolean };
+    expect(audio.audio_url).toContain("/audio/");
+    expect(audio.audio_url).not.toContain("example.com");
+    const file = await page.request.get(audio.audio_url);
+    expect(file.ok()).toBeTruthy();
+    const bytes = Buffer.from(await file.body());
+    const id3 = bytes.subarray(0, 3).toString("utf8") === "ID3";
+    const frame = bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0;
+    expect(id3 || frame).toBeTruthy();
+
+    const second = await page.request.post(`${api}/story/approve`, {
+      data: { chapter_id: draftBody.chapter_id },
+    });
+    expect(second.ok()).toBeTruthy();
+    const replay = (await second.json()) as { cached: boolean; audio_url: string };
+    expect(replay.cached).toBeTruthy();
+    expect(replay.audio_url).toBe(audio.audio_url);
+
+    await page.goto("/resident/marcus/story");
+    await expect(page.getByText(draftBody.text)).toBeVisible();
+    await expect(page.locator("audio").last()).toHaveAttribute("src", audio.audio_url);
+  });
+
   test("mobile width and high contrast still show the pictures", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openInterview(page);
