@@ -18,6 +18,7 @@ export type PlannerVisit = {
   /** Imported from a staff calendar export: shown, never booked or written. */
   read_only?: boolean;
   title?: string;
+  all_day?: boolean;
 };
 
 export type StaffOption = { id: string; name: string };
@@ -81,6 +82,11 @@ export function clock(iso: string): string {
 /** "1:00p.m.–3:00p.m." */
 export function timeRange(startIso: string, endIso: string): string {
   return `${clock(startIso)}–${clock(endIso)}`;
+}
+
+/** The Toronto hour (0–23) of an instant. */
+export function localHour(iso: string): number {
+  return local(iso).hour;
 }
 
 /** The Toronto calendar date of an instant, "YYYY-MM-DD". */
@@ -150,4 +156,97 @@ export function routineSentence(staffName: string, start: string, minutes: numbe
 
 export function staffName(staff: StaffOption[], id: string): string {
   return staff.find((s) => s.id === id)?.name ?? id.charAt(0).toUpperCase() + id.slice(1);
+}
+
+// ---------- Calendar layout (week grid) ----------
+
+/** The Sunday on or before a plain date: calendar weeks run Sunday to Saturday. */
+export function weekStartOf(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const weekday = new Date(Date.UTC(y, m - 1, d, 12)).getUTCDay(); // 0 = Sunday
+  return addDays(date, -weekday);
+}
+
+/** Minutes after local midnight of `day` (may be < 0 or > 1440 for spill-over). */
+function minutesInto(iso: string, day: string): number {
+  const at = local(iso);
+  const dayShift = Math.round(
+    (Date.UTC(...(at.date.split("-").map(Number) as [number, number, number])) -
+      Date.UTC(...(day.split("-").map(Number) as [number, number, number]))) / 86_400_000,
+  );
+  return dayShift * 1440 + at.hour * 60 + at.minute;
+}
+
+export type HourBounds = { first: number; last: number };
+
+/** Hours the grid shows: 8a.m.–8p.m., widened to fit this week's timed events. */
+export function hourBounds(visits: PlannerVisit[], days: WeekDay[], fallback: HourBounds = { first: 8, last: 20 }): HourBounds {
+  let { first, last } = fallback;
+  for (const v of visits) {
+    if (v.all_day) continue;
+    const day = localDate(v.starts_at);
+    if (!days.some((d) => d.date === day)) continue;
+    const start = minutesInto(v.starts_at, day);
+    const end = Math.min(minutesInto(v.ends_at, day), 1440);
+    first = Math.min(first, Math.floor(start / 60));
+    last = Math.max(last, Math.ceil(end / 60));
+  }
+  return { first: Math.max(0, first), last: Math.min(24, Math.max(last, first + 1)) };
+}
+
+export type PlacedVisit = {
+  visit: PlannerVisit;
+  /** Percent of the day column, from the first hour shown. */
+  top: number;
+  height: number;
+  /** Side-by-side position among overlapping events. */
+  lane: number;
+  lanes: number;
+};
+
+/** Position one day's timed visits on the grid. Overlaps share the width. */
+export function layoutDay(visits: PlannerVisit[], day: string, bounds: HourBounds): PlacedVisit[] {
+  const span = (bounds.last - bounds.first) * 60;
+  const items = visits
+    .filter((v) => !v.all_day)
+    .map((v) => {
+      const start = Math.max(minutesInto(v.starts_at, day), bounds.first * 60);
+      const end = Math.min(minutesInto(v.ends_at, day), bounds.last * 60);
+      return { visit: v, start, end: Math.max(end, start + 15) };
+    })
+    .sort((a, b) => a.start - b.start || b.end - a.end);
+
+  const placed: PlacedVisit[] = [];
+  let cluster: { item: (typeof items)[number]; lane: number }[] = [];
+  let clusterEnd = -1;
+  const flush = () => {
+    const lanes = Math.max(1, ...cluster.map((c) => c.lane + 1));
+    for (const { item, lane } of cluster) {
+      placed.push({
+        visit: item.visit,
+        top: ((item.start - bounds.first * 60) / span) * 100,
+        height: ((item.end - item.start) / span) * 100,
+        lane,
+        lanes,
+      });
+    }
+    cluster = [];
+  };
+  for (const item of items) {
+    if (cluster.length && item.start >= clusterEnd) flush();
+    const laneEnds: number[] = [];
+    for (const c of cluster) laneEnds[c.lane] = Math.max(laneEnds[c.lane] ?? -1, c.item.end);
+    let lane = laneEnds.findIndex((end) => end <= item.start);
+    if (lane === -1) lane = laneEnds.length;
+    cluster.push({ item, lane });
+    clusterEnd = Math.max(clusterEnd, item.end);
+  }
+  if (cluster.length) flush();
+  return placed;
+}
+
+/** "9a.m.", "12p.m.", "1p.m." for the hour scale. */
+export function hourLabel(hour: number): string {
+  const h = hour % 12 === 0 ? 12 : hour % 12;
+  return `${h}${hour < 12 || hour === 24 ? "a.m." : "p.m."}`;
 }

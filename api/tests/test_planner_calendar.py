@@ -414,30 +414,30 @@ class ZipParseTests(unittest.TestCase):
 
 class ImportCalendarFallbackTests(PlannerTestCase):
     def test_renders_staff_hours_on_the_grid(self):
-        out = tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP))
+        out = tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP), "2026-11-08")
         self.assertNotIn("error", out)
         starts = [v["starts_at"] for v in out["visits"]]
         self.assertIn("2026-11-09T13:00:00-05:00", starts)
         self.assertIn("2026-11-10T13:00:00-05:00", starts)
 
     def test_recurring_event_expands_on_the_grid(self):
-        out = tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP))
+        out = tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP), "2026-11-08")
         daily = [v for v in out["visits"] if v["title"] == "Daily check-in"]
         self.assertEqual(len(daily), 7)
 
     def test_labelled_from_staff_calendar_not_residents_words(self):
-        out = tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP))
+        out = tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP), "2026-11-08")
         for v in out["visits"]:
             self.assertEqual(v["source"], "staff")
             self.assertTrue(v["label"].startswith("From staff calendar"))
 
     def test_display_only_never_writes_to_google(self):
-        tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP))
+        tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP), "2026-11-08")
         self.assertEqual(self.gcal.inserted, [], "the fallback is read-only")
 
     def test_works_when_google_is_down(self):
         tool(actions().set_calendar_client)(DownCalendar())
-        out = tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP))
+        out = tool(actions().import_calendar)("dana", b64(TAKEOUT_ZIP), "2026-11-08")
         self.assertTrue(out["visits"])
 
     def test_bad_upload_is_a_friendly_error(self):
@@ -540,3 +540,127 @@ class StaffCalendarImportTests(PlannerTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# =============================================================================
+# 7. Real-export shapes: long-running series, deleted and moved instances,
+#    monthly/yearly rules. Synthetic fixtures with the same shapes a real
+#    Google Takeout export has.
+# =============================================================================
+
+def _window(start="2026-11-08", days=7):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    lo = datetime.fromisoformat(start).replace(tzinfo=ZoneInfo(TZ))
+    return lo, lo + timedelta(days=days)
+
+
+def _occ(ics, start="2026-11-08", days=7):
+    events = core().parse_calendar_zip(make_zip({"cal.ics": ics}), tz=TZ)
+    return core().occurrences(events, *_window(start, days), TZ)
+
+
+class RealExportRecurrenceTests(unittest.TestCase):
+    def test_weekly_series_begun_years_ago_still_shows(self):
+        ics = vcalendar(vevent("w", "Gym", ";TZID=America/Toronto:20230102T130000",
+                               ";TZID=America/Toronto:20230102T140000",
+                               "RRULE:FREQ=WEEKLY;WKST=SU;BYDAY=MO,WE,FR\r\n"))
+        starts = [o["starts_at"] for o in _occ(ics)]
+        self.assertEqual(starts, ["2026-11-09T13:00:00-05:00", "2026-11-11T13:00:00-05:00",
+                                  "2026-11-13T13:00:00-05:00"])
+
+    def test_series_that_ended_shows_nothing(self):
+        ics = vcalendar(vevent("w", "Old class", ";TZID=America/Toronto:20230102T130000",
+                               ";TZID=America/Toronto:20230102T140000",
+                               "RRULE:FREQ=WEEKLY;WKST=SU;UNTIL=20231215T045959Z;BYDAY=MO\r\n"))
+        self.assertEqual(_occ(ics), [])
+
+    def test_count_counts_from_the_first_date(self):
+        ics = vcalendar(vevent("c", "Three times", ";TZID=America/Toronto:20260101T090000",
+                               ";TZID=America/Toronto:20260101T100000", "RRULE:FREQ=DAILY;COUNT=3\r\n"))
+        self.assertEqual(_occ(ics), [])
+        self.assertEqual(len(_occ(ics, "2026-01-01")), 3)
+
+    def test_deleted_instance_exdate_is_skipped(self):
+        ics = vcalendar(vevent("d", "Daily", ";TZID=America/Toronto:20261108T100000",
+                               ";TZID=America/Toronto:20261108T103000",
+                               "RRULE:FREQ=DAILY\r\nEXDATE;TZID=America/Toronto:20261110T100000\r\n"))
+        days = [o["starts_at"][:10] for o in _occ(ics)]
+        self.assertEqual(len(days), 6)
+        self.assertNotIn("2026-11-10", days)
+
+    def test_moved_instance_replaces_its_original_slot(self):
+        ics = vcalendar(
+            vevent("m", "Standup", ";TZID=America/Toronto:20261102T090000", ";TZID=America/Toronto:20261102T091500",
+                   "RRULE:FREQ=DAILY\r\n"),
+            vevent("m", "Standup (moved)", ";TZID=America/Toronto:20261110T150000",
+                   ";TZID=America/Toronto:20261110T151500", "RECURRENCE-ID;TZID=America/Toronto:20261110T090000\r\n"),
+        )
+        occ = _occ(ics)
+        self.assertNotIn("2026-11-10T09:00:00-05:00", [o["starts_at"] for o in occ])
+        moved = [o for o in occ if o["starts_at"] == "2026-11-10T15:00:00-05:00"]
+        self.assertEqual([o["title"] for o in moved], ["Standup (moved)"])
+        self.assertEqual(len(occ), 7)
+
+    def test_cancelled_instance_disappears(self):
+        ics = vcalendar(
+            vevent("x", "Walk", ";TZID=America/Toronto:20261108T180000", ";TZID=America/Toronto:20261108T190000",
+                   "RRULE:FREQ=DAILY\r\n"),
+            vevent("x", "Walk", ";TZID=America/Toronto:20261111T180000", ";TZID=America/Toronto:20261111T190000",
+                   "RECURRENCE-ID;TZID=America/Toronto:20261111T180000\r\nSTATUS:CANCELLED\r\n"),
+        )
+        days = [o["starts_at"][:10] for o in _occ(ics)]
+        self.assertEqual(len(days), 6)
+        self.assertNotIn("2026-11-11", days)
+
+    def test_folded_overrides_reach_google_as_exdate(self):
+        ics = vcalendar(
+            vevent("m", "Standup", ";TZID=America/Toronto:20261102T090000", ";TZID=America/Toronto:20261102T091500",
+                   "RRULE:FREQ=DAILY\r\n"),
+            vevent("m", "Standup", ";TZID=America/Toronto:20261110T150000", ";TZID=America/Toronto:20261110T151500",
+                   "RECURRENCE-ID;TZID=America/Toronto:20261110T090000\r\n"),
+        )
+        events = core().parse_calendar_zip(make_zip({"c.ics": ics}), tz=TZ)
+        series = next(e for e in events if e["recurrence"])
+        self.assertIn("EXDATE:20261110T140000Z", series["recurrence"])
+        one_off = next(e for e in events if not e["recurrence"])
+        self.assertEqual(one_off["starts_at"], "2026-11-10T15:00:00-05:00")
+
+    def test_monthly_by_month_day_and_nth_weekday(self):
+        by_day = vcalendar(vevent("a", "Rent", ";TZID=America/Toronto:20250110T090000",
+                                  ";TZID=America/Toronto:20250110T093000", "RRULE:FREQ=MONTHLY;BYMONTHDAY=10\r\n"))
+        self.assertEqual([o["starts_at"][:10] for o in _occ(by_day, "2026-11-01", 30)], ["2026-11-10"])
+        second_tue = vcalendar(vevent("b", "Board", ";TZID=America/Toronto:20250114T180000",
+                                      ";TZID=America/Toronto:20250114T190000", "RRULE:FREQ=MONTHLY;BYDAY=2TU\r\n"))
+        self.assertEqual([o["starts_at"][:10] for o in _occ(second_tue, "2026-11-01", 30)], ["2026-11-10"])
+        last_fri = vcalendar(vevent("c", "Payday", ";TZID=America/Toronto:20250131T120000",
+                                    ";TZID=America/Toronto:20250131T130000", "RRULE:FREQ=MONTHLY;BYDAY=-1FR\r\n"))
+        self.assertEqual([o["starts_at"][:10] for o in _occ(last_fri, "2026-11-01", 30)], ["2026-11-27"])
+
+    def test_yearly_birthday(self):
+        ics = vcalendar(vevent("y", "Birthday", ";VALUE=DATE:20211112", ";VALUE=DATE:20211113",
+                               "RRULE:FREQ=YEARLY\r\n"))
+        occ = _occ(ics)
+        self.assertEqual([(o["starts_at"][:10], o["all_day"]) for o in occ], [("2026-11-12", True)])
+
+    def test_every_other_week_counts_weeks_from_wkst(self):
+        ics = vcalendar(vevent("i", "Biweekly", ";TZID=America/Toronto:20261101T100000",
+                               ";TZID=America/Toronto:20261101T110000",
+                               "RRULE:FREQ=WEEKLY;INTERVAL=2;WKST=SU;BYDAY=SU,TU\r\n"))
+        days = [o["starts_at"][:10] for o in _occ(ics, "2026-11-01", 28)]
+        self.assertEqual(days, ["2026-11-01", "2026-11-03", "2026-11-15", "2026-11-17"])
+
+    def test_weekly_1pm_stays_1pm_across_dst(self):
+        ics = vcalendar(vevent("t", "Visit", ";TZID=America/Toronto:20261020T130000",
+                               ";TZID=America/Toronto:20261020T150000", "RRULE:FREQ=WEEKLY;BYDAY=TU\r\n"))
+        starts = [o["starts_at"] for o in _occ(ics, "2026-10-25", 14)]
+        self.assertEqual(starts, ["2026-10-27T13:00:00-04:00", "2026-11-03T13:00:00-05:00"])
+
+    def test_import_calendar_only_returns_the_window(self):
+        ics = vcalendar(vevent("w", "Gym", ";TZID=America/Toronto:20230102T130000",
+                               ";TZID=America/Toronto:20230102T140000", "RRULE:FREQ=WEEKLY;BYDAY=MO\r\n"))
+        os.environ["IMW_RUNTIME_FILE"] = str(Path(tempfile.mkdtemp()) / "runtime.json")
+        store_module._store = None
+        out = tool(actions().import_calendar)("dana", b64(make_zip({"c.ics": ics})), "2026-11-08", 14)
+        self.assertEqual([v["starts_at"][:10] for v in out["visits"]], ["2026-11-09", "2026-11-16"])
+        self.assertEqual(out["window"], {"start": "2026-11-08", "days": 14})

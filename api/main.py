@@ -559,6 +559,8 @@ class CalendarZipBody(BaseModel):
     resident_id: str = ""
     staff_id: str = ""
     calendar_zip_b64: str
+    start_date: str = ""   # /planner/import: first day of the window shown
+    days: int = 63
 
 
 class CalendarCommitBody(BaseModel):
@@ -621,7 +623,8 @@ async def planner_book(body: PlannerBookBody):
 @app.post("/planner/import")
 async def planner_import_view(body: CalendarZipBody):
     """Fallback: a staff .zip calendar export shown read-only on the grid."""
-    result, live = await _mcp(mcp_client.import_calendar(body.resident_id, body.calendar_zip_b64), None)
+    result, live = await _mcp(mcp_client.import_calendar(
+        body.resident_id, body.calendar_zip_b64, body.start_date, body.days), None)
     return result if live else _PLANNER_DOWN
 
 

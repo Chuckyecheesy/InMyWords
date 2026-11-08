@@ -439,26 +439,34 @@ def _zip_events(calendar_zip_b64: str):
 
 
 @mcp.tool
-def import_calendar(resident: str, calendar_zip_b64: str) -> dict:
+def import_calendar(resident: str, calendar_zip_b64: str, start_date: str = "", days: int = 63) -> dict:
     """Fallback A (Google / MCP path down): show staff visit hours from an
-    uploaded Google Calendar .zip export on the planner grid. READ-ONLY:
-    nothing is written to Google or saved as a booking."""
-    from datetime import date
-    from calendar_core import expand_recurrence
+    uploaded Google Calendar .zip export on the planner grid, for the window
+    start_date + days (default: today, 9 weeks). Repeating events are
+    expanded into that window (a weekly series begun in 2023 still shows).
+    READ-ONLY: nothing is written to Google or saved as a booking."""
+    from datetime import date, datetime, time, timedelta
+    from zoneinfo import ZoneInfo
+    from calendar_core import DEFAULT_TZ, occurrences
     store = get_store()
     if not store.get_resident(resident):
         return {"error": f"unknown resident '{resident}'"}
+    zone = ZoneInfo(DEFAULT_TZ)
+    try:
+        first = date.fromisoformat(start_date) if start_date else datetime.now(zone).date()
+        span = max(1, min(int(days), 366))
+    except (ValueError, TypeError):
+        return {"error": "start_date must look like 2026-11-08"}
     events, err = _zip_events(calendar_zip_b64)
     if err:
         return err
-    label = f"From staff calendar, {date.today().isoformat()}"
-    visits = []
-    for e in events:
-        for occ in expand_recurrence(e):
-            visits.append({"title": e["title"], "starts_at": occ["starts_at"], "ends_at": occ["ends_at"],
-                           "source": "staff", "label": label, "read_only": True})
-    visits.sort(key=lambda v: v["starts_at"])
-    return {"resident": resident, "visits": visits, "read_only": True}
+    lo = datetime.combine(first, time(0), tzinfo=zone)
+    hi = datetime.combine(first + timedelta(days=span), time(0), tzinfo=zone)
+    label = f"From staff calendar, {datetime.now(zone).date().isoformat()}"
+    visits = [{**occ, "source": "staff", "label": label, "read_only": True}
+              for occ in occurrences(events, lo, hi, DEFAULT_TZ)]
+    return {"resident": resident, "visits": visits, "read_only": True,
+            "window": {"start": first.isoformat(), "days": span}}
 
 
 def _existing_spans(client, calendar_id: str, events: list[dict]):

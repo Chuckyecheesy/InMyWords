@@ -723,6 +723,7 @@ function normalizeVisit(value: unknown): PlannerVisit | null {
     google_synced: row.google_synced === true,
     read_only: row.read_only === true,
     title: text(row.title) ?? undefined,
+    all_day: row.all_day === true,
   };
 }
 
@@ -810,6 +811,9 @@ export async function bookVisits(input: {
 export async function importCalendarView(input: {
   resident_id: string;
   calendar_zip_b64: string;
+  /** First day of the window shown (the grid's Sunday); the server expands repeats into it. */
+  start_date?: string;
+  days?: number;
 }): Promise<MutationResult<PlannerVisit[]>> {
   const result = await plannerCall("/planner/import", input);
   if (!result.ok) return result;

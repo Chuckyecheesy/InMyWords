@@ -17,11 +17,15 @@ import {
   clock,
   daysPhrase,
   groupByDay,
+  hourBounds,
+  hourLabel,
+  layoutDay,
   lengthLabel,
   localDate,
   routineSentence,
   timeRange,
   weekFrom,
+  weekStartOf,
   type PlannerVisit,
 } from "../lib/planner.ts";
 
@@ -126,6 +130,49 @@ describe("planner helpers", () => {
     assert.deepEqual(byDay.get("2026-11-09")?.map((v) => clock(v.starts_at)), ["1:00p.m.", "4:00p.m."]);
   });
 
+  test("calendar weeks start on Sunday", () => {
+    assert.equal(weekStartOf("2026-11-08"), "2026-11-08");
+    assert.equal(weekStartOf("2026-11-11"), "2026-11-08");
+    assert.equal(weekStartOf("2026-11-14"), "2026-11-08");
+  });
+
+  test("the grid shows 8a.m.–8p.m., widened to fit early or late events", () => {
+    const week = weekFrom("2026-11-08");
+    assert.deepEqual(hourBounds(WEEK, week), { first: 8, last: 20 });
+    const early = visit("2026-11-09", { starts_at: "2026-11-09T06:30:00-05:00", ends_at: "2026-11-09T07:00:00-05:00" });
+    const late = visit("2026-11-10", { starts_at: "2026-11-10T21:00:00-05:00", ends_at: "2026-11-10T22:15:00-05:00" });
+    assert.deepEqual(hourBounds([early, late], week), { first: 6, last: 23 });
+    const nextWeek = visit("2026-11-20", { starts_at: "2026-11-20T05:00:00-05:00", ends_at: "2026-11-20T06:00:00-05:00" });
+    assert.deepEqual(hourBounds([nextWeek], week), { first: 8, last: 20 }, "other weeks don't stretch this one");
+    assert.equal(hourLabel(9), "9a.m.");
+    assert.equal(hourLabel(12), "12p.m.");
+    assert.equal(hourLabel(13), "1p.m.");
+  });
+
+  test("overlapping events share the column side by side; others get full width", () => {
+    const bounds = { first: 8, last: 20 };
+    const at = (start: string, end: string, title: string) =>
+      visit("2026-11-09", { starts_at: `2026-11-09T${start}:00-05:00`, ends_at: `2026-11-09T${end}:00-05:00`, title });
+    const placed = layoutDay(
+      [at("13:00", "15:00", "A"), at("14:00", "16:00", "B"), at("14:30", "15:00", "C"), at("17:00", "18:00", "D")],
+      "2026-11-09", bounds);
+    const by = Object.fromEntries(placed.map((p) => [p.visit.title, p]));
+    assert.deepEqual([by.A.lane, by.B.lane, by.C.lane], [0, 1, 2]);
+    assert.ok([by.A, by.B, by.C].every((p) => p.lanes === 3));
+    assert.deepEqual([by.D.lane, by.D.lanes], [0, 1]);
+    const reuse = layoutDay([at("13:00", "14:00", "E"), at("13:30", "15:00", "F"), at("14:00", "15:00", "G")], "2026-11-09", bounds);
+    const r = Object.fromEntries(reuse.map((p) => [p.visit.title, p]));
+    assert.equal(r.G.lane, 0, "G reuses E's lane once E has ended");
+    assert.equal(r.G.lanes, 2);
+  });
+
+  test("events running past the grid are clipped to it", () => {
+    const placed = layoutDay(
+      [visit("2026-11-09", { starts_at: "2026-11-09T19:00:00-05:00", ends_at: "2026-11-10T01:00:00-05:00" })],
+      "2026-11-09", { first: 8, last: 20 });
+    assert.equal(Math.round(placed[0].top + placed[0].height), 100);
+  });
+
   test("the approval sentence", () => {
     assert.equal(routineSentence("Sam", "13:00", 120, null), "Meet Sam at 1:00p.m. for 2 hours, every day.");
     assert.equal(daysPhrase(["mon", "wed"]), "on Monday and Wednesday");
@@ -135,14 +182,53 @@ describe("planner helpers", () => {
 });
 
 describe("My week", () => {
-  test("shows seven days with today first, and booked visits as 1:00p.m.–3:00p.m.", () => {
-    planner({ initialVisits: WEEK });
+  test("a Sunday-to-Saturday calendar with 1:00p.m.–3:00p.m. blocks placed by time", () => {
+    const { container } = planner({ initialVisits: WEEK });
     const days = screen.getAllByRole("listitem");
     assert.equal(days.length, 7);
-    assert.ok(screen.getByRole("heading", { name: /Today/ }));
-    assert.equal(screen.getAllByText("1:00p.m.–3:00p.m.").length, 7);
+    assert.match(days[0].getAttribute("aria-label") ?? "", /^Today, Sunday, November 8: 1 visit$/);
+    const ranges = [...container.querySelectorAll(".cal-event .visit-time")].map((el) => el.textContent);
+    assert.deepEqual(ranges, Array(7).fill("1:00p.m.–3:00p.m."));
     assert.equal(screen.getAllByText("Meeting with Sam").length, 7);
-    assert.equal(screen.getAllByText(/On Sam's calendar/).length, 7);
+    assert.equal(container.querySelectorAll(".visit-synced-icon").length, 7);
+    const legend = container.querySelector(".cal-legend")?.textContent ?? "";
+    assert.match(legend, /Your visits: In Dana's words/, "the source label is always on screen");
+    const labels = [...container.querySelectorAll(".cal-event")].map((el) => el.getAttribute("aria-label") ?? "");
+    assert.ok(labels.every((l) => l.includes("In Dana's words") && l.includes("on Sam's calendar")));
+    // 8a.m.–8p.m. grid: 1pm is 5/12 down, a 2h block is 2/12 tall.
+    const block = container.querySelector(".cal-event") as HTMLElement;
+    assert.equal(parseFloat(block.style.top).toFixed(2), ((5 / 12) * 100).toFixed(2));
+    assert.equal(parseFloat(block.style.height).toFixed(2), ((2 / 12) * 100).toFixed(2));
+    assert.match(block.getAttribute("aria-label") ?? "", /1:00p\.m\.–3:00p\.m\., Meeting with Sam, In Dana's words/);
+    assert.equal(container.querySelectorAll(".cal-hour").length, 12);
+  });
+
+  test("a long visit has room for its source label inline", () => {
+    const { container } = planner({
+      initialVisits: [visit("2026-11-09", { starts_at: "2026-11-09T09:00:00-05:00", ends_at: "2026-11-09T13:00:00-05:00" })],
+    });
+    assert.equal(container.querySelector(".cal-event .visit-label")?.textContent, "In Dana's words");
+  });
+
+  test("a short event shows its title (its time is its place on the grid)", () => {
+    const { container } = planner({
+      initialVisits: [visit("2026-11-09", { read_only: true, title: "Breakfast", source: "staff",
+                                            label: "From staff calendar, 2026-11-08",
+                                            starts_at: "2026-11-09T07:00:00-05:00", ends_at: "2026-11-09T07:30:00-05:00" })],
+    });
+    const block = container.querySelector(".cal-event") as HTMLElement;
+    assert.equal(block.dataset.short, "true");
+    assert.equal(block.textContent, "Breakfast");
+    assert.match(block.getAttribute("aria-label") ?? "", /^7:00a\.m\.–7:30a\.m\., Breakfast/);
+  });
+
+  test("all-day events sit in their own strip, not on the hour grid", () => {
+    const { container } = planner({
+      initialVisits: [visit("2026-11-12", { all_day: true, starts_at: "2026-11-12T00:00:00-05:00",
+                                            ends_at: "2026-11-13T00:00:00-05:00" })],
+    });
+    assert.ok(container.querySelector(".cal-allday .cal-chip"));
+    assert.equal(container.querySelectorAll(".cal-day .cal-event").length, 0);
   });
 
   test("visits still waiting for approval are not shown as booked", () => {
@@ -153,8 +239,10 @@ describe("My week", () => {
   test("next week moves the seven days on", () => {
     planner();
     tap("Next week");
-    assert.ok(screen.getByText("November 15"));
-    assert.equal(screen.queryByRole("heading", { name: /Today/ }), null);
+    assert.ok(screen.getByText("November 15 – November 21"));
+    assert.equal(screen.queryByText("Today"), null);
+    tap("This week");
+    assert.ok(screen.getByText("November 8 – November 14"));
   });
 });
 
@@ -279,8 +367,21 @@ describe("fallback: a staff calendar file", () => {
     fireEvent.change(input, { target: { files: [file] } });
     await screen.findByText("1 staff visit times shown. Nothing was booked or sent.");
     await waitFor(() => assert.ok(container.querySelector('.visit-block[data-kind="imported"]')));
-    assert.ok(screen.getByText("From staff calendar, 2026-11-08"));
+    const legend = container.querySelector(".cal-legend")?.textContent ?? "";
+    assert.match(legend, /From staff calendar, 2026-11-08 \(shown only, not booked\)/);
+    const block = container.querySelector('.cal-event[data-kind="imported"]') as HTMLElement;
+    assert.match(block.getAttribute("aria-label") ?? "", /Visit Dana, From staff calendar, 2026-11-08/);
     assert.deepEqual(calls.map((c) => c.path), ["/planner/import"]);
     assert.equal(typeof calls[0].body?.calendar_zip_b64, "string");
+    assert.equal(calls[0].body?.start_date, "2026-11-08", "the window starts at this week's Sunday");
+    assert.equal(calls[0].body?.days, 63);
+  });
+});
+
+describe("calendar scroll position", () => {
+  test("localHour reads Toronto time", async () => {
+    const { localHour } = await import("../lib/planner.ts");
+    assert.equal(localHour("2026-11-08T13:00:00-05:00"), 13);
+    assert.equal(localHour("2026-11-08T18:00:00Z"), 13);
   });
 });

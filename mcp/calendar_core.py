@@ -219,18 +219,36 @@ def parse_ics(text: str, tz=DEFAULT_TZ, source_file="") -> list[dict]:
                 current["DURATION"] = value
             elif name in ("RRULE", "RDATE", "EXDATE"):
                 current["recurrence"].append(line if name != "RRULE" else f"RRULE:{value}")
+                if name == "EXDATE":
+                    current.setdefault("EXDATE", []).extend((v, params) for v in value.split(",") if v)
             elif name == "STATUS":
                 current["status"] = value.upper()
             elif name == "RECURRENCE-ID":
-                current["override"] = True
+                current["RECURRENCE-ID"] = (value, params)
             elif name == "UID":
                 current["uid"] = value
     return events
 
 
 def _finish(raw: dict, zone: ZoneInfo, source_file: str) -> dict | None:
-    if raw.get("status") == "CANCELLED" or raw.get("override") or "DTSTART" not in raw:
+    if "DTSTART" not in raw:
         return None
+    override_of = None
+    if "RECURRENCE-ID" in raw:
+        try:
+            override_of = iso(_ical_dt(*raw["RECURRENCE-ID"], zone)[0])
+        except ValueError:
+            return None
+    if raw.get("status") == "CANCELLED":
+        # A cancelled instance of a series = that instance was deleted. Keep
+        # a marker so the series can drop it; a cancelled one-off just goes.
+        return {"cancelled": True, "uid": raw.get("uid", ""), "override_of": override_of} if override_of else None
+    exdates = []
+    for value, params in raw.get("EXDATE", []):
+        try:
+            exdates.append(iso(_ical_dt(value, params, zone)[0]))
+        except ValueError:
+            continue
     try:
         start, all_day = _ical_dt(*raw["DTSTART"], zone)
         if "DTEND" in raw:
@@ -247,10 +265,34 @@ def _finish(raw: dict, zone: ZoneInfo, source_file: str) -> dict | None:
         "starts_at": iso(start),
         "ends_at": iso(end),
         "all_day": all_day,
-        "recurrence": raw["recurrence"],
+        "recurrence": [] if override_of else raw["recurrence"],
+        "exdates": exdates,
         "uid": raw.get("uid", ""),
+        "override_of": override_of,
         "source_file": source_file,
     }
+
+
+def _ical_utc(instant: str) -> str:
+    return parse_dt(instant).astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def fold_overrides(events: list[dict]) -> list[dict]:
+    """Moved and deleted instances of a series, folded into the series:
+    each becomes an exdate on its parent, a moved one stays as a one-off,
+    a deleted one disappears. Parents also get an EXDATE line, so a
+    Google import never shows the original slot."""
+    by_uid = {e["uid"]: e for e in events if e.get("recurrence") and e.get("uid") and not e.get("cancelled")}
+    out = []
+    for e in events:
+        parent = by_uid.get(e.get("uid")) if e.get("override_of") else None
+        if parent is not None:
+            parent["exdates"].append(e["override_of"])
+            parent["recurrence"].append(f"EXDATE:{_ical_utc(e['override_of'])}")
+        if e.get("cancelled"):
+            continue
+        out.append({k: v for k, v in e.items() if k != "override_of"})
+    return out
 
 
 def _safe_member(info: zipfile.ZipInfo) -> bool:
@@ -280,10 +322,17 @@ def parse_calendar_zip(data: bytes, tz=DEFAULT_TZ) -> list[dict]:
                 continue
             text = archive.read(info).decode("utf-8", errors="replace")
             events.extend(parse_ics(text, tz=tz, source_file=info.filename))
-    return events
+    return fold_overrides(events)
 
 
 # ---- recurrence for the read-only grid ----------------------------------------------
+# Walk each series from its first date, day by day in local wall time (so a
+# 1pm meeting stays at 1pm across DST), and keep only what falls in the
+# window shown. COUNT counts from the first date, as RFC 5545 says, and
+# deleted/moved instances (exdates) are skipped after counting.
+
+MAX_SERIES_DAYS = 366 * 30  # a series is walked at most this far
+
 
 def _rrule_parts(recurrence: list[str]) -> dict | None:
     rule = next((r for r in recurrence if r.upper().startswith("RRULE:")), None)
@@ -296,46 +345,115 @@ def _rrule_parts(recurrence: list[str]) -> dict | None:
     return parts
 
 
-def expand_recurrence(event: dict, tz=DEFAULT_TZ, weeks=DEFAULT_RECURRENCE_WEEKS) -> list[dict]:
-    """Occurrences of one parsed event (DAILY / WEEKLY rules). A
-    non-recurring event, or a rule we can't read, gives just the event."""
+def _ordinal_days(spec: str) -> list[tuple[int | None, int]]:
+    """BYDAY "MO,2TU,-1FR" -> [(None, 0), (2, 1), (-1, 4)]."""
+    out = []
+    for item in spec.split(","):
+        found = re.fullmatch(r"([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)", item.strip())
+        if found:
+            out.append((int(found.group(1)) if found.group(1) else None, _ICAL_DAYS[found.group(2)]))
+    return out
+
+
+def _nth_weekday_ok(day: date, n: int, weekday: int) -> bool:
+    if day.weekday() != weekday:
+        return False
+    if n > 0:
+        return (day.day - 1) // 7 + 1 == n
+    following = day + timedelta(days=7 * (-n))
+    return following.month != day.month and (day + timedelta(days=7 * (-n - 1))).month == day.month
+
+
+def _month_day_ok(day: date, parts: dict, first: date) -> bool:
+    if "BYMONTHDAY" in parts:
+        last = (date(day.year + day.month // 12, day.month % 12 + 1, 1) - timedelta(days=1)).day
+        wanted = {int(x) if int(x) > 0 else last + int(x) + 1 for x in parts["BYMONTHDAY"].split(",") if x}
+        return day.day in wanted
+    if "BYDAY" in parts:
+        return any((n is None and day.weekday() == wd) or (n is not None and _nth_weekday_ok(day, n, wd))
+                   for n, wd in _ordinal_days(parts["BYDAY"]))
+    return day.day == first.day
+
+
+def _matches(day: date, parts: dict, first: date, interval: int) -> bool:
+    freq = parts["FREQ"]
+    if freq == "DAILY":
+        if "BYDAY" in parts and day.weekday() not in {wd for _, wd in _ordinal_days(parts["BYDAY"])}:
+            return False
+        return (day - first).days % interval == 0
+    if freq == "WEEKLY":
+        days = {wd for _, wd in _ordinal_days(parts["BYDAY"])} if "BYDAY" in parts else {first.weekday()}
+        if day.weekday() not in days:
+            return False
+        wkst = _ICAL_DAYS.get(parts.get("WKST", "MO"), 0)
+        week = lambda d: d - timedelta(days=(d.weekday() - wkst) % 7)  # noqa: E731
+        return ((week(day) - week(first)).days // 7) % interval == 0
+    if freq == "MONTHLY":
+        months = (day.year - first.year) * 12 + day.month - first.month
+        return months % interval == 0 and _month_day_ok(day, parts, first)
+    if freq == "YEARLY":
+        months = {int(m) for m in parts["BYMONTH"].split(",")} if "BYMONTH" in parts else {first.month}
+        if (day.year - first.year) % interval or day.month not in months:
+            return False
+        if "BYMONTHDAY" in parts or "BYDAY" in parts:
+            return _month_day_ok(day, parts, first)
+        return day.day == first.day
+    return False
+
+
+def expand_recurrence(event: dict, window_start: datetime | None = None, window_end: datetime | None = None,
+                      tz=DEFAULT_TZ) -> list[dict]:
+    """Occurrences of one parsed event that overlap [window_start, window_end).
+    No window: from the first date for DEFAULT_RECURRENCE_WEEKS. A rule we
+    can't read gives just the first occurrence."""
     zone = _zone(tz)
     start, end = parse_dt(event["starts_at"]), parse_dt(event["ends_at"])
+    lo = window_start or start
+    hi = window_end or (start + timedelta(weeks=DEFAULT_RECURRENCE_WEEKS))
+    duration = end.astimezone(timezone.utc) - start.astimezone(timezone.utc)
+
+    def in_window(s: datetime) -> bool:
+        return s < hi and s + duration > lo
+
     single = [{"starts_at": event["starts_at"], "ends_at": event["ends_at"]}]
     parts = _rrule_parts(event.get("recurrence") or [])
-    if not parts or parts.get("FREQ") not in ("DAILY", "WEEKLY"):
-        return single
+    if not parts or parts.get("FREQ") not in ("DAILY", "WEEKLY", "MONTHLY", "YEARLY"):
+        return single if in_window(start) else []
     try:
         interval = max(1, int(parts.get("INTERVAL", "1")))
         count = int(parts["COUNT"]) if "COUNT" in parts else None
-        until = None
-        if "UNTIL" in parts:
-            until, _ = _ical_dt(parts["UNTIL"], {}, zone)
-        byday = {_ICAL_DAYS[d[-2:]] for d in parts["BYDAY"].split(",")} if "BYDAY" in parts else None
+        until = _ical_dt(parts["UNTIL"], {}, zone)[0] if "UNTIL" in parts else None
     except (ValueError, KeyError):
-        return single
+        return single if in_window(start) else []
+    skip = {parse_dt(x) for x in event.get("exdates") or []}
 
-    duration = end.astimezone(timezone.utc) - start.astimezone(timezone.utc)
-    local_start = start.astimezone(zone)
-    horizon = local_start + timedelta(weeks=weeks)
-    out, day = [], local_start.date()
-    step_days = 1
-    while len(out) < MAX_OCCURRENCES:
-        current = datetime.combine(day, local_start.timetz().replace(tzinfo=None), tzinfo=zone)
-        if (until and current > until) or (count is None and current > horizon):
+    local = start.astimezone(zone)
+    wall = local.timetz().replace(tzinfo=None)
+    first = local.date()
+    out, seen = [], 0
+    for offset in range(MAX_SERIES_DAYS):
+        day = first + timedelta(days=offset)
+        current = datetime.combine(day, wall, tzinfo=zone)
+        if (until and current > until) or current >= hi:
             break
-        offset_days = (day - local_start.date()).days
-        if parts["FREQ"] == "DAILY":
-            keep = offset_days % interval == 0
-        else:
-            weekday_ok = current.weekday() in (byday or {local_start.weekday()})
-            keep = weekday_ok and (offset_days // 7) % interval == 0
-        if keep:
+        if offset and not _matches(day, parts, first, interval):
+            continue
+        seen += 1  # COUNT includes deleted instances
+        if current not in skip and in_window(current):
             stop = (current.astimezone(timezone.utc) + duration).astimezone(zone)
             out.append({"starts_at": iso(current), "ends_at": iso(stop)})
-            if count is not None and len(out) >= count:
+            if len(out) >= MAX_OCCURRENCES:
                 break
-        day += timedelta(days=step_days)
-        if (day - local_start.date()).days > 366 * 2:
+        if count is not None and seen >= count:
             break
-    return out or single
+    return out
+
+
+def occurrences(events: list[dict], window_start: datetime, window_end: datetime, tz=DEFAULT_TZ) -> list[dict]:
+    """Every occurrence of every event in the window, earliest first, each
+    carrying its event's title and all_day flag."""
+    out = []
+    for e in events:
+        for occ in expand_recurrence(e, window_start, window_end, tz):
+            out.append({"title": e["title"], "all_day": e.get("all_day", False), **occ})
+    return sorted(out, key=lambda o: o["starts_at"])

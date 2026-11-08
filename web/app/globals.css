@@ -5431,82 +5431,266 @@ button.entry-preview-play:disabled { opacity: 0.6; }
   margin: 0;
 }
 
-/* Seven days, wrapping on narrow tablets; the same order every time. */
-.planner-week {
+/* Calendar week: hour scale + seven day columns, events placed by time.
+   Sunday to Saturday, the same layout every week. */
+.planner-range {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-body);
+  color: var(--ink-2);
+}
+
+.cal {
+  --cal-hour-h: 64px;     /* one hour; >= the tap floor */
+  --cal-gutter: 92px;
+  --cal-col-min: 128px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: var(--stroke) solid var(--line-strong);
+  /* Its own scroll area, so the day names and hour scale stay in view.
+     Narrow portrait tablets also scroll sideways rather than squash. */
+  max-height: max(480px, calc(100vh - 300px));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.cal:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.cal-head,
+.cal-allday,
+.cal-body {
+  display: grid;
+  grid-template-columns: var(--cal-gutter) repeat(7, minmax(var(--cal-col-min), 1fr));
+  min-width: calc(var(--cal-gutter) + 7 * var(--cal-col-min));
+}
+
+.cal-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-bottom: var(--stroke) solid var(--line-strong);
+}
+
+.cal-dayhead {
+  display: grid;
+  justify-items: center;
+  padding: var(--space-3) var(--space-2);
+  border-left: var(--stroke) solid var(--line);
+}
+
+.cal-weekday {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.cal-date {
+  display: inline-grid;
+  place-items: center;
+  min-width: 48px;
+  height: 48px;
+  border-radius: var(--r-pill);
+  font-size: var(--text-h3);
+  font-weight: 700;
+}
+
+.cal-dayhead[data-today] .cal-weekday {
+  color: var(--accent-strong);
+}
+
+.cal-dayhead[data-today] .cal-date {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.cal-allday {
+  border-bottom: var(--stroke) solid var(--line-strong);
+}
+
+.cal-allday-cell {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-left: var(--stroke) solid var(--line);
+}
+
+.cal-gutter {
+  display: grid;
+  grid-auto-rows: var(--cal-hour-h);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.cal-head .cal-gutter {
+  z-index: 3;
+}
+
+.cal-hour {
+  padding: 0 var(--space-2);
+  font-size: var(--text-small);  /* 22px floor, like all resident text */
+  color: var(--ink-3);
+  text-align: right;
+  transform: translateY(-0.6em);
+}
+
+.cal-allday .cal-hour {
+  align-self: center;
+  transform: none;
+}
+
+/* The ol keeps days as a list for screen readers; visually, seven columns. */
+.cal-days {
+  grid-column: 2 / -1;
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(7, minmax(var(--cal-col-min), 1fr));
 }
 
-.planner-day {
-  display: grid;
-  align-content: start;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border-radius: var(--r-lg);
-  background: var(--surface);
-  border: var(--stroke) solid var(--line-strong);
-  min-height: 160px;
+.cal-day {
+  position: relative;
+  min-width: 0;
+  height: calc(var(--cal-hours) * var(--cal-hour-h));
+  border-left: var(--stroke) solid var(--line);
+  /* hour lines */
+  background-image: linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: 100% var(--cal-hour-h);
 }
 
-.planner-day[data-today] {
-  border: var(--stroke-strong) solid var(--accent);
-  background: var(--accent-softer);
-}
-
-.planner-day-name {
-  margin: 0;
-  display: grid;
-  font-size: var(--text-h3);
-}
-
-.planner-day-date {
-  font-size: var(--text-body);
-  font-weight: 500;
-  color: var(--ink-2);
-}
-
-.visit-empty {
-  margin: 0;
-  font-size: var(--text-body);
-  color: var(--ink-3);
+.cal-day[data-today] {
+  background-color: var(--accent-softer);
 }
 
 .visit-block {
-  display: grid;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--r-md);
+  /* Column, not grid: in a fixed-height grid an overflow:hidden row can
+     collapse to 0px and lose "Meeting with Sam". Time and what never shrink;
+     only the trailing label is clipped when the block is short. */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-sm);
   background: var(--src-resident-bg);
   color: var(--src-resident);
-  border-left: 6px solid var(--src-resident);
+  border-left: 5px solid var(--src-resident);
   font-size: var(--text-body);
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.cal-event {
+  position: absolute;
+  box-sizing: border-box;
+  min-height: 30px;
+  /* a hairline gap between side-by-side and stacked events */
+  border-right: 2px solid var(--surface);
+  border-bottom: 2px solid var(--surface);
+}
+
+.cal-chip {
+  position: static;
+  display: block;
+  padding: 4px var(--space-2);
+  border-radius: var(--r-xs);
+  background: var(--src-staff-bg);
+  color: var(--src-staff);
+  font-size: var(--text-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Imported staff hours: shown, never booked — drawn differently on purpose. */
 .visit-block[data-kind="imported"] {
   background: var(--src-staff-bg);
   color: var(--src-staff);
-  border-left: 6px dashed var(--src-staff);
+  border-left: 5px dashed var(--src-staff);
+}
+
+.visit-time,
+.visit-block .visit-what {
+  flex-shrink: 0;
 }
 
 .visit-time {
-  /* 22px floor, and free to wrap: a full range is wider than a tablet column. */
   font-size: var(--text-body);
-  overflow-wrap: anywhere;
 }
 
-.visit-block,
-.planner-day {
-  min-width: 0;
+/* "12:00a.m.–" and "6:00a.m." never break inside; the range wraps after the dash. */
+.visit-time > span {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* The first label sits on the top edge instead of being nudged above it. */
+.cal-body .cal-gutter .cal-hour:first-child {
+  transform: none;
+}
+
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-2);
+}
+
+.cal-swatch {
+  display: inline-block;
+  width: 28px;
+  height: 22px;
+  border-radius: var(--r-xs);
+  background: var(--src-resident-bg);
+  border-left: 5px solid var(--src-resident);
+}
+
+.cal-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.visit-synced-icon {
+  margin-left: 6px;
+  vertical-align: -3px;
+}
+
+.cal-swatch[data-kind="imported"] {
+  background: var(--src-staff-bg);
+  border-left: 5px dashed var(--src-staff);
 }
 
 .visit-what {
   color: var(--ink);
   font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+/* Under an hour: one line, start time + what; the full range is in aria-label. */
+.visit-block[data-short] {
+  flex-direction: row;
+  gap: var(--space-2);
+  padding-top: 2px;
+  padding-bottom: 2px;
+  white-space: nowrap;
+}
+
+.visit-block[data-short] .visit-what {
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .visit-label,
@@ -5519,6 +5703,11 @@ button.entry-preview-play:disabled { opacity: 0.6; }
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
+}
+
+[data-theme="contrast"] .cal,
+[data-theme="contrast"] .cal-day {
+  border-color: #000;
 }
 
 .planner-question {

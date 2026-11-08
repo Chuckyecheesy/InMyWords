@@ -288,9 +288,10 @@ async def save_routine(resident, staff, start_time, length_min, days=None, start
 async def get_planner(resident):
     return await _call("profile", "get_planner", {"resident": resident})
 
-async def import_calendar(resident, calendar_zip_b64):
+async def import_calendar(resident, calendar_zip_b64, start_date="", days=63):
     return await _call("actions", "import_calendar",
-                       {"resident": resident, "calendar_zip_b64": calendar_zip_b64})
+                       {"resident": resident, "calendar_zip_b64": calendar_zip_b64,
+                        "start_date": start_date, "days": days})
 
 async def propose_calendar_import(staff, calendar_zip_b64):
     return await _call("actions", "propose_calendar_import",
