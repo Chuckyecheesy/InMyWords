@@ -74,16 +74,6 @@ def _gemini_embed():
 _query_vec_cache: dict[str, list[float]] = {}
 
 
-def is_profile_overview_query(query: str) -> bool:
-    normalized = re.sub(r"[^a-z0-9\s]", " ", (query or "").lower())
-    words = set(normalized.split())
-    return bool(
-        words & {"onboarding", "overview", "essentials", "introduce"}
-        or re.search(r"\bnew\s+staff\b", normalized)
-        or re.search(r"\bwhat\s+should\s+(?:new\s+)?staff\s+know\b", normalized)
-    )
-
-
 def embed_text(text, task_type="RETRIEVAL_QUERY"):
     """Best-effort embedding via Ahmed's wrapper (api/services/gemini.py).
     Returns None when the key is missing or the call fails — callers fall

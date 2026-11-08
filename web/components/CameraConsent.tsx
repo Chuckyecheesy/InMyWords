@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { hasCameraConsent, setCameraConsent } from "@/lib/input/consent";
+import { speak } from "@/lib/api";
 import { BigButton } from "./shared";
 
 /**
@@ -13,36 +14,35 @@ export function CameraConsent({
   residentId,
   cameraOn,
   onChange,
-  onLongPress,
 }: {
   residentId: string;
   cameraOn: boolean;
   onChange: (consent: boolean) => void;
-  /** Long-press speaks the button label, like every resident button. */
-  onLongPress?: (label: string) => void;
 }) {
-  const [consent, setConsent] = useState(false);
-
-  useEffect(() => {
-    setConsent(hasCameraConsent(residentId));
-  }, [residentId]);
+  const [savedConsent, setSavedConsent] = useState(() => ({
+    residentId,
+    consent: hasCameraConsent(residentId),
+  }));
+  const consent =
+    savedConsent.residentId === residentId
+      ? savedConsent.consent
+      : hasCameraConsent(residentId);
 
   function toggle() {
     const next = !consent;
-    setConsent(next);
+    setSavedConsent({ residentId, consent: next });
     setCameraConsent(residentId, next);
     onChange(next);
+  }
+
+  function hear(label: string) {
+    void speak({ resident_id: residentId, text: label });
   }
 
   return (
     <section className="block camera-consent" aria-label="Camera consent">
       <div className="speak-actions">
-        <BigButton
-          tone={consent ? "approve" : "neutral"}
-          onLongPress={onLongPress}
-          onClick={toggle}
-          aria-pressed={consent}
-        >
+        <BigButton tone={consent ? "approve" : "neutral"} onLongPress={hear} onClick={toggle} aria-pressed={consent}>
           {consent ? "Using my eyes and hands" : "Use my eyes and hands"}
         </BigButton>
         {cameraOn ? (

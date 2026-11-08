@@ -165,7 +165,6 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         residentId={resident.id}
         cameraOn={input.cameraOn}
         onChange={input.setConsent}
-        onLongPress={speakLabel}
       />
 
       {input.consent ? (
@@ -190,8 +189,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
       <div className="speak-actions">
         <BigButton
           tone="neutral"
-          disabled={selectedLabels.length === 0 || thinking}
           onLongPress={speakLabel}
+          disabled={selectedLabels.length === 0 || thinking}
           onClick={() => {
             void askForHelp();
           }}
@@ -200,8 +199,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </BigButton>
         <BigButton
           tone="neutral"
-          disabled={selectedLabels.length === 0}
           onLongPress={speakLabel}
+          disabled={selectedLabels.length === 0}
           onClick={() => {
             void speakTilesOnly();
           }}
