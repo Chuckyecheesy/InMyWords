@@ -753,3 +753,35 @@ export function createResident(input: {
 }) {
   return sendJson<{ ok: boolean; resident_id: string }>("/residents", input);
 }
+
+// ---------- Get staff help (ROADMAP Phase 6) ----------
+
+export type HelpRequest = {
+  id: number;
+  resident_id: string;
+  status: "open" | "acknowledged" | "done";
+  created_at: string;
+  acknowledged_by: string | null;
+  acknowledged_at: string | null;
+};
+
+export function requestHelp(residentId: string) {
+  return sendJson<{ ok: boolean; request: HelpRequest }>("/help", { resident_id: residentId });
+}
+
+export async function getHelpRequests(residentId?: string): Promise<HelpRequest[]> {
+  const query = residentId ? `?resident_id=${encodeURIComponent(residentId)}` : "";
+  const raw = record(await fetchJson(`/help${query}`));
+  const rows = Array.isArray(raw?.requests) ? raw.requests : [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    if (!item || typeof item.id !== "number") return [];
+    return [item as unknown as HelpRequest];
+  });
+}
+
+export function acknowledgeHelp(taskId: number, staffId: string) {
+  return sendJson<{ ok: boolean; request: HelpRequest }>(`/help/${taskId}/acknowledge`, {
+    staff_id: staffId,
+  });
+}

@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Building2, History, LayoutDashboard, MonitorSmartphone, UserRoundPlus } from "lucide-react";
 import { DisplayMenu } from "./DisplayMenu";
 import { SessionCard } from "./SessionCard";
+import { UrgentHelpBanner } from "./UrgentHelpBanner";
 import { Avatar, WordmarkMark } from "./ui";
 
 type Person = { id: string; name: string };
@@ -81,6 +82,7 @@ export function StaffShell({ people, children }: { people: Person[]; children: R
         <SessionCard />
       </aside>
       <div className="s-main">
+        <UrgentHelpBanner people={people} />
         <header className="s-topbar">
           <Link href="/staff" className="wordmark">
             <WordmarkMark />

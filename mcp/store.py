@@ -687,12 +687,35 @@ class SeedStore:
              "title": title, "starts_at": starts_at})
         self._save_runtime()
 
-    def create_staff_task(self, rid, task, due_at):
+    def create_staff_task(self, rid, task, due_at, priority="normal"):
         self._reload_runtime()
-        self._runtime["staff_tasks"].append(
-            {"id": len(self._runtime["staff_tasks"]) + 1, "resident_id": rid,
-             "task": task, "due_at": due_at, "status": "open"})
+        row = {"id": len(self._runtime["staff_tasks"]) + 1, "resident_id": rid,
+               "task": task, "due_at": due_at, "status": "open",
+               "priority": priority, "created_at": _now(),
+               "acknowledged_by": None, "acknowledged_at": None}
+        self._runtime["staff_tasks"].append(row)
         self._save_runtime()
+        return dict(row)
+
+    def get_help_requests(self, rid=None, open_only=True):
+        """Urgent 'Get staff help' tasks (ROADMAP Phase 6), newest first."""
+        self._reload_runtime()
+        rows = [t for t in self._runtime["staff_tasks"]
+                if t.get("priority") == "urgent"
+                and (rid is None or t["resident_id"] == rid)
+                and (not open_only or t["status"] in ("open", "acknowledged"))]
+        return sorted(rows, key=lambda t: t.get("created_at") or "", reverse=True)
+
+    def acknowledge_task(self, task_id, staff_id):
+        self._reload_runtime()
+        row = next((t for t in self._runtime["staff_tasks"] if t["id"] == task_id), None)
+        if not row:
+            return None
+        row["status"] = "acknowledged"
+        row["acknowledged_by"] = staff_id
+        row["acknowledged_at"] = _now()
+        self._save_runtime()
+        return dict(row)
 
     def get_bookings(self):
         self._reload_runtime()
@@ -1222,9 +1245,27 @@ class PostgresStore:
         self._insert("INSERT INTO calendar_events (resident_id, title, starts_at) VALUES (%s,%s,%s)",
                      (rid, title, starts_at))
 
-    def create_staff_task(self, rid, task, due_at):
-        self._insert("INSERT INTO staff_tasks (resident_id, task, due_at) VALUES (%s,%s,%s)",
-                     (rid, task, due_at))
+    def create_staff_task(self, rid, task, due_at, priority="normal"):
+        return self._one(
+            "INSERT INTO staff_tasks (resident_id, task, due_at, priority) VALUES (%s,%s,%s,%s) "
+            "RETURNING *", (rid, task, due_at, priority))
+
+    def get_help_requests(self, rid=None, open_only=True):
+        """Urgent 'Get staff help' tasks (ROADMAP Phase 6), newest first."""
+        clauses, params = ["priority = 'urgent'"], []
+        if rid is not None:
+            clauses.append("resident_id = %s")
+            params.append(rid)
+        if open_only:
+            clauses.append("status IN ('open', 'acknowledged')")
+        return self._all(
+            f"SELECT * FROM staff_tasks WHERE {' AND '.join(clauses)} ORDER BY created_at DESC",
+            tuple(params))
+
+    def acknowledge_task(self, task_id, staff_id):
+        return self._one(
+            "UPDATE staff_tasks SET status = 'acknowledged', acknowledged_by = %s, "
+            "acknowledged_at = now() WHERE id = %s RETURNING *", (staff_id, task_id))
 
     def get_bookings(self):
         return self._all("SELECT * FROM bookings ORDER BY starts_at")

@@ -5582,3 +5582,93 @@ button.entry-preview-play:disabled { opacity: 0.6; }
 .speak-time {
   flex-shrink: 0;
 }
+
+/* ---------- Advanced access & staff help (ROADMAP Phase 6) ---------- */
+
+.help-fab {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 55;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-pill, 999px);
+  border: 2px solid var(--accent);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 0.14);
+}
+
+.help-fab:hover,
+.help-fab:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+
+.help-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 0.45);
+}
+
+.help-card {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: stretch;
+  text-align: center;
+  width: min(480px, 100%);
+}
+
+.urgent-banner {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: #7c2d12;
+  color: #fff;
+}
+
+.urgent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: 1.1rem;
+}
+
+.urgent-row strong {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* One-finger mode: wider spacing + bigger targets, same layout everywhere. */
+html[data-touch="onefinger"] .tile-grid,
+html[data-touch="onefinger"] .letter-board .letter-row,
+html[data-touch="onefinger"] .pin-pad {
+  gap: var(--space-4);
+}
+
+html[data-touch="onefinger"] .letter-key {
+  min-width: 84px;
+  min-height: 92px;
+  font-size: 2rem;
+}
+
+html[data-touch="onefinger"] .btn[data-size="lg"],
+html[data-touch="onefinger"] .btn[data-size="xl"] {
+  min-height: 80px;
+  padding-inline: var(--space-4);
+}
+
+html[data-touch="onefinger"] .pin-key {
+  min-height: 88px;
+}

@@ -135,12 +135,18 @@ CREATE TABLE action_results (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- priority 'urgent' + acknowledged_* back the resident "Get staff help"
+-- control (ROADMAP Phase 6). Explicitly NOT emergency services.
 CREATE TABLE staff_tasks (
-  id          SERIAL PRIMARY KEY,
-  resident_id TEXT REFERENCES residents(id),
-  task        TEXT NOT NULL,
-  due_at      TIMESTAMPTZ,
-  status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'done'))
+  id              SERIAL PRIMARY KEY,
+  resident_id     TEXT REFERENCES residents(id),
+  task            TEXT NOT NULL,
+  due_at          TIMESTAMPTZ,
+  status          TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'acknowledged', 'done')),
+  priority        TEXT NOT NULL DEFAULT 'normal' CHECK (priority IN ('normal', 'urgent')),
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  acknowledged_by TEXT,
+  acknowledged_at TIMESTAMPTZ
 );
 
 CREATE TABLE calendar_events (

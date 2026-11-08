@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Delete, Volume2, WandSparkles } from "lucide-react";
+import { Delete, Eye, Volume2, WandSparkles } from "lucide-react";
 import { logSentence, speak, suggestSentences } from "@/lib/api";
+import { loadDraft, saveDraft } from "@/lib/draft";
 import { buildVocabulary, suggestWords } from "@/lib/input/word-suggest";
 import type { Resident } from "@/lib/types";
 import { Callout } from "./ui";
@@ -20,6 +21,17 @@ export function TypeBoard({ resident }: { resident: Resident }) {
   const [error, setError] = useState<string | null>(null);
   const [spoken, setSpoken] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Shared composer state (ROADMAP Phase 6): switching modes keeps the draft.
+  // Loaded after mount, not in the initializer — localStorage would mismatch
+  // the server-rendered empty strip.
+  useEffect(() => {
+    const draft = loadDraft(resident.id);
+    if (draft) setTyped(draft);
+  }, [resident.id]);
+  useEffect(() => {
+    saveDraft(resident.id, typed);
+  }, [resident.id, typed]);
 
   const vocabulary = useMemo(
     () => buildVocabulary(resident.tiles.map((tile) => tile.label)),
@@ -154,6 +166,10 @@ export function TypeBoard({ resident }: { resident: Resident }) {
           <Volume2 size={24} aria-hidden="true" />
           Say my words
         </button>
+        <Link href={`/resident/${resident.id}/type-eyes`} className="btn" data-variant="soft" data-size="lg">
+          <Eye size={20} aria-hidden="true" />
+          Type with my eyes
+        </Link>
         <Link href={`/resident/${resident.id}/speak`} className="btn" data-variant="ghost" data-size="lg">
           Back to pictures
         </Link>
