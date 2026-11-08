@@ -1,0 +1,21 @@
+{
+  "name": "in-my-words-video",
+  "private": true,
+  "scripts": {
+    "manifest": "node scripts/manifest.mjs",
+    "studio": "npm run manifest && remotion studio",
+    "render": "npm run manifest && remotion render InMyWordsDemo out/in-my-words-demo.mp4"
+  },
+  "dependencies": {
+    "@remotion/captions": "4.0.233",
+    "@remotion/google-fonts": "^4.0.233",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.233"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.233",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}

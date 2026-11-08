@@ -1,0 +1,10 @@
+node_modules/
+out/
+# 54 MB of regenerable captures: node ../web/scripts/record-demo-screens.mjs
+public/screens/
+# team drops these in locally (see VO-SCRIPT.md)
+public/footage/*.mp4
+public/audio/vo-*.mp3
+public/audio/music.mp3
+public/captions.srt
+src/assets.json
