@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { createChoice, decideChoice, speak } from "@/lib/api";
+import { createChoice, decideChoice, planActions, speak, type ActionPlan } from "@/lib/api";
 import { choicePrompt, NOT_DECIDED_LABEL, NOT_DECIDED_VALUE } from "@/lib/choice-prompts";
 import { tileImageUrl } from "@/lib/cloudinary";
 import { choiceStanding, consequence, money } from "@/lib/format";
 import type { ChoiceOption, ChoiceResult } from "@/lib/types";
+import { ApprovalCard } from "./ApprovalCard";
 
 const LONG_PRESS_MS = 600;
 
@@ -28,7 +29,24 @@ export function ChoiceScreen({
   const [busy, setBusy] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
   const [status, setStatus] = useState<"chosen" | "not_yet_decided" | null>(null);
+  const [plan, setPlan] = useState<ActionPlan | null>(null);
   const pressed = useRef(false);
+
+  useEffect(() => {
+    if (status !== "chosen" || !chosen) return;
+    let cancel = false;
+    planActions({ resident_id: residentId, goal: chosen }).then((result) => {
+      if (cancel) return;
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setPlan(result.data);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [status, chosen, residentId]);
 
   useEffect(() => {
     if (!prompt) return;
@@ -148,6 +166,7 @@ export function ChoiceScreen({
           </p>
         ) : null}
       </section>
+      {plan ? <ApprovalCard residentId={residentId} plan={plan} /> : null}
     </div>
   );
 }
