@@ -294,8 +294,14 @@ class SaveRoutineTests(PlannerTestCase):
 
 class BookStaffVisitTests(PlannerTestCase):
     def book(self, approved=True):
+        """Dana approves, then Sam accepts: only then is it on Google (§2.5)."""
         rid = self.dana_routine()["routine_id"]
-        return rid, tool(actions().book_staff_visit)("dana", rid, approved)
+        out = tool(actions().book_staff_visit)("dana", rid, approved)
+        if out.get("refused") or out.get("error"):
+            return rid, out
+        ids = [v["id"] for v in out["visits"]]
+        tool(actions().respond_to_visit)("sam", ids, "accept")
+        return rid, tool(actions().sync_accepted_visits)("sam", ids)
 
     def test_refuses_without_approval_and_writes_nothing(self):
         rid, out = self.book(approved=False)

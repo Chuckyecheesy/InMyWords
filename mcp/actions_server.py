@@ -421,6 +421,8 @@ def write_calendar_event(resident: str, visit_id: int, start: str, end: str,
         return {"error": f"no visit {visit_id} for '{resident}'"}
     if not visit["approved"]:
         return {"refused": True, "error": f"visit {visit_id} is not approved yet"}
+    if (visit.get("status") or "accepted") != "accepted":
+        return {"refused": True, "error": f"visit {visit_id} is waiting for {visit['staff_id']} to accept it"}
     try:
         same = (parse_dt(start) == parse_dt(visit["starts_at"])
                 and parse_dt(end) == parse_dt(visit["ends_at"]))
@@ -432,24 +434,99 @@ def write_calendar_event(resident: str, visit_id: int, start: str, end: str,
     return _write_visit(store, visit, _resident_name(store, resident), summary, description, writer="gemini")
 
 
+def _accepted(visit: dict) -> bool:
+    return (visit.get("status") or "accepted") == "accepted"
+
+
+def _sync(store, visits: list[dict]) -> None:
+    """Write every accepted, unsynced visit to Google. Stops at the first
+    sign the calendar is down."""
+    names: dict[str, str] = {}
+    for visit in visits:
+        if not (visit["approved"] and _accepted(visit)):
+            continue  # pending or rejected visits never reach Google
+        name = names.setdefault(visit["resident_id"], _resident_name(store, visit["resident_id"]))
+        if _write_visit(store, visit, name).get("calendar_down"):
+            break  # one failure means the calendar is down; don't hammer it
+
+
 @mcp.tool
 def book_staff_visit(resident: str, routine_id: int, approved: bool) -> dict:
-    """Deterministic route: approve the routine's visits in the DB, then put
-    every visit not yet on the calendar onto staff's Google Calendar. Refused
-    unless approved. If Google is down, the visits stay booked in the app and
-    google_synced is false."""
+    """Deterministic route: approve the routine's visits in the DB. Each visit
+    is then a request waiting for staff (status pending, PROJECT_PLAN §2.5);
+    only visits staff already accepted are written to Google. Refused unless
+    approved. If Google is down, the visits stay booked in the app."""
     if approved is not True:
         return {"refused": True, "error": "the resident must approve the visits first"}
     store = get_store()
     _, err = _routine_or_error(store, resident, routine_id)
     if err:
         return err
-    name = _resident_name(store, resident)
-    for visit in store.approve_routine(routine_id):  # DB first, always
-        result = _write_visit(store, visit, name)
-        if result.get("calendar_down"):
-            break  # one failure means the calendar is down; don't hammer it
+    _sync(store, store.approve_routine(routine_id))  # DB first, always
     return _booking_summary(store, resident, routine_id, planner="rules")
+
+
+_DECISIONS = {"accept": "accepted", "reject": "rejected"}
+
+
+def _visits_view(store, visits: list[dict]) -> list[dict]:
+    from store import visit_view
+    out = []
+    for v in visits:
+        name = _resident_name(store, v["resident_id"])
+        out.append({**visit_view(v, name), "resident": v["resident_id"], "resident_name": name})
+    return out
+
+
+@mcp.tool
+def respond_to_visit(staff: str, visit_ids: list[int], decision: str) -> dict:
+    """Staff answer a visit the resident approved: "accept" or "reject"
+    (PROJECT_PLAN §2.5). Only the staff member named on every visit may
+    answer, only once, and only after the resident approved. All or nothing:
+    one bad visit changes none. Status only; Google is written by
+    sync_accepted_visits (or the Planner subagent's write_calendar_event)."""
+    status = _DECISIONS.get(decision)
+    if status is None:
+        return {"error": "decision must be 'accept' or 'reject'"}
+    try:
+        ids = [int(i) for i in visit_ids]
+    except (TypeError, ValueError):
+        return {"error": "visit_ids must be visit numbers"}
+    if not ids:
+        return {"error": "choose at least one visit"}
+    store = get_store()
+    visits = []
+    for visit_id in ids:
+        visit = store.get_visit(visit_id)
+        if not visit:
+            return {"error": f"no visit {visit_id}"}
+        if visit["staff_id"] != staff:
+            return {"refused": True, "error": f"visit {visit_id} is for {visit['staff_id']}, not {staff}"}
+        if not visit["approved"]:
+            return {"error": f"visit {visit_id} is not approved by the resident yet"}
+        if (visit.get("status") or "accepted") != "pending":
+            return {"error": f"visit {visit_id} was already answered"}
+        visits.append(visit)
+    updated = store.set_visit_status(ids, status, staff)
+    for v in updated:
+        store.log_action_result(None, "respond_to_visit",
+                                f"{staff} {decision}ed visit {v['id']} ({v['starts_at']}) for {v['resident_id']}")
+    return {"staff": staff, "decision": decision, "visits": _visits_view(store, updated)}
+
+
+@mcp.tool
+def sync_accepted_visits(staff: str, visit_ids: list[int]) -> dict:
+    """Deterministic route after staff accept: write each accepted visit not
+    yet on Google to the staff member's calendar. Pending and rejected
+    visits are skipped. Idempotent; a down calendar never fails it."""
+    store = get_store()
+    visits = [v for v in (store.get_visit(int(i)) for i in visit_ids) if v and v["staff_id"] == staff]
+    _sync(store, visits)
+    visits = [store.get_visit(v["id"]) for v in visits]
+    accepted = [v for v in visits if _accepted(v) and v["approved"]]
+    synced = [v["google_event_id"] for v in accepted if v.get("google_event_id")]
+    return {"staff": staff, "visits": _visits_view(store, visits), "google_event_ids": synced,
+            "google_synced": bool(accepted) and len(synced) == len(accepted)}
 
 
 @mcp.tool

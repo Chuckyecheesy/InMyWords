@@ -136,6 +136,27 @@ def require_staff(scope: dict) -> None:
         raise HTTPException(403, "Only staff can do this.")
 
 
+def require_planner_staff(scope: dict, staff_id: str) -> None:
+    require_staff(scope)
+    session = scope["session"]
+    if session is not None and session.get("sid") != staff_id:
+        raise HTTPException(403, "Only the signed-in staff member can answer for themselves.")
+
+
+async def require_planner_visits(scope: dict, visit_ids: list[int]) -> None:
+    session = scope["session"]
+    if session is None or session.get("role") == "manager":
+        return
+    allowed = set()
+    for resident_id in scope["assignments"]:
+        result, live = await _mcp(mcp_client.get_planner(resident_id), None)
+        if not live or not isinstance(result, dict) or not isinstance(result.get("visits"), list):
+            raise HTTPException(503, "Unable to verify visit access. Nothing was changed.")
+        allowed.update(v["id"] for v in result["visits"] if isinstance(v, dict) and "id" in v)
+    if not set(visit_ids).issubset(allowed):
+        raise HTTPException(403, "These visits are not assigned to you.")
+
+
 class LoginBody(BaseModel):
     login_id: str   # resident id, or staff email
     secret: str     # resident PIN, or staff password
@@ -746,6 +767,12 @@ class PlannerBookBody(BaseModel):
     approved: bool
 
 
+class PlannerRespondBody(BaseModel):
+    staff_id: str
+    visit_ids: list[int]
+    decision: str  # "accept" | "reject"
+
+
 class CalendarZipBody(BaseModel):
     resident_id: str = ""
     staff_id: str = ""
@@ -815,6 +842,23 @@ async def planner_book(body: PlannerBookBody, scope: dict = Depends(current_scop
         return _PLANNER_DOWN
 
 
+@app.post("/planner/respond")
+async def planner_respond(body: PlannerRespondBody, scope: dict = Depends(current_scope)):
+    """Staff accept or reject visits the resident booked (PROJECT_PLAN §2.5).
+    Accept: the Planner subagent puts them on staff's Google Calendar, plain
+    code finishes the rest. Reject: hidden on both calendars, never on Google."""
+    require_planner_staff(scope, body.staff_id)
+    await require_planner_visits(scope, body.visit_ids)
+    from agents import planner
+    try:
+        return await asyncio.to_thread(
+            planner.respond_visits, body.staff_id, body.visit_ids, body.decision,
+            call_tool=_sync_call_tool(), run_tools=planner.default_run_tools())
+    except Exception as exc:
+        print(f"[planner] respond failed ({type(exc).__name__}): {exc}")
+        return {"error": "The planner is not reachable right now. Nothing was changed."}
+
+
 @app.post("/planner/import")
 async def planner_import_view(body: CalendarZipBody, scope: dict = Depends(current_scope)):
     """Fallback: a staff .zip calendar export shown read-only on the grid."""
@@ -829,14 +873,14 @@ async def planner_import_view(body: CalendarZipBody, scope: dict = Depends(curre
 
 @app.post("/planner/import/propose")
 async def planner_import_propose(body: CalendarZipBody, scope: dict = Depends(current_scope)):
-    require_staff(scope)
+    require_planner_staff(scope, body.staff_id)
     result, live = await _mcp(mcp_client.propose_calendar_import(body.staff_id, body.calendar_zip_b64), None)
     return result if live else _PLANNER_DOWN
 
 
 @app.post("/planner/import/commit")
 async def planner_import_commit(body: CalendarCommitBody, scope: dict = Depends(current_scope)):
-    require_staff(scope)
+    require_planner_staff(scope, body.staff_id)
     from agents import planner
     try:
         return await asyncio.to_thread(

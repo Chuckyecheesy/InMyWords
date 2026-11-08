@@ -52,6 +52,7 @@ export function MyPlanner({
   residentId,
   residentName,
   initialVisits,
+  declined = [],
   staff,
   today,
   cancelWindowMs = PLANNER_CANCEL_WINDOW_MS,
@@ -59,6 +60,8 @@ export function MyPlanner({
   residentId: string;
   residentName: string;
   initialVisits: PlannerVisit[];
+  /** Upcoming visits staff said no to; the resident is told plainly. */
+  declined?: PlannerVisit[];
   staff: StaffOption[];
   /** Toronto date "YYYY-MM-DD", from the server so both renders agree. */
   today: string;
@@ -76,8 +79,7 @@ export function MyPlanner({
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [visits, setVisits] = useState<PlannerVisit[]>(initialVisits);
-  const [imported, setImported] = useState<PlannerVisit[]>([]);
-  const [importNote, setImportNote] = useState<string | null>(null);
+  const { imported, importNote, showCalendarFile } = useCalendarImport(residentId, today);
   const [weekOffset, setWeekOffset] = useState(0);
   const timer = useRef<number | null>(null);
 
@@ -183,11 +185,8 @@ export function MyPlanner({
     const fresh = await getPlanner(residentId);
     setVisits(fresh.origin === "api" ? fresh.data.visits : [...visits, ...booked.data.visits]);
     setPhase("done");
-    setNote(
-      booked.data.google_synced
-        ? `Booked. It is on ${who}'s calendar.`
-        : `Booked. ${who} can see it here in My Planner.`,
-    );
+    // A booked visit is a request until staff accept it (§2.5).
+    setNote(`Sent to ${who}. It shows as waiting until ${who} says yes.`);
   }
 
   function approve() {
@@ -206,34 +205,17 @@ export function MyPlanner({
     setNote("Cancelled. Nothing was booked.");
   }
 
-  async function showCalendarFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setImportNote("Reading the calendar file…");
-    const b64 = await fileToBase64(file);
-    const result = await importCalendarView({
-      resident_id: residentId,
-      calendar_zip_b64: b64,
-      start_date: weekStartOf(today),
-      days: 63,
-    });
-    if (!result.ok) {
-      setImportNote(result.error);
-      return;
-    }
-    setImported(result.data);
-    setImportNote(`${result.data.length} staff visit times shown. Nothing was booked or sent.`);
-  }
-
   if (step === "week") {
     return (
       <WeekView
+        viewer="resident"
         residentName={residentName}
         today={today}
         weekOffset={weekOffset}
         setWeekOffset={setWeekOffset}
         visits={[...visits.filter((v) => v.approved), ...imported]}
+        declined={declined}
+        onHear={hear}
         staff={staff}
         onAdd={begin}
         importNote={importNote}
@@ -413,31 +395,51 @@ export function MyPlanner({
 }
 
 /** "Sunday, November 8" for a visit, in Toronto. */
+/** "Sam can't come at 1:00p.m. on Monday. You can pick another time." */
+export function declinedSentence(staff: StaffOption[], visit: PlannerVisit): string {
+  const day = weekFrom(localDate(visit.starts_at))[0].weekday;
+  return `${staffName(staff, visit.staff)} can't come at ${clock(visit.starts_at)} on ${day}. You can pick another time.`;
+}
+
 function dayHeading(visit: PlannerVisit): string {
   return weekFrom(localDate(visit.starts_at))[0].heading;
 }
 
-function WeekView({
+/**
+ * The week calendar. The resident and staff see the same grid with the same
+ * visits; only the resident can add one (choices belong to the resident).
+ */
+export function WeekView({
+  viewer,
   residentName,
   today,
   weekOffset,
   setWeekOffset,
-  visits,
+  visits: allVisits,
+  declined = [],
+  onHear,
   staff,
   onAdd,
   importNote,
   onCalendarFile,
 }: {
+  viewer: "resident" | "staff";
   residentName: string;
   today: string;
   weekOffset: number;
   setWeekOffset: (n: number) => void;
   visits: PlannerVisit[];
+  /** Resident only: visits staff said no to, told plainly with a way to hear it. */
+  declined?: PlannerVisit[];
+  onHear?: (text: string) => void;
   staff: StaffOption[];
-  onAdd: () => void;
+  /** Resident only. Staff never add or change a resident's visits. */
+  onAdd?: () => void;
   importNote: string | null;
   onCalendarFile: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
+  // Rejected visits are gone from both calendars (§2.5).
+  const visits = allVisits.filter((v) => v.status !== "rejected");
   const week = weekFrom(weekStartOf(today), weekOffset);
   const byDay = groupByDay(visits, week);
   const bounds = hourBounds(visits, week);
@@ -462,6 +464,9 @@ function WeekView({
     const hour = cal?.querySelector<HTMLElement>(".cal-body .cal-hour");
     if (cal && hour) cal.scrollTop = (scrollHour - bounds.first) * hour.offsetHeight;
   }, [weekOffset, scrollHour, bounds.first]);
+  const isStaff = viewer === "staff";
+  const hasPending = visits.some((v) => !v.read_only && v.status === "pending");
+  const title = isStaff ? `${residentName}'s week` : "My week";
   const what = (v: PlannerVisit) =>
     v.read_only ? v.title || "Staff time" : `Meeting with ${staffName(staff, v.staff)}`;
 
@@ -470,13 +475,38 @@ function WeekView({
       <header className="planner-head">
         <div>
           <p className="eyebrow">{residentName}&apos;s planner</p>
-          <h1>My week</h1>
+          {isStaff ? <h2>{title}</h2> : <h1>{title}</h1>}
           <p className="planner-range">{range}</p>
         </div>
-        <BigButton tone="approve" onClick={onAdd}>
-          Add a visit
-        </BigButton>
+        {!isStaff && onAdd ? (
+          <BigButton tone="approve" onClick={onAdd}>
+            Add a visit
+          </BigButton>
+        ) : null}
       </header>
+      {isStaff ? (
+        <p className="note">
+          Visits {residentName} chose. Only {residentName} can add or change them, from their tablet.
+        </p>
+      ) : null}
+      {!isStaff && declined.length > 0 ? (
+        <ul className="planner-declined" aria-label="Visits staff can't make">
+          {declined.map((v) => {
+            const message = declinedSentence(staff, v);
+            return (
+              <li key={`${v.id}-${v.starts_at}`} className="planner-declined-item">
+                <p>{message}</p>
+                {onHear ? (
+                  <button type="button" className="btn" data-variant="secondary" data-size="lg" onClick={() => onHear(message)}>
+                    <Volume2 size={24} aria-hidden="true" />
+                    <span className="btn-label">Hear it</span>
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
 
       <div className="row planner-weeknav">
         <button type="button" className="btn" data-variant="secondary" data-size="lg" onClick={() => setWeekOffset(weekOffset - 1)}>
@@ -494,11 +524,17 @@ function WeekView({
         </button>
       </div>
 
-      {bookedLabel || importedLabel ? (
+      {bookedLabel || importedLabel || hasPending ? (
         <p className="cal-legend">
           {bookedLabel ? (
             <span className="cal-key">
-              <span className="cal-swatch" data-kind="booked" aria-hidden="true" /> Your visits: {bookedLabel}
+              <span className="cal-swatch" data-kind="booked" aria-hidden="true" />{" "}
+              {isStaff ? `Visits ${residentName} chose` : "Your visits"}: {bookedLabel}
+            </span>
+          ) : null}
+          {hasPending ? (
+            <span className="cal-key">
+              <span className="cal-swatch" data-status="pending" aria-hidden="true" /> Waiting for staff to say yes
             </span>
           ) : null}
           {importedLabel ? (
@@ -550,7 +586,7 @@ function WeekView({
               </span>
             ))}
           </div>
-          <ol className="planner-week cal-days" aria-label={`My week, ${range}`}>
+          <ol className="planner-week cal-days" aria-label={`${title}, ${range}`}>
             {week.map((day) => {
               const placed = layoutDay(byDay.get(day.date) ?? [], day.date, bounds);
               const timed = (byDay.get(day.date) ?? []).filter((v) => !v.all_day);
@@ -572,6 +608,7 @@ function WeekView({
                         key={`${v.starts_at}-${v.id ?? v.title}`}
                         className="visit-block cal-event"
                         data-kind={v.read_only ? "imported" : "booked"}
+                        data-status={v.read_only ? undefined : v.status ?? "accepted"}
                         data-short={short || undefined}
                         style={{
                           top: `${top}%`,
@@ -580,8 +617,8 @@ function WeekView({
                           width: `${100 / lanes}%`,
                         }}
                         aria-label={`${timeRange(v.starts_at, v.ends_at)}, ${what(v)}, ${v.label}${
-                          v.google_synced ? `, on ${staffName(staff, v.staff)}'s calendar` : ""
-                        }`}
+                          v.status === "pending" ? `, waiting for ${staffName(staff, v.staff)}` : ""
+                        }${v.google_synced ? `, on ${staffName(staff, v.staff)}'s calendar` : ""}`}
                       >
                         {short ? (
                           // Under an hour there is room for one line: the title. The time is
@@ -599,6 +636,9 @@ function WeekView({
                                 <CalendarCheck className="visit-synced-icon" size={20} aria-hidden="true" />
                               ) : null}
                             </span>
+                            {v.status === "pending" && !v.read_only ? (
+                              <span className="visit-status">Waiting for {staffName(staff, v.staff)}</span>
+                            ) : null}
                             {/* The source label is always in the legend and aria-label; inline
                                 only when the block is tall enough to show it whole. */}
                             {roomy && !v.read_only ? <span className="visit-label">{v.label}</span> : null}
@@ -642,4 +682,32 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+/** Staff's .zip calendar export, shown read-only on the grid. Shared by both views. */
+export function useCalendarImport(residentId: string, today: string) {
+  const [imported, setImported] = useState<PlannerVisit[]>([]);
+  const [importNote, setImportNote] = useState<string | null>(null);
+
+  async function showCalendarFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImportNote("Reading the calendar file…");
+    const b64 = await fileToBase64(file);
+    const result = await importCalendarView({
+      resident_id: residentId,
+      calendar_zip_b64: b64,
+      start_date: weekStartOf(today),
+      days: 63,
+    });
+    if (!result.ok) {
+      setImportNote(result.error);
+      return;
+    }
+    setImported(result.data);
+    setImportNote(`${result.data.length} staff visit times shown. Nothing was booked or sent.`);
+  }
+
+  return { imported, importNote, showCalendarFile };
 }
