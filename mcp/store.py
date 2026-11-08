@@ -47,6 +47,28 @@ def recall_terms(query: str, limit: int = 8) -> list[str]:
     return words
 
 
+def embed_text(text, task_type="RETRIEVAL_QUERY"):
+    """Best-effort embedding via Ahmed's wrapper (api/services/gemini.py).
+    Returns None when the key is missing or the call fails — callers fall
+    back to keyword ranking."""
+    if not os.environ.get("GEMINI_API_KEY"):
+        return None
+    try:
+        import sys
+        api_dir = str(REPO_ROOT / "api")
+        if api_dir not in sys.path:
+            sys.path.insert(0, api_dir)
+        from services.gemini import embed
+        return embed(text, task_type=task_type)
+    except Exception as exc:
+        print(f"[store] embed skipped ({type(exc).__name__})")
+        return None
+
+
+def vector_literal(vec):
+    return "[" + ",".join(f"{v:.8f}" for v in vec) + "]"
+
+
 def source_label(source: str, name: str, date: str | None) -> str:
     """The product's source-label rule, in one place (CLAUDE.md guardrail #2)."""
     if source == "resident":
@@ -498,23 +520,51 @@ class PostgresStore:
                         "UPDATE memories SET times_seen = times_seen + 1, last_seen = now() "
                         "WHERE id = %s RETURNING id, times_seen, status", (m["id"],))
                 return {"id": row["id"], "merged": True, "times_seen": row["times_seen"], "status": row["status"]}
-        new_id = self._insert(
-            "INSERT INTO memories (resident_id, type, content, source, source_date, status) "
-            "VALUES (%s,%s,%s,%s,%s,'pending')",
-            (rid, mem_type, content, source, source_date))
+        vec = embed_text(content, task_type="RETRIEVAL_DOCUMENT")
+        if vec is not None:
+            new_id = self._insert(
+                "INSERT INTO memories (resident_id, type, content, source, source_date, status, embedding) "
+                "VALUES (%s,%s,%s,%s,%s,'pending',%s::vector)",
+                (rid, mem_type, content, source, source_date, vector_literal(vec)))
+        else:
+            new_id = self._insert(
+                "INSERT INTO memories (resident_id, type, content, source, source_date, status) "
+                "VALUES (%s,%s,%s,%s,%s,'pending')",
+                (rid, mem_type, content, source, source_date))
         return {"id": new_id, "merged": False, "times_seen": 1, "status": "pending",
                 "source": source, "source_date": source_date}
 
     def recall(self, rid, query, mem_type=None, limit=6):
-        # Literal substrings + recency. TODO(after T3.1): add `embedding <=> %s`
-        # cosine once embeddings are backfilled — same output shape.
+        # Vector similarity + literal substrings + recency, in one database —
+        # the Tiger Data story. Falls back to keyword-only when the query
+        # can't be embedded. Same output shape either way.
         words = recall_terms(query)
+        qvec = embed_text(query, task_type="RETRIEVAL_QUERY")
+        type_clause = "AND type = %s" if mem_type else ""
+        type_params = [mem_type] if mem_type else []
+
+        if qvec is not None:
+            score = (" + ".join(["(strpos(lower(content), %s) > 0)::int"] * len(words))
+                     if words else "0")
+            lit = vector_literal(qvec)
+            params = tuple([lit] + words + [rid] + type_params + [limit])
+            return self._all(
+                f"""SELECT * FROM (
+                      SELECT m.*,
+                             coalesce(1 - (embedding <=> %s::vector), 0) AS sim,
+                             ({score}) AS kw
+                      FROM memories m
+                      WHERE resident_id = %s AND status IN ('confirmed','pending') {type_clause}
+                    ) q
+                    WHERE sim > 0.3 OR kw > 0
+                    ORDER BY sim * 3 + kw DESC, last_seen DESC LIMIT %s""",
+                params)
+
         if not words:
             return []
         score = " + ".join(["(strpos(lower(content), %s) > 0)::int"] * len(words))
         match = " OR ".join(["strpos(lower(content), %s) > 0"] * len(words))
-        type_clause = "AND type = %s" if mem_type else ""
-        params = tuple(words + [rid] + ([mem_type] if mem_type else []) + words + [limit])
+        params = tuple(words + [rid] + type_params + words + [limit])
         return self._all(
             f"""SELECT *, ({score}) AS kw
                 FROM memories

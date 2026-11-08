@@ -112,8 +112,8 @@ def _suggest_with_voice(resident: str, tiles: list[str], time_of_day: str) -> di
 @mcp.tool
 def suggest_sentence(resident: str, tiles: list[str], time_of_day: str = "") -> dict:
     """2-3 written sentences for the tapped tiles. No audio.
-    The API route calls Gemini; this tool uses the same faithful fallback
-    so a direct tool call still personalizes from confirmed memories."""
+    Mock-first local compose (same as the API when SUGGEST_USE_LLM is off).
+    Personalizes from confirmed memories without calling Gemini."""
     try:
         return _suggest_with_voice(resident, tiles, time_of_day)
     except Exception as exc:

@@ -35,3 +35,18 @@ Rules baked in:
 - Confirmed memories *are* the profile — profile_server reads from the memory store.
 
 Tasks: T2.3, T2.5, T2.6 in [docs/BUILD_PLAN.md](../docs/BUILD_PLAN.md).
+
+## Claude Desktop demo (stretch, T2.8)
+
+The same servers speak to Claude Desktop — the "works in other AI tools" pitch point. With the servers running, add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
+
+```json
+{
+  "mcpServers": {
+    "in-my-words-profile": { "command": "npx", "args": ["mcp-remote", "http://127.0.0.1:8101/mcp"] },
+    "in-my-words-memory":  { "command": "npx", "args": ["mcp-remote", "http://127.0.0.1:8102/mcp"] }
+  }
+}
+```
+
+Restart Claude Desktop, then ask: *"Using the in-my-words-profile tools, what should a new staff member know about what upsets Marcus?"* — the answer comes back with source labels. Record a short clip for the deck.

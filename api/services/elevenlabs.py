@@ -16,7 +16,8 @@ which keeps "approve → audio" instant and saves credits.
 Env (repo-root .env):
     ELEVENLABS_API_KEY            required for live audio; without it /speak stays in mock mode
     ELEVENLABS_TTS_MODEL          optional, default eleven_flash_v2_5 (low latency)
-    ELEVENLABS_FALLBACK_VOICE_ID  optional, used before voices.json / profile has a voice
+    ELEVENLABS_FALLBACK_VOICE_ID  optional (alias ELEVENLABS_DEFAULT_VOICE_ID), used before
+                                  voices.json / profile has a voice
     AUDIO_CACHE_DIR               optional, default api/audio-cache (gitignored)
 
 Run from api/ like the rest of the backend:
@@ -45,8 +46,11 @@ OUTPUT_FORMAT = "mp3_44100_128"
 CACHE_DIR = Path(os.environ.get("AUDIO_CACHE_DIR", _REPO / "api" / "audio-cache"))
 # Written by scripts/design_voices.py. Voice IDs are not secrets, so it is committed.
 VOICES_FILE = Path(__file__).with_name("voices.json")
-# An ElevenLabs default voice, so /speak works before our designed voices exist.
-FALLBACK_VOICE = os.environ.get("ELEVENLABS_FALLBACK_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+# An ElevenLabs stock voice ("Sarah", as picked on main in 5164b06), so /speak works
+# before our designed voices exist. ELEVENLABS_DEFAULT_VOICE_ID is main's name for it.
+FALLBACK_VOICE = (os.environ.get("ELEVENLABS_FALLBACK_VOICE_ID")
+                  or os.environ.get("ELEVENLABS_DEFAULT_VOICE_ID")
+                  or "EXAVITQu4vr4xnSDxMaL")
 
 _http: httpx.AsyncClient | None = None  # one pooled client: skips a TLS handshake per request
 _locks: dict[str, asyncio.Lock] = {}  # one in-flight generation per cache key

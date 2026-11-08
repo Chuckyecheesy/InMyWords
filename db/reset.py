@@ -119,11 +119,37 @@ def main():
 
         conn.commit()
 
+        backfill_embeddings(cur)
+        conn.commit()
+
         cur.execute("SELECT count(*) FROM memories")
         n_mem = cur.fetchone()[0]
         cur.execute("SELECT count(*) FROM memories WHERE status = 'pending'")
         n_pending = cur.fetchone()[0]
-        print(f"Done. {n_mem} memories seeded ({n_pending} pending confirmation — the tea pattern).")
+        cur.execute("SELECT count(*) FROM memories WHERE embedding IS NOT NULL")
+        n_vec = cur.fetchone()[0]
+        print(f"Done. {n_mem} memories seeded ({n_pending} pending confirmation — the tea pattern); "
+              f"{n_vec} embedded.")
+
+
+def backfill_embeddings(cur):
+    """Embed every memory with Ahmed's wrapper (768-d, RETRIEVAL_DOCUMENT) so
+    recall gets vector search. Skipped cleanly when GEMINI_API_KEY is absent
+    or the call fails — recall falls back to keyword + recency."""
+    if not os.environ.get("GEMINI_API_KEY"):
+        print("No GEMINI_API_KEY — embeddings left NULL (keyword recall only).")
+        return
+    try:
+        sys.path.insert(0, str(HERE.parent / "api"))
+        from services.gemini import embed
+        rows = cur.execute("SELECT id, content FROM memories ORDER BY id").fetchall()
+        vectors = embed([content for _, content in rows])  # one batched call
+        for (mem_id, _), vec in zip(rows, vectors):
+            literal = "[" + ",".join(f"{v:.8f}" for v in vec) + "]"
+            cur.execute("UPDATE memories SET embedding = %s::vector WHERE id = %s", (literal, mem_id))
+        print(f"Embedded {len(rows)} memories (768-d, batched).")
+    except Exception as exc:
+        print(f"Embedding backfill skipped ({type(exc).__name__}: {exc}) — keyword recall only.")
 
 
 if __name__ == "__main__":
