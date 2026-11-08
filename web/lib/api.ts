@@ -8,7 +8,7 @@ import {
   sampleStory,
 } from "./mock";
 import type {
-  ActionPlan,
+  ActionPlan as ActionPlanShape,
   ActivityItem,
   ChoiceResult,
   CoachAnswer,
@@ -21,6 +21,7 @@ import type {
   StoryChapter,
   Tile,
 } from "./types";
+export type ActionPlan = ActionPlanShape;
 
 function apiBaseUrl(): string {
   const configured = (process.env.API_BASE_URL ?? "").replace(/\/$/, "");
@@ -157,14 +158,10 @@ function normalizeMemory(value: unknown, index: number): PendingMemory | null {
   if (!content || !source) return null;
   if (type !== "preference" && type !== "event" && type !== "routine") return null;
   return {
-<<<<<<< HEAD
-    id: text(row.id) ?? (typeof row.id === "number" ? String(row.id) : `memory-${index}`),
-=======
     id:
       typeof row.id === "number" && Number.isFinite(row.id)
         ? String(row.id)
         : text(row.id) ?? `memory-${index}`,
->>>>>>> origin/main
     type,
     content,
     source,
@@ -349,30 +346,6 @@ export function decideChoice(choiceId: string, chosen: string) {
   );
 }
 
-<<<<<<< HEAD
-export function planActions(input: { resident_id: string; goal: string }) {
-  return sendJson<ActionPlan>("/actions/plan", input);
-=======
-export type ActionStep = {
-  step: string;
-  detail: string;
-  cost: number;
-};
-
-export type StaffTaskStep = {
-  task: string;
-  due: string | null;
-};
-
-export type ActionPlan = {
-  plan_id: number;
-  goal: string;
-  online_steps: ActionStep[];
-  staff_tasks: StaffTaskStep[];
-  total_cost: number;
-  status: string;
-};
-
 function normalizePlan(value: unknown): ActionPlan | null {
   const row = record(value);
   if (!row) return null;
@@ -388,7 +361,7 @@ function normalizePlan(value: unknown): ActionPlan | null {
     plan_id: planId,
     goal,
     total_cost: total,
-    status: text(row.status) ?? "proposed",
+    status: "proposed",
     online_steps: steps.flatMap((item) => {
       const step = record(item);
       const name = step ? text(step.step) : null;
@@ -403,7 +376,6 @@ function normalizePlan(value: unknown): ActionPlan | null {
       return [{ task: name, due: text(task.due) }];
     }),
   };
->>>>>>> origin/main
 }
 
 export async function planActions(input: { resident_id: string; goal: string }) {
@@ -422,16 +394,6 @@ export function approveAction(planId: string, residentId: string) {
   );
 }
 
-<<<<<<< HEAD
-export function confirmMemory(
-  memoryId: string,
-  answer: "yes" | "no",
-  residentId: string,
-) {
-  return sendJson<{ ok: boolean }>(
-    `/memories/${encodeURIComponent(memoryId)}/confirm`,
-    { confirmed: answer === "yes", resident_id: residentId },
-=======
 export function cancelAction(planId: string, residentId: string) {
   const params = new URLSearchParams({ resident_id: residentId });
   return sendJson<{ plan_id?: number; status?: string; error?: string }>(
@@ -459,7 +421,6 @@ export function getVoices(residentId: string) {
     `/voices/${encodeURIComponent(residentId)}`,
     undefined,
     "GET",
->>>>>>> origin/main
   );
 }
 

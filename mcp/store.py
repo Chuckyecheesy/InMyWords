@@ -14,11 +14,8 @@ from __future__ import annotations
 import json
 import os
 import re
-<<<<<<< HEAD
-=======
 import threading
 from contextlib import contextmanager
->>>>>>> origin/main
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -75,16 +72,6 @@ def _gemini_embed():
 
 
 _query_vec_cache: dict[str, list[float]] = {}
-
-
-def is_profile_overview_query(query: str) -> bool:
-    normalized = re.sub(r"[^a-z0-9\s]", " ", (query or "").lower())
-    words = set(normalized.split())
-    return bool(
-        words & {"onboarding", "overview", "essentials", "introduce"}
-        or re.search(r"\bnew\s+staff\b", normalized)
-        or re.search(r"\bwhat\s+should\s+(?:new\s+)?staff\s+know\b", normalized)
-    )
 
 
 def embed_text(text, task_type="RETRIEVAL_QUERY"):
@@ -336,17 +323,13 @@ class SeedStore:
                 "id": m["id"], "update_reason": m.get("update_reason")}
 
     def search_facts(self, rid, query, limit=8):
-<<<<<<< HEAD
         """Coach retrieval (ask_about): memories + staff observations + EMH notes,
         ranked together by the hybrid RAG score."""
-=======
->>>>>>> origin/main
         if is_profile_overview_query(query):
             memories = [
                 m for m in self.get_memories(rid, ("confirmed", "pending"))
                 if m["type"] in ("preference", "routine")
             ]
-<<<<<<< HEAD
             return [self._memory_fact(m) for m in memories[:16]]
 
         facts = [self._memory_fact(m) for m in self.get_memories(rid, ("confirmed", "pending"))]
@@ -362,36 +345,6 @@ class SeedStore:
             f.pop("score", None)  # keep the contract shape
             f.pop("similarity", None)
         return ranked
-=======
-            return [
-                {"content": m["content"], "source": m["source"],
-                 "date": m.get("source_date") or m["last_seen"][:10],
-                 "status": m["status"], "kind": "memory",
-                 "id": m["id"], "update_reason": m.get("update_reason")}
-                for m in memories[:16]
-            ]
-
-        words = recall_terms(query)
-        hits = []
-        for m in self.get_memories(rid, ("confirmed", "pending")):
-            text = m["content"].lower()
-            if any(w in text for w in words):
-                hits.append({"content": m["content"], "source": m["source"],
-                             "date": m.get("source_date") or m["last_seen"][:10],
-                             "status": m["status"], "kind": "memory",
-                             "id": m["id"], "update_reason": m.get("update_reason")})
-        for o in self.observations:
-            if o["resident_id"] == rid and any(w in o["note"].lower() for w in words):
-                hits.append({"content": o["note"], "source": "staff",
-                             "date": o["created_at"][:10], "status": "confirmed", "kind": "observation",
-                             "id": None, "update_reason": None})
-        for n in self.emh_notes:
-            if n["resident_id"] == rid and any(w in n["note"].lower() for w in words):
-                hits.append({"content": n["note"], "source": "emh",
-                             "date": n["created_at"][:10], "status": "confirmed", "kind": "emh_note",
-                             "id": None, "update_reason": None})
-        return hits[:limit]
->>>>>>> origin/main
 
     def get_emh_notes(self, rid, since=None):
         notes = [n for n in self.emh_notes if n["resident_id"] == rid]
@@ -768,12 +721,9 @@ class PostgresStore:
             (rid, list(statuses)))
 
     def search_facts(self, rid, query, limit=8):
-<<<<<<< HEAD
         """Coach retrieval (ask_about). Memories come from the hybrid `recall`;
         staff observations and EMH notes have no embedding column, so they join
         on meaningful keywords only (stopwords dropped)."""
-=======
->>>>>>> origin/main
         if is_profile_overview_query(query):
             return self._all(
                 """SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
@@ -786,7 +736,6 @@ class PostgresStore:
                    LIMIT %s""",
                 (rid, 16))
 
-<<<<<<< HEAD
         facts = [{"content": m["content"], "source": m["source"],
                   "date": str(m.get("source_date") or m["last_seen"])[:10],
                   "status": m["status"], "kind": "memory", "id": m["id"],
@@ -807,27 +756,6 @@ class PostgresStore:
                    LIMIT %s""",
                 tuple([rid, *words, rid, *words, room]))
         return facts
-=======
-        words = recall_terms(query)
-        if not words:
-            return []
-        memory_match = " OR ".join(["strpos(lower(content), %s) > 0"] * len(words))
-        note_match = " OR ".join(["strpos(lower(note), %s) > 0"] * len(words))
-        return self._all(
-            f"""SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
-                      status, 'memory' AS kind, id,
-                      NULL::text AS update_reason  -- no column yet; see db/schema.sql
-               FROM memories WHERE resident_id = %s AND status IN ('confirmed','pending')
-                 AND ({memory_match})
-               UNION ALL
-               SELECT note, 'staff', created_at::date::text, 'confirmed', 'observation', NULL::int, NULL::text
-               FROM observations WHERE resident_id = %s AND ({note_match})
-               UNION ALL
-               SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note', NULL::int, NULL::text
-               FROM emh_notes WHERE resident_id = %s AND ({note_match})
-               LIMIT %s""",
-            tuple([rid, *words, rid, *words, rid, *words, limit]))
->>>>>>> origin/main
 
     def get_emh_notes(self, rid, since=None):
         if since:

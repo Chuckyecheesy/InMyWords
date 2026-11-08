@@ -8,12 +8,9 @@ import { onCustomGesture } from "@/lib/input/gestures";
 import { useInputLayer } from "@/lib/input/use-input";
 import { nextSelection, spokenSentence } from "@/lib/sentence";
 import type { Resident, Tile } from "@/lib/types";
-<<<<<<< HEAD
-=======
 import { CameraConsent } from "./CameraConsent";
 import { GazeTileGrid } from "./GazeTileGrid";
 import { GestureHint } from "./GestureHint";
->>>>>>> origin/main
 import { AudioPlayback, BigButton, TileButton, useLongPress } from "./shared";
 
 const CATEGORY_ORDER = [
@@ -39,34 +36,6 @@ function groupTiles(tiles: Tile[]): [string, Tile[]][] {
     return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
   });
   return ordered.map((category) => [category, groups.get(category) ?? []]);
-}
-
-function SuggestionLine({
-  text,
-  onPreview,
-  onLongPress,
-}: {
-  text: string;
-  onPreview: (text: string) => void;
-  onLongPress: (label: string) => void;
-}) {
-  const hold = useLongPress(onLongPress, text);
-  return (
-    <button
-      type="button"
-      className="suggestion-line"
-      onPointerDown={hold.onPointerDown}
-      onPointerUp={hold.onPointerUp}
-      onPointerLeave={hold.onPointerLeave}
-      onPointerCancel={hold.onPointerCancel}
-      onClick={() => {
-        if (hold.consumeClick()) return;
-        onPreview(text);
-      }}
-    >
-      {text}
-    </button>
-  );
 }
 
 export function SpeakForMe({ resident }: { resident: Resident }) {
@@ -203,6 +172,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
           <BigButton
             tone="neutral"
             aria-pressed={input.eyeMode}
+            onLongPress={speakLabel}
             onClick={() => input.setEyeMode(!input.eyeMode)}
           >
             {input.eyeMode ? "Touch grid" : "Eye grid"}
@@ -219,9 +189,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
       <div className="speak-actions">
         <BigButton
           tone="neutral"
-          onLongPress={(l) => void speakLabel(l)}
-          disabled={selectedLabels.length === 0 || thinking}
           onLongPress={speakLabel}
+          disabled={selectedLabels.length === 0 || thinking}
           onClick={() => {
             void askForHelp();
           }}
@@ -230,9 +199,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </BigButton>
         <BigButton
           tone="neutral"
-          onLongPress={(l) => void speakLabel(l)}
-          disabled={selectedLabels.length === 0}
           onLongPress={speakLabel}
+          disabled={selectedLabels.length === 0}
           onClick={() => {
             void speakTilesOnly();
           }}
@@ -241,11 +209,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </BigButton>
         <BigButton
           tone="neutral"
-<<<<<<< HEAD
-          onLongPress={(l) => void speakLabel(l)}
-=======
           onLongPress={speakLabel}
->>>>>>> origin/main
           onClick={() => setTimeNow((value) => !value)}
           aria-pressed={timeNow}
         >
@@ -277,21 +241,12 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
           <div className="stack">
             {suggestions.map((text) => (
               <article key={text} className="option">
-<<<<<<< HEAD
-                <SuggestionLine text={text} onPreview={(t) => void preview(t)} onLongPress={(l) => void speakLabel(l)} />
-                <div className="speak-actions">
-                  <BigButton tone="approve" onLongPress={(l) => void speakLabel(l)} onClick={() => void approve(text)}>
-                    Approve
-                  </BigButton>
-                  <BigButton tone="reject" onLongPress={(l) => void speakLabel(l)} onClick={() => reject(text)}>
-=======
                 <SuggestionLine text={text} onPreview={() => void preview(text)} onSpeak={() => void speakLabel(text)} />
                 <div className="speak-actions">
                   <BigButton tone="approve" onLongPress={speakLabel} onClick={() => void approve(text)}>
                     Approve
                   </BigButton>
                   <BigButton tone="reject" onLongPress={speakLabel} onClick={() => reject(text)}>
->>>>>>> origin/main
                     Reject
                   </BigButton>
                 </div>
