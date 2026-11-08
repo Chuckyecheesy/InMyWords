@@ -23,8 +23,14 @@ type WebGazerInstance = {
   recordScreenPosition(x: number, y: number, type: string): void;
   clearData(): void;
   removeMouseEventListeners(): void;
-  params: { showVideo: boolean };
+  params: { showVideo: boolean; faceMeshSolutionPath: string };
 };
+
+// WebGazer defaults this to "./mediapipe/face_mesh", which is relative to
+// the page URL. The files are copied next to webgazer.js by
+// scripts/fetch-vision-assets.mjs, so point at that absolute path or
+// begin() throws "t is not a function" and the camera never starts.
+const FACE_MESH_PATH = "/models/mediapipe/face_mesh";
 
 let webgazer: WebGazerInstance | null = null;
 let smoother = new GazeSmoother();
@@ -57,6 +63,7 @@ async function loadWebGazer(): Promise<WebGazerInstance> {
 export async function startGaze(): Promise<void> {
   if (running) return;
   webgazer = await loadWebGazer();
+  webgazer.params.faceMeshSolutionPath = FACE_MESH_PATH;
   webgazer
     .setRegression("ridge")
     .showVideoPreview(false)

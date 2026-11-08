@@ -58,12 +58,19 @@ export function useInputLayer(residentId: string) {
         await startGaze();
         if (cancelled) return;
         setCameraOn(true);
+      } catch (error) {
+        console.warn("[input] camera start failed", error);
+        return;
+      }
+      try {
         await startGestures(); // reads WebGazer's video element
         // G8: load any taught personal gestures into the recognition loop.
         const taught = await getCustomGestures(residentId);
         if (!cancelled) setCustomGestures(taught);
       } catch (error) {
-        console.warn("[input] camera start failed", error);
+        // Gaze already has the camera. A gesture-model failure must not
+        // look like the eye tracker failed to start.
+        console.warn("[input] gesture start failed", error);
       }
     })();
     return () => {
