@@ -44,7 +44,8 @@ CREATE TABLE tiles (
   label         TEXT NOT NULL,
   category      TEXT,
   cloudinary_id TEXT,
-  times_used    INT DEFAULT 0
+  times_used    INT DEFAULT 0,
+  archived      BOOLEAN NOT NULL DEFAULT false  -- custom cards hide, never delete
 );
 
 CREATE TABLE story_chapters (

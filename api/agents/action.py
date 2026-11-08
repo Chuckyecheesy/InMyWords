@@ -26,7 +26,15 @@ ALLOWED_STEPS = ("book_activity", "add_to_calendar", "send_message", "create_sta
 
 # Plain-code prices for bookable activities. Unknown activity = free.
 PRICES = {"bowling": 15.0, "movie": 12.0}
-VENUES = {"bowling": "KW Bowl", "movie": "Waterloo Cinema"}
+VENUES = {
+    "bowling": "KW Bowl",
+    "movie": "Waterloo Cinema",
+    "swimming": "Waterloo Rec Pool",
+    "swim": "Waterloo Rec Pool",
+    "basketball": "Community Court",
+    "walk": "Victoria Park",
+    "music": "Open Mic at The Jazz Room",
+}
 DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 DEFAULT_HOUR = 14  # 2pm unless a memory says otherwise
 

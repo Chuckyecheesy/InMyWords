@@ -5311,3 +5311,99 @@ button.entry-preview-play:disabled { opacity: 0.6; }
 }
 
 .field textarea { min-height: 120px; }
+
+/* My cards (Phase 4). */
+.card-manage {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.card-label-input {
+  font: inherit;
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-align: center;
+  padding: 14px var(--space-4);
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  min-height: 64px;
+  width: min(420px, 100%);
+}
+
+.photo-pool {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: var(--space-3);
+}
+
+.photo-pool-item {
+  border: 2px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  padding: 6px;
+  cursor: pointer;
+  min-height: 110px;
+}
+
+.photo-pool-item[aria-pressed="true"] {
+  border-color: var(--accent);
+  outline: 3px solid var(--accent-soft);
+}
+
+.photo-pool-item img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: calc(var(--radius-2) - 4px);
+}
+
+.card-preview {
+  max-width: 220px;
+}
+
+/* Letter board (Phase 4 typing mode). */
+.speak-modes {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.typed-strip .typed-text {
+  font-size: 1.8rem;
+  font-weight: 800;
+  min-height: 2.4rem;
+  margin: 0 0 var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.letter-board {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.letter-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.letter-key {
+  flex: 1;
+  min-width: 64px;
+  min-height: 72px;
+  font: inherit;
+  font-size: 1.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.letter-key:active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}

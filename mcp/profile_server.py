@@ -286,5 +286,16 @@ def save_tile(resident: str, label: str, cloudinary_id: str, category: str = "")
     return {"resident": resident, "tile": tile, "replaced": replaced, "store_mode": store.mode}
 
 
+@mcp.tool
+def set_tile_archived(resident: str, tile_id: int, archived: bool = True) -> dict:
+    """Custom cards (ROADMAP Phase 4): hide a card from the resident's grid,
+    or restore it. Archived cards are never deleted, so undo always works."""
+    store = get_store()
+    ok = store.set_tile_archived(resident, tile_id, archived)
+    if not ok:
+        return {"error": f"no tile {tile_id} for '{resident}'"}
+    return {"ok": True, "tile_id": tile_id, "archived": archived, "store_mode": store.mode}
+
+
 if __name__ == "__main__":
     mcp.run(transport="http", host="127.0.0.1", port=8101)

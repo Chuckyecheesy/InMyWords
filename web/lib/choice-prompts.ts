@@ -17,19 +17,26 @@ export type ChoicePrompt = {
 export const NOT_DECIDED_LABEL = "not decided yet";
 export const NOT_DECIDED_VALUE = "not_yet_decided";
 
+export const SOMETHING_ELSE_LABEL = "Something else";
+
 export const CHOICE_PROMPTS: Record<string, ChoicePrompt> = {
   marcus: {
-    question: "Bowling or a movie this Saturday?",
+    question: "What would you like to do this Saturday?",
     options: [
       { label: "Bowling", photo: "tiles/marcus_bowling", cost: 15 },
       { label: "Movie", photo: "tiles/marcus_movie", cost: 12 },
+      { label: "Swimming", photo: "tiles/marcus_park", cost: 8 },
+      { label: "Basketball", photo: "tiles/marcus_raptors", cost: 0 },
+      { label: SOMETHING_ELSE_LABEL, photo: "tiles/marcus_later", cost: 0 },
     ],
   },
   dana: {
-    question: "Herb garden or groceries this week?",
+    question: "What would you like to do this week?",
     options: [
       { label: "Herb garden", photo: "tiles/dana_herbs", cost: 22 },
       { label: "Groceries", photo: "tiles/dana_groceries", cost: 40 },
+      { label: "Swimming", photo: "tiles/dana_walk", cost: 8 },
+      { label: SOMETHING_ELSE_LABEL, photo: "tiles/dana_later", cost: 0 },
     ],
   },
 };

@@ -126,6 +126,26 @@ taught = hit("GET", "/custom-gestures/marcus", expect_keys=("gestures",))
 if taught and not any(g.get("tile_label") == "go outside" for g in taught.get("gestures", [])):
     failures.append("custom-gestures roundtrip: saved gesture not returned")
 
+print("my cards (Phase 4)")
+made = hit("POST", "/tiles",
+           {"resident_id": "marcus", "label": "smoke test card",
+            "cloudinary_id": "tile_music", "category": "my cards"}, ("ok",))
+tile_id = ((made or {}).get("tile") or {}).get("id")
+if tile_id:
+    resident = hit("GET", "/residents/marcus", expect_keys=("tiles",))
+    labels = [t.get("label") for t in (resident or {}).get("tiles", [])]
+    if "smoke test card" not in labels:
+        failures.append("tiles roundtrip: new card missing from resident tiles")
+    hit("POST", f"/tiles/{tile_id}/archive", {"resident_id": "marcus", "archived": True}, ("ok",))
+    resident = hit("GET", "/residents/marcus", expect_keys=("tiles",))
+    labels = [t.get("label") for t in (resident or {}).get("tiles", [])]
+    if "smoke test card" in labels:
+        failures.append("tiles archive: archived card still returned")
+    else:
+        print("  ok   card added, then archived out of the grid")
+else:
+    failures.append("tiles create: no tile_id returned")
+
 print("staff")
 hit("GET", "/handoff?staff_id=jordan&resident_id=marcus", expect_keys=("items",))
 hit("GET", "/activity/marcus", expect_keys=("items",))
