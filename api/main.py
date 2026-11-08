@@ -25,6 +25,8 @@ from agents.story import LocalBooks, McpBooks, StoryError, local_books, narrate,
 from agents.story import gemini_phrase
 from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
 from services import elevenlabs, mcp_client
+from services.narration import public_audio_url
+from speak_for_me import speak_approved
 from services.limits import allow
 from services.cloudinary import (
     CloudinaryConfigError,
@@ -168,7 +170,7 @@ def voice_options(resident_id: str, request: Request):
         "current": elevenlabs.resident_voice(resident_id),
         "options": [
             {"voice_id": o["voice_id"], "label": o["label"], "preview_text": o["preview_text"],
-             "preview_url": _audio_url(request, o["preview_file"])}
+             "preview_url": public_audio_url(request, o["preview_file"])}
             for o in entry["options"]
         ],
     }
@@ -219,15 +221,6 @@ async def suggest(body: SuggestBody, request: Request):
     return {"options": mocks.SUGGESTIONS.get(resident_id, mocks.SUGGESTIONS["marcus"])}
 
 
-def _audio_url(request: Request, filename: str) -> str:
-    # Behind the deployed proxy the web server calls us on 127.0.0.1, so the
-    # browser-facing base comes from PUBLIC_API_URL (set by ops/deploy.sh).
-    public = os.environ.get("PUBLIC_API_URL", "").rstrip("/")
-    if public:
-        return f"{public}/audio/{filename}"
-    return str(request.url_for("audio", path=filename))
-
-
 @app.post("/speak")
 async def speak(body: SpeakBody, request: Request):
     """Approved text → audio in the resident's voice (T1.2).
@@ -236,25 +229,7 @@ async def speak(body: SpeakBody, request: Request):
     "Speak tiles only" is the same call with text = the tile words joined,
     e.g. "coffee now"; no AI involved. Cached by voice_id + text.
     """
-    text = elevenlabs.normalize(body.text)
-    if not text:
-        raise HTTPException(422, "text is empty")
-    if not elevenlabs.configured():
-        return {"audio_url": f"https://example.com/audio/mock_{body.resident_id}.mp3", "cached": False}
-
-    profile_voice = None
-    if not elevenlabs.has_override(body.resident_id):
-        profile, live = await _mcp(mcp_client.get_profile(body.resident_id), None)
-        if live and profile and not profile.get("error"):
-            profile_voice = profile.get("voice_id")
-    voice_id = elevenlabs.resident_voice(body.resident_id, profile_voice)
-
-    try:
-        filename, cached = await elevenlabs.synthesize(voice_id, text)
-    except elevenlabs.ElevenLabsError as exc:
-        print(f"[speak] {exc}")
-        raise HTTPException(502, "Couldn't make the audio right now. The tiles are still here.")
-    return {"audio_url": _audio_url(request, filename), "cached": cached}
+    return await speak_approved(request, body.resident_id, body.text)
 
 
 @app.post("/sentences")
@@ -322,7 +297,7 @@ async def story_approve(body: StoryApproveBody, request: Request):
         print(f"[story approve] {exc}")
         raise HTTPException(502, "Couldn't make the audio right now. The draft is still here.") from exc
     if spoken.get("filename"):
-        audio_url = _audio_url(request, spoken["filename"])
+        audio_url = public_audio_url(request, spoken["filename"])
         await books.mark_approved(body.chapter_id, audio_url)
         return {"audio_url": audio_url, "cached": spoken["cached"]}
     return {"audio_url": spoken["audio_url"], "cached": spoken.get("cached", False)}
