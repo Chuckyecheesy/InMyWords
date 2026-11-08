@@ -6639,3 +6639,68 @@ h2 .badge {
   --btn-ink: var(--on-accent);
   --btn-line: var(--accent);
 }
+
+/* My Words: the sentence bar is an editable text box; pictures, eye
+   choices, typing and voice all fill it. */
+.simple-speak-sentence {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+}
+
+.simple-speak .composer-input {
+  display: block;
+  width: 100%;
+  min-height: 68px;
+  padding: 10px 14px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  color: var(--ink);
+  font: inherit;
+  font-size: clamp(24px, 2.5vw, 30px);
+  line-height: 1.35;
+  resize: vertical;
+  field-sizing: content;
+}
+
+.simple-speak .composer-input::placeholder {
+  color: var(--ink-2);
+  opacity: 1;
+}
+
+.simple-speak .composer-input:focus-visible {
+  outline: none;
+  border-color: var(--focus);
+  background: var(--surface);
+}
+
+.sentence-mic {
+  align-self: center;
+  min-height: 64px;
+  white-space: nowrap;
+}
+
+.sentence-mic[aria-pressed="true"] svg {
+  animation: n-breathe 1.6s ease-in-out infinite;
+}
+
+.sentence-heard {
+  margin: 0;
+  font-size: 22px;
+  color: var(--ink-2);
+}
+
+[data-theme="contrast"] .simple-speak .composer-input {
+  background: #fff;
+  border-color: #000;
+}
+
+@media (max-width: 700px) {
+  .simple-speak-sentence {
+    grid-template-columns: 1fr;
+  }
+
+  .sentence-mic {
+    justify-self: start;
+  }
+}

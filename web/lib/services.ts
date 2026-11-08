@@ -33,3 +33,18 @@ export function serviceSentence(categories: ServiceCategory[]): string {
   const joined = parts.length === 1 ? parts[0] : parts.length === 2 ? parts.join(" and ") : `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;
   return `I would like ${joined}.`;
 }
+
+/**
+ * Keep the editable sentence bar in step with the picture choices without
+ * losing what the resident typed or said. `previous` is the picture
+ * sentence currently in the bar, `next` the one for the new choices.
+ *  - empty bar, or the bar is still exactly the picture sentence: replace it
+ *  - the picture sentence is inside edited text: swap just that part
+ *  - otherwise: add the new picture sentence after the resident's words
+ */
+export function mergeSentence(current: string, previous: string, next: string): string {
+  const text = current.trim();
+  if (!text || text === previous) return next;
+  if (previous && text.includes(previous)) return text.replace(previous, next).replace(/\s{2,}/g, " ").trim();
+  return next ? `${text} ${next}` : text;
+}

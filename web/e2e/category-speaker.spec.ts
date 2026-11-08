@@ -25,7 +25,7 @@ test("only three categories, a complete sentence, and exactly that sentence spok
   await page.getByRole("button", { name: "Refreshments", exact: true }).click();
   await page.getByRole("button", { name: "Family", exact: true }).click();
   const sentence = "I would like some refreshments and help contacting my family.";
-  await expect(page.locator(".composer-sentence")).toHaveText(sentence);
+  await expect(page.locator(".composer-sentence")).toHaveValue(sentence);
   expect(spoken).toEqual([]);
   await page.getByRole("button", { name: "Say my words", exact: true }).click();
   await expect.poll(() => spoken).toEqual([sentence]);
@@ -33,7 +33,7 @@ test("only three categories, a complete sentence, and exactly that sentence spok
   await page.getByRole("button", { name: "Start again", exact: true }).click();
   await expect(page.getByRole("button", { name: "Say my words", exact: true })).toBeDisabled();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect(page.locator(".composer-sentence")).toHaveText(sentence);
+  await expect(page.locator(".composer-sentence")).toHaveValue(sentence);
   await page.setViewportSize({ width: 1024, height: 768 });
   await page.evaluate(() => window.scrollTo(0, 0));
   const panel = page.locator(".service-settings");
