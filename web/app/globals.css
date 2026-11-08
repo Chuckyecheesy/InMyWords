@@ -6169,7 +6169,7 @@ html[data-touch="onefinger"] .pin-key {
 .service-camera { width: 160px; height: 110px; border-radius: 12px; object-fit: cover; transform: scaleX(-1); background: var(--ink); }
 .service-pointer { position: fixed; z-index: 10000; width: 28px; height: 28px; border: 4px solid #fff; border-radius: 50%; background: var(--accent-strong); outline: 2px solid var(--ink); transform: translate(-50%, -50%); pointer-events: none; }
 .service-page [data-holding] { outline: 4px solid var(--accent-strong); outline-offset: 3px; position: relative; }
-.service-page [data-holding]::after { content: ""; position: absolute; left: 0; bottom: 0; height: 10px; width: var(--hold-progress, 0%); background: var(--accent-strong); pointer-events: none; }
+.service-page [data-holding]::after { content: ""; position: absolute; left: 0; bottom: 0; height: 18px; width: var(--hold-progress, 0%); background: var(--accent-strong); pointer-events: none; }
 .service-page [data-variant="primary"][data-holding]::after { background: #fff; }
 .service-summary { list-style: none; padding: 0; display: grid; gap: 20px; }
 .service-summary li { display: flex; align-items: center; gap: 16px; font-size: 30px; font-weight: 700; padding-block: 16px; border-bottom: 1px solid var(--line, #bcc8bd); }
@@ -6232,3 +6232,45 @@ html[data-touch="onefinger"] .pin-key {
   .simple-speak-actions .service-bar { min-height: 72px; }
   .simple-speak-actions [data-service-target="say"] { grid-row: 1; }
 }
+
+.simple-speak[data-gaze-live] .service-category img { height: min(32vh, 280px); }
+.simple-speak[data-gaze-live] .service-check { flex-basis: 56px; width: 56px; height: 56px; }
+.simple-speak[data-gaze-live] .service-input-dock { display: flex; }
+.simple-speak[data-gaze-live]:has(.service-input-dock) { padding-bottom: 96px; }
+
+.gaze-choice {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  grid-template-columns: 42fr 16fr 42fr;
+  background: var(--bg);
+}
+.gaze-choice button {
+  border: 0;
+  font: inherit;
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 700;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  min-height: 100%;
+  padding: 32px;
+  cursor: pointer;
+}
+.gaze-choice-cancel { background: var(--danger-soft); color: var(--danger); }
+.gaze-choice-confirm { background: var(--accent-strong); color: #fff; }
+.gaze-choice-gap {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  margin: 0;
+  padding: 16px;
+  text-align: center;
+  font-size: clamp(22px, 2.4vw, 32px);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.gaze-choice-kicker { font-size: 0.5em; letter-spacing: 0.06em; text-transform: uppercase; }
+.gaze-choice button[data-holding]::after { height: 28px; }
