@@ -9,9 +9,10 @@ memory server bumps times_seen. Anything else is remembered as a candidate.
 def consolidate(candidate: dict, *, resident_id: str, recall, contradicts,
                 remember, propose_update, threshold: float = 0.9,
                 max_checks: int = 3) -> dict:
-    # Memory search is keyword-based today, so "tea" alone never finds
-    # "coffee". The general topic ("drinks") bridges that gap and goes first,
-    # because the search only reads the first few words.
+    # Recall is hybrid (semantic + keyword). The general topic ("drinks") still
+    # goes first: it helps the keyword half and keeps the topic in the first few
+    # words. The caller's recall should be broad (see wiring.mcp_recall) so a
+    # near-duplicate on top doesn't crowd out the memory it contradicts.
     query = f"{candidate.get('topic', '')} {candidate['content']}".strip()
     found = recall(resident_id=resident_id, query=query) or []
 

@@ -49,3 +49,6 @@ Thumbs.db
 .vscode/
 
 # Build plan source docs are kept as .docx intentionally — see docs/ for markdown versions
+
+# Seed-mode RAG vector cache (regenerated from db/seed by content hash)
+db/seed/.embeddings.json

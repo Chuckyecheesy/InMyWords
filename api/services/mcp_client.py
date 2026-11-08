@@ -97,8 +97,11 @@ async def remember(resident, event, source="inferred", mem_type="event", source_
         payload["source_date"] = source_date
     return await _call("memory", "remember", payload)
 
-async def recall(resident, query, mem_type=""):
-    return await _call("memory", "recall", {"resident": resident, "query": query, "type": mem_type})
+async def recall(resident, query, mem_type="", broad=False):
+    args = {"resident": resident, "query": query, "type": mem_type}
+    if broad:  # additive arg; omitted by default so the contract call is unchanged
+        args["broad"] = True
+    return await _call("memory", "recall", args)
 
 async def get_routines(resident):
     return await _call("memory", "get_routines", {"resident": resident})
