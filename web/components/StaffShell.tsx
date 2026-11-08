@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Building2, History, LayoutDashboard, MonitorSmartphone } from "lucide-react";
-import { DEMO_STAFF } from "@/lib/mock";
+import { Building2, History, LayoutDashboard, MonitorSmartphone, UserRoundPlus } from "lucide-react";
 import { DisplayMenu } from "./DisplayMenu";
+import { SessionCard } from "./SessionCard";
 import { Avatar, WordmarkMark } from "./ui";
 
 type Person = { id: string; name: string };
@@ -60,6 +60,14 @@ export function StaffShell({ people, children }: { people: Person[]; children: R
               {person.name}
             </Link>
           ))}
+          <Link
+            href="/staff/new"
+            className="s-nav-link"
+            aria-current={isCurrent("/staff/new") ? "page" : undefined}
+          >
+            <UserRoundPlus size={20} aria-hidden="true" />
+            Add a person
+          </Link>
           <p className="s-nav-label">More</p>
           <Link href="/manager" className="s-nav-link">
             <Building2 size={20} aria-hidden="true" />
@@ -70,13 +78,7 @@ export function StaffShell({ people, children }: { people: Person[]; children: R
             Switch to resident tablet
           </Link>
         </nav>
-        <div className="s-user">
-          <Avatar name={DEMO_STAFF.name} tone="blue" />
-          <div>
-            <strong>{DEMO_STAFF.name}</strong>
-            <span>New staff · {DEMO_STAFF.home}</span>
-          </div>
-        </div>
+        <SessionCard />
       </aside>
       <div className="s-main">
         <header className="s-topbar">

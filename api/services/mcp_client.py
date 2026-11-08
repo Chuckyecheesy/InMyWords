@@ -277,3 +277,23 @@ async def get_significant_events(resident):
 async def set_tile_archived(resident, tile_id, archived=True):
     return await _call("profile", "set_tile_archived",
                        {"resident": resident, "tile_id": tile_id, "archived": archived})
+
+
+# ---- accounts & scope (ROADMAP Phase 2) ----
+
+async def get_auth_user(login_id):
+    return await _call("profile", "get_auth_user", {"login_id": login_id})
+
+async def list_resident_logins():
+    return await _call("profile", "list_resident_logins", {})
+
+async def get_staff_assignments(staff_id):
+    return await _call("profile", "get_staff_assignments", {"staff_id": staff_id})
+
+async def create_resident(resident_id, first_name, home_id="", communication_style="",
+                          weekly_budget=None, secret_hash="", staff_ids=None, tiles=None):
+    return await _call("profile", "create_resident",
+                       {"resident_id": resident_id, "first_name": first_name,
+                        "home_id": home_id, "communication_style": communication_style,
+                        "weekly_budget": weekly_budget, "secret_hash": secret_hash,
+                        "staff_ids": staff_ids or [], "tiles": tiles or []})
