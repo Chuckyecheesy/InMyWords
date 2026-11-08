@@ -195,6 +195,11 @@ async def get_input_profile(resident):
 async def plan_actions(resident, goal):
     return await _call("actions", "plan_actions", {"resident": resident, "goal": goal})
 
+async def store_plan(resident, goal, steps):
+    """Persist steps the Action agent proposed. Cost is recomputed in the server."""
+    return await _call("actions", "store_plan",
+                       {"resident": resident, "goal": goal, "steps_json": json.dumps(steps)})
+
 async def approve_plan(resident, plan_id):
     return await _call("actions", "approve_plan", {"resident": resident, "plan_id": plan_id})
 

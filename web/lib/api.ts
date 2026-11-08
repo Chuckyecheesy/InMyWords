@@ -353,6 +353,12 @@ export type StaffTaskStep = {
   due: string | null;
 };
 
+export type AgentNote = {
+  id: string;
+  name: string;
+  note: string;
+};
+
 export type ActionPlan = {
   plan_id: number;
   goal: string;
@@ -360,6 +366,7 @@ export type ActionPlan = {
   staff_tasks: StaffTaskStep[];
   total_cost: number;
   status: string;
+  agents: AgentNote[];
 };
 
 function normalizePlan(value: unknown): ActionPlan | null {
@@ -373,11 +380,22 @@ function normalizePlan(value: unknown): ActionPlan | null {
   if (typeof planId !== "number" || !goal || !steps || !tasks || typeof total !== "number") {
     return null;
   }
+  const agents = Array.isArray(row.agents)
+    ? row.agents.flatMap((item) => {
+        const agent = record(item);
+        const id = agent ? text(agent.id) : null;
+        const agentName = agent ? text(agent.name) : null;
+        const note = agent ? text(agent.note) : null;
+        if (!agent || !id || !agentName || !note) return [];
+        return [{ id, name: agentName, note }];
+      })
+    : [];
   return {
     plan_id: planId,
     goal,
     total_cost: total,
     status: text(row.status) ?? "proposed",
+    agents,
     online_steps: steps.flatMap((item) => {
       const step = record(item);
       const name = step ? text(step.step) : null;

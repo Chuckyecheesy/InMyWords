@@ -12,11 +12,12 @@ Guardrails baked in:
   sent (the plan's venue fallback). Never sends money, never shares
   personal info — the allowlist below is the whole action surface.
 
-plan_actions is a deterministic PLACEHOLDER until William's Action
-agent (T4.7) plugs in — same output shape. Cost math is plain code
-here either way; the agent only phrases results.
+plan_actions remains a deterministic placeholder for callers that
+only have a goal. store_plan saves the plan the Action agent already
+built (Retriever + Routine finder). Cost is recomputed in code either way.
 """
 
+import json
 import os
 import smtplib
 from email.message import EmailMessage
@@ -67,8 +68,7 @@ def _approved_plan_or_error(plan_id):
 def plan_actions(resident: str, goal: str) -> dict:
     """Split a goal into online steps + staff tasks with total cost.
     PROPOSES only — returns a plan for the resident's approval card.
-    (Deterministic placeholder until William's Action agent, T4.7.)"""
-    store = get_store()
+    Placeholder for callers that do not pass the Action agent's steps."""
     goal_l = goal.lower()
     steps = []
     if "bowling" in goal_l:
@@ -91,18 +91,50 @@ def plan_actions(resident: str, goal: str) -> dict:
             {"step": "create_staff_task", "kind": "staff", "detail": f"Support with: {goal}",
              "task": f"Support {resident.capitalize()} with: {goal}", "time": "2026-11-14T13:30:00", "cost": 0},
         ]
+    return _save_plan(resident, goal, steps, agent="placeholder-until-T4.7")
+
+
+def _save_plan(resident: str, goal: str, steps: list, agent: str) -> dict:
     total = sum(s["cost"] for s in steps)  # plain code, never the LLM
-    plan = store.create_plan(resident, goal, steps, total)
+    plan = get_store().create_plan(resident, goal, steps, total)
     return {
         "plan_id": plan["id"],
         "goal": goal,
         "online_steps": [s for s in steps if s["kind"] == "online"],
-        "staff_tasks": [{"task": s.get("task", s["detail"]), "due": s.get("time")}
+        "staff_tasks": [{"task": s.get("task", s["detail"]), "due": s.get("due") or s.get("time")}
                         for s in steps if s["kind"] == "staff"],
         "total_cost": total,
         "status": "proposed",
-        "agent": "placeholder-until-T4.7",
+        "agent": agent,
     }
+
+
+@mcp.tool
+def store_plan(resident: str, goal: str, steps_json: str) -> dict:
+    """Save a plan the Action agent already proposed. Steps must be on
+    the allowlist. Cost is summed here, not trusted from the caller."""
+    try:
+        raw = json.loads(steps_json)
+    except json.JSONDecodeError:
+        return {"error": "steps_json is not JSON"}
+    if not isinstance(raw, list) or not raw:
+        return {"error": "steps must be a non-empty list"}
+    steps = []
+    for item in raw:
+        if not isinstance(item, dict):
+            return {"error": "each step must be an object"}
+        name = item.get("step")
+        if name not in ALLOWED_STEPS:
+            return {"error": f"'{name}' is not on the allowlist"}
+        kind = "staff" if name == "create_staff_task" else "online"
+        try:
+            cost = float(item.get("cost") or 0)
+        except (TypeError, ValueError):
+            return {"error": "cost must be a number"}
+        if cost < 0:
+            return {"error": "cost cannot be negative"}
+        steps.append({**item, "kind": kind, "cost": cost})
+    return _save_plan(resident, goal, steps, agent="action")
 
 
 @mcp.tool
