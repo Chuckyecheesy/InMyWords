@@ -35,12 +35,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${body.variable} ${display.variable}`}
       suppressHydrationWarning
     >
-      <body>
+      <head>
         <Script
           id="imw-theme"
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: themeScript }}
         />
+      </head>
+      <body>
         {children}
       </body>
     </html>

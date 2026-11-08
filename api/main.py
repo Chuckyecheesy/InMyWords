@@ -15,10 +15,12 @@ import os
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mocks
 from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
+from services import elevenlabs
 from services import mcp_client
 from services.limits import allow
 from services.cloudinary import (
@@ -46,6 +48,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+elevenlabs.AUDIO_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static/audio", StaticFiles(directory=str(elevenlabs.AUDIO_DIR)), name="audio")
 
 
 # ---------- request bodies (inputs frozen at hour 1) ----------
@@ -193,8 +198,14 @@ async def suggest(body: SuggestBody, request: Request):
 
 
 @app.post("/speak")
-def speak(body: SpeakBody):
-    # Real version (James, T1.2): ElevenLabs TTS cached by voice_id + text.
+def speak(body: SpeakBody, request: Request):
+    # ElevenLabs TTS cached by voice_id + text (services/elevenlabs.py).
+    # Falls back to the mock URL if the key is missing or the call fails —
+    # speaking must never crash this route.
+    path = elevenlabs.speak_to_file(body.text)
+    if path is not None:
+        base = str(request.base_url).rstrip("/")
+        return {"audio_url": f"{base}/static/audio/{path.name}"}
     return {"audio_url": f"https://example.com/audio/mock_{body.resident_id}.mp3"}
 
 
