@@ -197,6 +197,38 @@ describe("planner helpers", () => {
 });
 
 describe("My week", () => {
+  test("cancelling a visit edit never sends a change", async () => {
+    const calls = stubApi(() => ({ visits: [WEEK[0]], staff: STAFF }));
+    planner({ initialVisits: [WEEK[0]] });
+    tap(/Manage visit.*Sam/);
+    tap("Change visit");
+    fireEvent.change(screen.getByLabelText("Day"), { target: { value: "2026-11-10" } });
+    fireEvent.change(screen.getByLabelText("Time"), { target: { value: "10:00" } });
+    tap("Review change");
+    tap("Cancel");
+    assert.ok(!calls.some((c) => c.path === "/planner/change"));
+    assert.ok(screen.getByText("1:00p.m.–3:00p.m."));
+  });
+
+  test("an approved deletion removes only the chosen visit", async () => {
+    const chosen = visit("2026-11-08", { id: 1 });
+    const other = visit("2026-11-09", { id: 2 });
+    let remaining = [chosen, other];
+    const calls = stubApi((path) => {
+      if (path === "/planner/change") {
+        remaining = [other];
+        return { visit: chosen };
+      }
+      return { visits: remaining, staff: STAFF };
+    });
+    planner({ initialVisits: [chosen, other] });
+    tap(/Manage visit.*November 8/);
+    tap("Delete visit");
+    tap("Approve deletion");
+    await waitFor(() => assert.equal(screen.queryAllByText("Meeting with Sam").length, 1));
+    assert.equal(calls.filter((c) => c.path === "/planner/change").length, 1);
+  });
+
   test("a Sunday-to-Saturday calendar with 1:00p.m.–3:00p.m. blocks placed by time", () => {
     const { container } = planner({ initialVisits: WEEK });
     const days = screen.getAllByRole("listitem");

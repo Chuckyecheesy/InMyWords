@@ -303,6 +303,8 @@ You own everything the resident directly uses — the prompts AND the screens: S
 - `POST /planner/plan`: expand a saved routine into proposed visit_events — **recurrence math in plain code**, Gemini only phrases the proposal. Ready by hour 9 for T1's readback.
 - My Planner screens: routine-input screen, then a weekly grid (7 days) showing visit blocks (e.g. 1:00p.m.–3:00p.m.), with an approval card before booking.
 - Planner subagent books via the Google Calendar MCP (T2's `book_staff_visit`); if that's down, a staff-uploaded .zip calendar export renders the same grid instead.
+- **Requested follow-up, not yet implemented:** allow the resident to update one visit's day, time or duration, or delete it, with an approval card. A cancelled proposal leaves the event unchanged; a successful update moves the block and a successful deletion removes it from both resident and staff views. A rescheduled visit returns to pending for staff to accept or reject. Handle failure visibly, provide undo, and keep linked calendars consistent. Read-only imported blocks remain read-only. Announce any contract change in team chat before implementation.
+- **Follow-up acceptance checks:** other occurrences remain unchanged; an unapproved or cross-resident change is refused; deleted records remain available for the log; rescheduling an accepted, Google-synced visit removes the old Google event and waits for staff acceptance before writing the new one; if Google removal fails, the original visit remains unchanged and the resident sees an error.
 - Sleep hours 9–12; up for **Milestone 2**.
 - ✅ Done when: a routine set by taps shows blocks on the weekly grid and an approved booking lands on the calendar.
 

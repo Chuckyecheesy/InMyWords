@@ -103,6 +103,16 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 - Opens My Planner, picks a person to see (staff photo tiles), a start time, a length (e.g. 2 hours), and the day(s). Defaults to **7 days a week** (a daily recurring visit) unless the resident narrows it.
 - Sees the weekly grid fill with visit blocks. Example routine "1:00pm, 2 hours, every day" → a **1:00p.m.–3:00p.m. Meeting** block on every day, starting Nov 8, 2026.
 
+**Resident edits and deletes** *(requested; not yet implemented)*
+- The resident can select their own visit block and choose to update or delete it. Updating lets them change the day, time or duration; the proposed block must reflect the selected values.
+- Show an approval card before applying an update or deletion. Until the resident approves, keep the original event and calendar block unchanged. Cancelling an update or deletion closes the proposal without saving, booking, deleting or changing the event.
+- After an approved update succeeds, show the event at its new day and time and remove its old block. After an approved deletion succeeds, remove its block from the calendar. If saving fails, keep the existing block and explain that the change did not complete.
+- Changes must be reflected in the resident and staff planner views, logged, and coordinated with any linked Google Calendar event through the MCP servers. A deleted visit is no longer visible on either planner. An undo must be available; any restored or rescheduled visit still requires the appropriate approval and staff response.
+- Staff calendar imports shown as read-only are not editable or deletable through this resident flow. Preserve source labels and the resident's control over their own visits.
+- Edits and deletions apply only to the selected occurrence, not the whole recurring routine; other occurrences stay unchanged. A deleted visit's record is retained for the action log, but is hidden from both planners.
+- A rescheduled visit returns to `pending`, and its staff member can accept or reject the new time. If the original visit was on Google Calendar, remove the old Google event before reporting the change as successful; the new time is not written to Google until staff accept it. If removal of the linked Google event fails, report the failure and leave the existing visit unchanged.
+- Only visits belonging to the requested resident may be changed. Validate the selected day, time and duration and calculate the new start and end in the planner's local timezone using plain code. Any API contract changes need a heads-up in team chat first.
+
 **What the Planner subagent does**
 - Reads the resident's routine (through the MCP servers, never the DB directly — rule 4) and turns it into a set of calendar events with explicit start/end times. Time math is **plain code, not the LLM** (rule 6); the LLM only phrases the proposal ("Meet staff at 1:00, finish by 3:00, every day this week?").
 - Books on staff's calendar via a **Google Calendar MCP** server. **Fallback**: if that MCP is unavailable by demo time, staff **upload a .zip export of their Google Calendar** (Google Takeout; the .zip holds one or more `.ics` files) once, and its events render onto the same grid — the resident-facing UI is identical either way.
@@ -110,7 +120,7 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 
 **Staff accept or reject** *(added Nov 8)*
 - A visit the resident approved is a **request** to the staff member named on it, with status `pending`. It shows on both calendars (the resident's My Planner and the staff Planner tab) marked "Waiting for Sam", so nothing the resident asked for vanishes without an answer.
-- Only that staff member sees **Accept** / **Reject** on the visit in their Planner tab, per visit, plus **Accept all** for a routine's visits. Staff still cannot add or change a resident's visits; only the resident adds them.
+- Only that staff member sees **Accept** / **Reject** on the visit in their Planner tab, per visit, plus **Accept all** for a routine's visits. Staff still cannot add or change a resident's visits; those choices belong to the resident.
 - **Accept** → status `accepted`. The visit shows on both ends as a normal booked block, and only now is it written to staff's Google Calendar (the Google write moves from resident approval to staff acceptance).
 - **Reject** → status `rejected`. The visit disappears from both calendars (and from Google, if it was there). The row is kept for the action log (rule 5) but never rendered.
 - On a reject the resident is told plainly, on screen and spoken in her chosen voice: "Sam can't come at 1:00 on Monday. You can pick another time." No reason text from staff is shown (no notes, reasons or health info on the planner), and the resident can choose again with "Add a visit".
