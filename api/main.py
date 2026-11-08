@@ -23,7 +23,7 @@ from pydantic import BaseModel
 import mocks
 from agents.action import propose_plan
 from agents.choice import SEED_BUDGETS, build_choice
-from agents.coach_wording import coach_answer
+from agents.coach_wording import coach_answer, select_facts
 from agents.memory.wiring import observe_event, scan_routines
 from agents.photos.wiring import add_photo_tile
 from agents.story import LocalBooks, McpBooks, StoryError, local_books, narrate, record_answer, draft as draft_chapter
@@ -375,9 +375,10 @@ async def coach_ask(body: CoachAskBody):
             name = body.resident_id.capitalize()
             return {"answer": f"I don't know — it's best to ask {name}.", "sources": []}
         name = body.resident_id.capitalize()
+        chosen = select_facts(facts, name, body.question)
         return {
-            "answer": coach_answer(facts, name),
-            "sources": [{"type": f["source"], "date": f["date"], "label": f["label"]} for f in facts[:3]],
+            "answer": coach_answer(chosen, name, body.question),
+            "sources": [{"type": f["source"], "date": f["date"], "label": f["label"]} for f in chosen],
         }
     if "favourite colour" in body.question.lower():
         return mocks.COACH_ANSWERS["unknown"]

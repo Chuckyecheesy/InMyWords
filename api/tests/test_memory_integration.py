@@ -110,10 +110,13 @@ class DoneWhenTests(unittest.TestCase):
         self.assertEqual(communication["date"], "2021-03-15")
         self.assertEqual(communication["label"], "From records, 2021")
 
-        answer = coach_answer(out["facts"], "Marcus")
-        self.assertIn("From records, 2021:", answer)
-        self.assertIn("In Marcus's words:", answer)
-        self.assertIn("Pattern noticed, not confirmed by Marcus yet:", answer)
+        answer = coach_answer(out["facts"], "Marcus", "Explain Marcus's onboarding")
+        self.assertIn("2021 records", answer)
+        self.assertIn("In Marcus's words", answer)
+        self.assertIn("pattern", answer.lower())
+        self.assertIn("hasn't confirmed", answer)
+        self.assertIn("communicates with single words", answer)
+        self.assertIn("overwhelmed", answer.lower())
 
     def test_unrelated_question_still_returns_no_matches(self):
         out = tool(profile_server.ask_about)(
