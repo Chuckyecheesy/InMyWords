@@ -1,4 +1,8 @@
-"""Planner subagent (PROJECT_PLAN §2.5): puts approved visits on Google Calendar.
+"""Planner subagent (PROJECT_PLAN §2.5): puts accepted visits on Google Calendar.
+
+The resident approves a visit (book_visits); it waits as a request until the
+staff member named on it accepts or rejects it (respond_visits). Only an
+accepted visit is written to Google.
 
 Gemini does the work. It is handed the approved visits and writes each one
 to staff's calendar itself, through Gemini function calling. Its only tool is
@@ -97,7 +101,7 @@ def booking_prompt(name: str, visits: list[dict]) -> str:
         f"- visit_id={v['id']} staff={v['staff']} start={v['starts_at']} end={v['ends_at']}"
         for v in visits)
     return (
-        f"{name} approved these staff visits in My Planner. Put every one on the staff "
+        f"{name} approved these staff visits in My Planner and staff accepted them. Put every one on the staff "
         f"member's Google Calendar: call write_calendar_event once per visit (you may make "
         f"several calls at once).\n\n{lines}\n\n"
         f"Copy visit_id, start and end exactly as listed. summary: short, like "
@@ -151,17 +155,30 @@ def _route(gemini_wrote: int, rules_wrote: int) -> str:
 
 def book_visits(resident: str, routine_id: int, approved: bool, *, call_tool: CallTool,
                 run_tools=None) -> dict:
-    """Approve a routine's visits, let Gemini write them to Google Calendar,
-    then let the deterministic route write anything still missing."""
-    if approved is not True:
-        # The server owns the refusal so the rule lives in one place.
-        return call_tool("book_staff_visit", {"resident": resident, "routine_id": routine_id,
-                                              "approved": False})
-    gate = call_tool("approve_visits", {"resident": resident, "routine_id": routine_id, "approved": True})
-    if gate.get("error") or gate.get("refused"):
-        return gate
-    name = gate.get("resident_name") or resident.capitalize()
-    pending = {v["id"]: v for v in gate["visits"] if not v.get("google_synced")}
+    """The resident approved the planner card. Each visit becomes a request
+    waiting for staff (status pending, PROJECT_PLAN §2.5): nothing goes to
+    Google here. The Planner subagent runs when staff accept (respond_visits)."""
+    # The server owns the refusal so the rule lives in one place.
+    out = call_tool("book_staff_visit", {"resident": resident, "routine_id": routine_id,
+                                         "approved": approved})
+    if out.get("error") or out.get("refused"):
+        return out
+    out["agent"] = {"model_calls": 0, "gemini_wrote": 0, "rules_wrote": 0, "rejected_calls": 0,
+                    "fallback_reason": ""}
+    return out
+
+
+def respond_visits(staff: str, visit_ids: list[int], decision: str, *, call_tool: CallTool,
+                   run_tools=None) -> dict:
+    """Staff accept or reject the resident's visits. On accept, Gemini writes
+    them to staff's Google Calendar, then plain code writes anything still
+    missing. A reject never reaches Gemini or Google."""
+    answer = call_tool("respond_to_visit", {"staff": staff, "visit_ids": list(visit_ids),
+                                            "decision": decision})
+    if answer.get("error") or answer.get("refused") or decision != "accept":
+        return answer
+    ids = [v["id"] for v in answer["visits"]]
+    pending = {v["id"]: v for v in answer["visits"] if not v.get("google_synced")}
     record = {"model_calls": 0, "written": [], "rejected": 0, "calendar_down": False, "note": ""}
 
     def execute(tool_name: str, args: dict) -> dict:
@@ -175,7 +192,7 @@ def book_visits(resident: str, routine_id: int, approved: bool, *, call_tool: Ca
             record["rejected"] += 1
             return {"error": "visit_id must be one of the listed visits"}
         result = call_tool(WRITE_VISIT["name"], {
-            "resident": resident, "visit_id": visit_id,
+            "resident": pending[visit_id]["resident"], "visit_id": visit_id,
             "start": str(args.get("start", "")), "end": str(args.get("end", "")),
             "summary": str(args.get("summary", "")), "description": str(args.get("description", "")),
         })
@@ -188,20 +205,26 @@ def book_visits(resident: str, routine_id: int, approved: bool, *, call_tool: Ca
         return result
 
     if pending and run_tools is not None:
-        _run_agent(run_tools, booking_prompt(name, list(pending.values())), WRITE_VISIT, execute, record)
+        by_resident: dict[str, list[dict]] = {}
+        for v in pending.values():
+            by_resident.setdefault(v["resident"], []).append(v)
+        for visits in by_resident.values():
+            if record["calendar_down"]:
+                break
+            name = visits[0].get("resident_name") or visits[0]["resident"].capitalize()
+            _run_agent(run_tools, booking_prompt(name, visits), WRITE_VISIT, execute, record)
     elif pending:
         record["note"] = "Gemini is off"
 
-    status = call_tool("get_booking", {"resident": resident, "routine_id": routine_id})
-    before = set(status.get("google_event_ids", []))
-    missing = [v for v in status.get("visits", []) if not v.get("google_synced")]
-    if missing:
-        if not record["note"]:
-            record["note"] = ("the calendar is down" if record["calendar_down"]
-                              else f"Gemini left {len(missing)} visit(s) unwritten")
-        status = call_tool("book_staff_visit", {"resident": resident, "routine_id": routine_id,
-                                                "approved": True})
-    rules_wrote = len(set(status.get("google_event_ids", [])) - before)
+    missing = [i for i in pending if i not in record["written"]]
+    if missing and not record["note"]:
+        record["note"] = ("the calendar is down" if record["calendar_down"]
+                          else f"Gemini left {len(missing)} visit(s) unwritten")
+    before = {i for i in ids if i not in pending} | set(record["written"])
+    status = call_tool("sync_accepted_visits", {"staff": staff, "visit_ids": ids})
+    after = {v["id"] for v in status.get("visits", []) if v.get("google_synced")}
+    rules_wrote = len(after - before)
+    status["decision"] = decision
     status["planner"] = _route(len(record["written"]), rules_wrote)
     status["agent"] = {"model_calls": record["model_calls"], "gemini_wrote": len(record["written"]),
                        "rules_wrote": rules_wrote, "rejected_calls": record["rejected"],

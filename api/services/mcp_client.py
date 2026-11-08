@@ -281,6 +281,7 @@ PLANNER_TOOLS = {
     "import_calendar": "actions", "propose_calendar_import": "actions",
     "approve_calendar_import": "actions", "write_imported_event": "actions",
     "commit_calendar_import": "actions",
+    "respond_to_visit": "actions", "sync_accepted_visits": "actions",
 }
 
 

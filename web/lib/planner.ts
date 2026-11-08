@@ -15,11 +15,15 @@ export type PlannerVisit = {
   label: string;
   approved: boolean;
   google_synced: boolean;
+  /** Staff accept or reject a visit the resident booked (PROJECT_PLAN §2.5). */
+  status?: VisitStatus;
   /** Imported from a staff calendar export: shown, never booked or written. */
   read_only?: boolean;
   title?: string;
   all_day?: boolean;
 };
+
+export type VisitStatus = "pending" | "accepted" | "rejected";
 
 export type StaffOption = { id: string; name: string };
 

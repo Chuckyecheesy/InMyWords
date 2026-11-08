@@ -195,6 +195,12 @@ CREATE TABLE visit_events (
                   CHECK (source IN ('resident', 'staff', 'inferred')),
   google_event_id TEXT,
   approved        BOOLEAN NOT NULL DEFAULT false,
+  -- Staff accept or reject a visit the resident approved (PROJECT_PLAN §2.5).
+  -- A rejected row is kept for the log but never shown on either calendar.
+  status          TEXT NOT NULL DEFAULT 'pending'
+                  CHECK (status IN ('pending', 'accepted', 'rejected')),
+  responded_by    TEXT REFERENCES staff(id),
+  responded_at    TIMESTAMPTZ,
   created_at      TIMESTAMPTZ DEFAULT now()
 );
 

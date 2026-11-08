@@ -348,10 +348,18 @@ def get_planner(resident: str) -> dict:
     r = store.get_resident(resident)
     if not r:
         return {"error": f"unknown resident '{resident}'"}
-    visits = sorted(store.get_visits(rid=resident), key=lambda v: v["starts_at"])
+    from calendar_core import parse_dt
+    from datetime import datetime, timezone
+
+    every = sorted(store.get_visits(rid=resident), key=lambda v: v["starts_at"])
+    # Staff rejected -> gone from both calendars (§2.5). Upcoming ones are listed
+    # separately so the resident is told, never left wondering.
+    shown = [v for v in every if v.get("status") != "rejected"]
+    now = datetime.now(timezone.utc)
+    declined = [v for v in every if v.get("status") == "rejected" and parse_dt(v["ends_at"]) >= now]
     staff = [{"id": s["id"], "name": s["name"]} for s in store.list_staff() if s.get("role") == "staff"]
-    return {"resident": resident, "visits": [visit_view(v, r["first_name"]) for v in visits],
-            "staff": staff}
+    return {"resident": resident, "visits": [visit_view(v, r["first_name"]) for v in shown],
+            "declined": [visit_view(v, r["first_name"]) for v in declined], "staff": staff}
 
 
 @mcp.tool

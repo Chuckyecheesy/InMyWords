@@ -55,9 +55,12 @@ function apiBaseUrl(): string {
   return configured || "http://127.0.0.1:8000";
 }
 
-async function fetchJson(path: string): Promise<unknown | null> {
+async function fetchJson(path: string, sessionCookie?: string): Promise<unknown | null> {
   try {
-    const response = await fetch(`${apiBaseUrl()}${path}`, { cache: "no-store" });
+    const response = await fetch(`${apiBaseUrl()}${path}`, {
+      cache: "no-store",
+      headers: sessionCookie ? { Cookie: `imw_session=${sessionCookie}` } : undefined,
+    });
     if (!response.ok) return null;
     return await response.json();
   } catch {
@@ -246,9 +249,9 @@ function normalizeActivity(value: unknown): ActivityItem | null {
   };
 }
 
-export const getResident = cache(async (id: string): Promise<Result<Resident> | null> => {
+export const getResident = cache(async (id: string, sessionCookie?: string): Promise<Result<Resident> | null> => {
   const sample = sampleResident(id);
-  const live = normalizeResident(id, await fetchJson(`/residents/${encodeURIComponent(id)}`));
+  const live = normalizeResident(id, await fetchJson(`/residents/${encodeURIComponent(id)}`, sessionCookie));
   if (live) return { data: live, origin: "api" };
   if (sample) return { data: sample, origin: "sample" };
   return null;
@@ -736,6 +739,8 @@ function normalizeVisit(value: unknown): PlannerVisit | null {
     label: text(row.label) ?? "",
     approved: row.approved === true,
     google_synced: row.google_synced === true,
+    // Rows from before staff could answer were booked under the old rules.
+    status: row.status === "pending" || row.status === "rejected" ? row.status : "accepted",
     read_only: row.read_only === true,
     title: text(row.title) ?? undefined,
     all_day: row.all_day === true,
@@ -748,18 +753,24 @@ function visitsOf(value: unknown): PlannerVisit[] | null {
     .filter((v): v is PlannerVisit => v !== null) ?? null;
 }
 
-export type PlannerWeek = { visits: PlannerVisit[]; staff: StaffOption[] };
+export type PlannerWeek = {
+  visits: PlannerVisit[];
+  staff: StaffOption[];
+  /** Upcoming visits staff said no to, so the resident is told (§2.5). */
+  declined: PlannerVisit[];
+};
 
-export async function getPlanner(id: string): Promise<Result<PlannerWeek>> {
-  const raw = record(await fetchJson(`/planner/${encodeURIComponent(id)}`));
+export async function getPlanner(id: string, sessionCookie?: string): Promise<Result<PlannerWeek>> {
+  const raw = record(await fetchJson(`/planner/${encodeURIComponent(id)}`, sessionCookie));
   const visits = raw && !raw.error ? visitsOf(raw) : null;
   if (raw && visits) {
     const staff = (Array.isArray(raw.staff) ? raw.staff : [])
       .map((s) => record(s))
       .flatMap((s) => (s && text(s.id) && text(s.name) ? [{ id: text(s.id)!, name: text(s.name)! }] : []));
-    return { data: { visits, staff: staff.length ? staff : SAMPLE_STAFF }, origin: "api" };
+    const declined = visitsOf({ visits: raw.declined }) ?? [];
+    return { data: { visits, staff: staff.length ? staff : SAMPLE_STAFF, declined }, origin: "api" };
   }
-  return { data: { visits: [], staff: SAMPLE_STAFF }, origin: "sample" };
+  return { data: { visits: [], staff: SAMPLE_STAFF, declined: [] }, origin: "sample" };
 }
 
 export type RoutineInput = {
@@ -822,6 +833,18 @@ export async function bookVisits(input: {
   };
 }
 
+/** Staff accept or reject visits the resident booked. Only the staff member
+ *  named on a visit can answer; the server refuses anyone else. */
+export async function respondToVisits(input: {
+  staff_id: string;
+  visit_ids: number[];
+  decision: "accept" | "reject";
+}): Promise<MutationResult<PlannerVisit[]>> {
+  const result = await plannerCall("/planner/respond", input);
+  if (!result.ok) return result;
+  return { ok: true, data: visitsOf(result.data) ?? [] };
+}
+
 /** Fallback: a staff .zip calendar export, shown read-only on the grid. */
 export async function importCalendarView(input: {
   resident_id: string;
@@ -863,8 +886,8 @@ export function logout() {
   return sendJson<{ ok: boolean }>("/auth/logout", {});
 }
 
-export async function getSession(): Promise<SessionInfo | null> {
-  const raw = record(await fetchJson("/auth/me"));
+export async function getSession(sessionCookie?: string): Promise<SessionInfo | null> {
+  const raw = record(await fetchJson("/auth/me", sessionCookie));
   if (!raw) return null;
   return raw as unknown as SessionInfo;
 }
