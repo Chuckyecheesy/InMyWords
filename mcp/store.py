@@ -917,7 +917,7 @@ class PostgresStore:
                  "similarity": round(r["sim"], 3) if r.get("sim") is not None else None}
                 for r in picked]
 
-    _backfill_failed_at = 0.0
+    _backfill_failed_at: float | None = None  # None = never failed (see retrieval.VectorCache)
 
     def _backfill_embeddings(self, rid, batch=32):
         """Self-heal: embed this resident's memories saved while Gemini was down
@@ -926,7 +926,8 @@ class PostgresStore:
         failure, waits 60s before trying again so a Gemini outage can't slow
         every recall."""
         import time
-        if time.monotonic() - PostgresStore._backfill_failed_at < 60:
+        last = PostgresStore._backfill_failed_at
+        if last is not None and time.monotonic() - last < 60:
             return
         missing = self._all(
             "SELECT id, content FROM memories WHERE resident_id = %s AND embedding IS NULL "

@@ -128,7 +128,7 @@ class BackfillTests(unittest.TestCase):
         self.updates = []
         pg._all = lambda sql, params=(): list(missing)
         pg._conn = lambda: FakeConn(self.updates)
-        store.PostgresStore._backfill_failed_at = 0.0
+        store.PostgresStore._backfill_failed_at = None
         return pg
 
     def test_null_embeddings_are_filled(self):

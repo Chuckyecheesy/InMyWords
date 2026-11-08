@@ -154,7 +154,10 @@ class VectorCache:
         self.cooldown = cooldown
         self._lock = threading.Lock()
         self._vecs: dict[str, list[float]] = {}
-        self._failed_at = 0.0
+        # None = never failed. Not 0.0: time.monotonic() counts from boot, so on a
+        # freshly started machine (CI runners) it can be < cooldown and 0.0 would
+        # look like a failure moments ago, silently disabling embeddings.
+        self._failed_at: float | None = None
         try:
             self._vecs = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
@@ -167,7 +170,8 @@ class VectorCache:
     def vectors(self, texts: list[str]) -> list[list[float] | None]:
         with self._lock:
             missing = sorted({t for t in texts if t and self._key(t) not in self._vecs})
-            if missing and time.monotonic() - self._failed_at > self.cooldown:
+            if missing and (self._failed_at is None
+                            or time.monotonic() - self._failed_at > self.cooldown):
                 got = self.embed_batch(missing)
                 if got is None or len(got) != len(missing):
                     self._failed_at = time.monotonic()
