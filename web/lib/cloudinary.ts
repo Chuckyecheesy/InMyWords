@@ -40,6 +40,16 @@ export function unsignedUploadFields(input: {
   return { cloud_name, upload_preset };
 }
 
+/** Wide chapter photo for story pages. Same cloud as tiles, from config. */
+export function storyImageUrl(publicId: string): string | null {
+  const cloud =
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+    process.env.CLOUDINARY_CLOUD_NAME;
+  const id = publicId.replace(/^\/+/, "");
+  if (!cloud || !id) return null;
+  return `https://res.cloudinary.com/${cloud}/image/upload/c_fill,g_auto,w_800,h_400/${id}.jpg`;
+}
+
 export function tileImageUrl(
   publicId: string,
   mode: "calm" | "contrast",
