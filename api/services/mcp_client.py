@@ -1,4 +1,4 @@
-"""One function per MCP tool (BUILD_PLAN T2.3) — the only way routes and
+"""One function per MCP tool (BUILD_PLAN T2.3), the only way routes and
 agents reach data. Reads server URLs from the environment (.env):
 
     MCP_PROFILE_URL  default http://127.0.0.1:8101/mcp
@@ -191,6 +191,14 @@ async def add_observation(resident, staff, note):
 async def get_observations(resident, since=""):
     return await _call("profile", "get_observations", {"resident": resident, "since": since})
 
+async def add_record(resident, title, body, category="update", author="", doc_date=""):
+    return await _call("profile", "add_record",
+                       {"resident": resident, "title": title, "body": body,
+                        "category": category, "author": author, "doc_date": doc_date})
+
+async def get_records(resident):
+    return await _call("profile", "get_records", {"resident": resident})
+
 async def get_choices(resident, since=""):
     return await _call("profile", "get_choices", {"resident": resident, "since": since})
 
@@ -261,6 +269,47 @@ async def get_activity(resident):
 async def get_staff_tasks(resident=""):
     return await _call("actions", "get_staff_tasks", {"resident": resident})
 
+
+# ---- My Planner ----
+# The Planner subagent (agents/planner.py) calls tools by name; these are
+# the routes' direct calls. PLANNER_TOOLS says which server owns each tool.
+
+PLANNER_TOOLS = {
+    "save_routine": "profile", "get_planner": "profile", "preview_routine": "profile",
+    "approve_visits": "actions", "write_calendar_event": "actions",
+    "book_staff_visit": "actions", "get_booking": "actions",
+    "import_calendar": "actions", "propose_calendar_import": "actions",
+    "approve_calendar_import": "actions", "write_imported_event": "actions",
+    "commit_calendar_import": "actions",
+}
+
+
+async def call_tool(tool, args):
+    """Call a planner tool on whichever server owns it."""
+    return await _call(PLANNER_TOOLS[tool], tool, args)
+
+async def preview_routine(resident, staff, start_time, length_min, days=None, start_date=None):
+    return await _call("profile", "preview_routine", {
+        "resident": resident, "staff": staff, "start_time": start_time,
+        "length_min": length_min, "days": days, "start_date": start_date})
+
+async def save_routine(resident, staff, start_time, length_min, days=None, start_date=None):
+    return await _call("profile", "save_routine", {
+        "resident": resident, "staff": staff, "start_time": start_time,
+        "length_min": length_min, "days": days, "start_date": start_date})
+
+async def get_planner(resident):
+    return await _call("profile", "get_planner", {"resident": resident})
+
+async def import_calendar(resident, calendar_zip_b64, start_date="", days=63):
+    return await _call("actions", "import_calendar",
+                       {"resident": resident, "calendar_zip_b64": calendar_zip_b64,
+                        "start_date": start_date, "days": days})
+
+async def propose_calendar_import(staff, calendar_zip_b64):
+    return await _call("actions", "propose_calendar_import",
+                       {"staff": staff, "calendar_zip_b64": calendar_zip_b64})
+
 async def get_recent_changes(resident, since=""):
     return await _call("memory", "get_recent_changes", {"resident": resident, "since": since})
 
@@ -278,3 +327,40 @@ async def get_checklist(home, date=""):
 
 async def get_significant_events(resident):
     return await _call("emh", "get_significant_events", {"resident": resident})
+
+async def set_tile_archived(resident, tile_id, archived=True):
+    return await _call("profile", "set_tile_archived",
+                       {"resident": resident, "tile_id": tile_id, "archived": archived})
+
+
+# ---- Get staff help (ROADMAP Phase 6) ----
+
+async def request_staff_help(resident):
+    return await _call("actions", "request_staff_help", {"resident": resident})
+
+async def get_help_requests(resident="", open_only=True):
+    return await _call("actions", "get_help_requests",
+                       {"resident": resident, "open_only": open_only})
+
+async def acknowledge_help(task_id, staff):
+    return await _call("actions", "acknowledge_help", {"task_id": task_id, "staff": staff})
+
+
+# ---- accounts & scope (ROADMAP Phase 2) ----
+
+async def get_auth_user(login_id):
+    return await _call("profile", "get_auth_user", {"login_id": login_id})
+
+async def list_resident_logins():
+    return await _call("profile", "list_resident_logins", {})
+
+async def get_staff_assignments(staff_id):
+    return await _call("profile", "get_staff_assignments", {"staff_id": staff_id})
+
+async def create_resident(resident_id, first_name, home_id="", communication_style="",
+                          weekly_budget=None, secret_hash="", staff_ids=None, tiles=None):
+    return await _call("profile", "create_resident",
+                       {"resident_id": resident_id, "first_name": first_name,
+                        "home_id": home_id, "communication_style": communication_style,
+                        "weekly_budget": weekly_budget, "secret_hash": secret_hash,
+                        "staff_ids": staff_ids or [], "tiles": tiles or []})

@@ -1,8 +1,28 @@
-import { Check, Clapperboard, Coffee, Heart, Sun } from "lucide-react";
+import { CalendarDays, Check, Clapperboard, Clock, Coffee, Heart, Sun } from "lucide-react";
 import { BasketballIcon, BowlingIcon } from "@/lib/pictograms";
 
-/** Calm, adult compositions of the same pictogram set — no clip art. */
-export function FeatureArt({ kind }: { kind: "speak" | "story" | "choice" }) {
+/** Calm, adult compositions of the same pictogram set, no clip art. */
+export function FeatureArt({ kind }: { kind: "speak" | "story" | "choice" | "planner" }) {
+  if (kind === "planner") {
+    return (
+      <div className="feature-art" aria-hidden="true">
+        <div className="art-piece" style={{ left: "10%", top: "18%", width: 150, height: 160, transform: "rotate(-5deg)", alignContent: "center", gap: 8 }}>
+          <CalendarDays size={56} strokeWidth={1.6} />
+          <span style={{ fontWeight: 700, fontSize: 18 }}>Every day</span>
+        </div>
+        <div className="art-piece" style={{ left: "52%", top: "26%", width: 150, height: 150, transform: "rotate(5deg)", alignContent: "center", gap: 8, background: "var(--sage-soft)" }}>
+          <Clock size={52} strokeWidth={1.6} />
+          <span style={{ fontWeight: 700, fontSize: 18 }}>1:00p.m.</span>
+        </div>
+        <div
+          className="art-piece"
+          style={{ left: "40%", top: "12%", width: 48, height: 48, borderRadius: 999, background: "var(--accent)", color: "#fff", zIndex: 2 }}
+        >
+          <Check size={26} strokeWidth={3} />
+        </div>
+      </div>
+    );
+  }
   if (kind === "speak") {
     return (
       <div className="feature-art" aria-hidden="true">

@@ -1,9 +1,11 @@
 /*
   In My Words — design tokens.
 
-  Warm, calm, adult. Off-white paper, deep navy ink, muted teal accent,
-  soft blue and coral as supporting colours. Every colour pair used for
-  text meets WCAG AA (4.5:1) on its surface.
+  Sage Garden adaptation: warm paper, deep ink, forest-sage actions,
+  soft blue and clay as supporting colours. Inspired by Serafim's theme:
+  https://21st.dev/@serafimcloud/themes/sage-garden
+  The original light sage is reserved for surfaces; actions use a darker
+  sage so white button labels meet WCAG AA (4.5:1).
 
   Modes flip on <html>:
     data-theme="contrast"  black on white, heavy borders (also follows
@@ -19,25 +21,25 @@
   /* Surfaces */
   --bg: #f8f7f4;
   --surface: #ffffff;
-  --surface-2: #f2f1ec;
-  --surface-3: #e9e7e0;
-  --scrim: rgba(25, 43, 56, 0.42);
+  --surface-2: #eef0e9;
+  --surface-3: #e2e7dc;
+  --scrim: rgba(26, 31, 46, 0.42);
 
   /* Ink */
-  --ink: #192b38;
-  --ink-2: #44555f;
-  --ink-3: #5f6e77;
+  --ink: #1a1f2e;
+  --ink-2: #46534b;
+  --ink-3: #58665c;
   --on-accent: #ffffff;
 
   /* Lines */
-  --line: #e7e8e6;
-  --line-strong: #d3d6d2;
+  --line: #dedfd7;
+  --line-strong: #7c9082;
 
-  /* Accent — muted teal */
-  --accent: #247d78;
-  --accent-strong: #1a5f5b;
-  --accent-soft: #e3f1ef;
-  --accent-softer: #f0f8f6;
+  /* Accent: accessible forest sage; pale sage is selection/background only. */
+  --accent: #4b6653;
+  --accent-strong: #344d3b;
+  --accent-soft: #e5ecdf;
+  --accent-softer: #f0f4ec;
 
   /* Supporting */
   --blue: #2a5d7c;
@@ -47,8 +49,8 @@
   --coral-soft: #fcebe4;
   --amber-ink: #7a5410;
   --amber-soft: #fbf0d9;
-  --sage-ink: #3d6340;
-  --sage-soft: #e8f1e4;
+  --sage-ink: #344d3b;
+  --sage-soft: #e5ecdf;
   --danger: #b42318;
   --danger-soft: #fdecea;
   --success: #1f7a4d;
@@ -56,8 +58,8 @@
 
   /* Provenance — CONTRACTS.md source labels. Never colour alone:
      every badge also carries an icon and words. */
-  --src-resident: #1a5f5b;
-  --src-resident-bg: #e3f1ef;
+  --src-resident: #344d3b;
+  --src-resident-bg: #e5ecdf;
   --src-staff: #2a5d7c;
   --src-staff-bg: #dceaf2;
   --src-emh: #3f4f5a;
@@ -66,24 +68,24 @@
   --src-document-bg: #fbf0d9;
   --src-pattern: #96432a;
   --src-pattern-bg: #fcebe4;
-  --src-task: #192b38;
-  --src-task-bg: #f2f1ec;
+  --src-task: #1a1f2e;
+  --src-task-bg: #eef0e9;
 
   /* AAC category tints (soft, never the only cue — labels always shown) */
   --cat-drinks: #fcebe4;
   --cat-food: #fcebe4;
   --cat-activities: #dceaf2;
-  --cat-people: #e8f1e4;
-  --cat-places: #e3f1ef;
+  --cat-people: #e5ecdf;
+  --cat-places: #e7eee5;
   --cat-feelings: #fbf0d9;
-  --cat-answers: #f2f1ec;
-  --cat-words: #f2f1ec;
+  --cat-answers: #eef0e9;
+  --cat-words: #eef0e9;
 
   /* Legacy names kept for older components and the a11y contrast tests */
   --paper: #f8f7f4;
   --card: #ffffff;
-  --voice: #1a5f5b;
-  --voice-bg: #e3f1ef;
+  --voice: #344d3b;
+  --voice-bg: #e5ecdf;
   --staff: #2a5d7c;
   --staff-bg: #dceaf2;
   --record: #7a5410;
@@ -94,7 +96,7 @@
   --pattern-bg: #fcebe4;
 
   /* Focus */
-  --focus: #0b5cab;
+  --focus: #344d3b;
   --focus-ring: 3px;
 
   /* Type */
@@ -156,9 +158,9 @@
   --stroke-strong: 2px;
 
   /* Elevation */
-  --shadow-1: 0 1px 2px rgba(25, 43, 56, 0.06), 0 1px 1px rgba(25, 43, 56, 0.03);
-  --shadow-2: 0 6px 18px -6px rgba(25, 43, 56, 0.12), 0 2px 4px rgba(25, 43, 56, 0.04);
-  --shadow-3: 0 28px 56px -20px rgba(25, 43, 56, 0.28), 0 4px 12px rgba(25, 43, 56, 0.06);
+  --shadow-1: 0 1px 2px rgba(26, 31, 46, 0.06), 0 1px 1px rgba(26, 31, 46, 0.03);
+  --shadow-2: 0 6px 18px -6px rgba(26, 31, 46, 0.12), 0 2px 4px rgba(26, 31, 46, 0.04);
+  --shadow-3: 0 28px 56px -20px rgba(26, 31, 46, 0.28), 0 4px 12px rgba(26, 31, 46, 0.06);
 
   /* Motion */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);

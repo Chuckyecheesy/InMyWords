@@ -26,7 +26,7 @@ export default async function ResidentHomePage({
 
   const features = [
     { href: `${base}/speak`, kind: "speak", title: "Speak For Me", text: "Talk using pictures." },
-    { href: `${base}/story`, kind: "story", title: "My Story", text: "Tell people about my life." },
+    { href: `${base}/planner`, kind: "planner", title: "My Planner", text: "Choose when staff visit me." },
     { href: `${base}/choice`, kind: "choice", title: "My Choices", text: "Look at options and decide." },
   ] as const;
 

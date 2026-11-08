@@ -342,7 +342,10 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
 
   return (
     <div className="speak">
-      <h1 className="sr-only">Speak For Me</h1>
+      <div className="speak-intro">
+        <h1>What do you want to say?</h1>
+        <p>Pick pictures, then tap <strong>Help me say it</strong>. You choose what is spoken.</p>
+      </div>
 
       <section className="composer" aria-label="Sentence">
         <div className="composer-main">
@@ -395,6 +398,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
               ))}
             </ol>
           )}
+          <details className="speak-disclosure speak-time">
+            <summary>Add a time{timeNow ? ": now" : ""}</summary>
           <button
             type="button"
             className="time-chip"
@@ -413,6 +418,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
             <Clock size={24} aria-hidden="true" />
             Now
           </button>
+          </details>
         </div>
         {sentence || limitNote ? (
           <p className="composer-sentence">
@@ -422,6 +428,9 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         ) : null}
         </div>
         <div className="composer-actions">
+          <details className="speak-disclosure speak-extra-actions">
+            <summary>More options</summary>
+            <div className="row">
           <button
             type="button"
             className="big-button"
@@ -451,6 +460,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
             <Volume2 size={24} aria-hidden="true" />
             Say my words
           </button>
+            </div>
+          </details>
           <button
             type="button"
             className="big-button"
@@ -478,8 +489,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
                 ? "The audio didn't play. Nothing else was changed."
                 : playback.kind === "preview"
                   ? playback.state === "playing"
-                    ? "Preview — not saved."
-                    : "Preview finished — not saved."
+                    ? "Preview, not saved."
+                    : "Preview finished, not saved."
                   : playback.state === "playing"
                     ? `Speaking in ${name}'s voice…`
                     : `Said in ${name}'s voice.`}
@@ -643,6 +654,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </section>
       ) : null}
 
+      <details className="speak-disclosure">
+        <summary>Use eyes or gestures</summary>
       <section className="input-row" aria-label="Eyes and hands">
         <CameraConsent residentId={resident.id} cameraOn={input.cameraOn} onChange={input.setConsent} />
         {input.consent ? (
@@ -683,6 +696,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
           </div>
         ) : null}
       </section>
+      </details>
 
       {input.consent && input.status === "starting" ? <p role="status">Starting eye tracking...</p> : null}
       {input.status === "error" ? inputError : null}
@@ -912,7 +926,7 @@ function ReviewDialog({
             onClick={() => !hold.consumed() && onCancel()}
           >
             <X size={22} aria-hidden="true" />
-            Cancel — choose another
+            Cancel, choose another
           </button>
         </div>
         <GestureHint enabled={gestures} onYes={onGestureApprove} onNo={onCancel} />

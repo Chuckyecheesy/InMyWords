@@ -34,22 +34,22 @@ Companion to the [Project Plan](PROJECT_PLAN.md). This doc is the step-by-step b
 
 ### 2.1 Environment variables
 
-See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_ID` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the Google Calendar stretch.
+See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_ID` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the planner's Google Calendar MCP (.zip calendar-export upload fallback if unavailable).
 
 ## 3. Repo structure
 
 ```
 /web            (T4: shell, design system, staff routes · T3: resident routes) Next.js app
   app/resident/[id]           home tile grid
-  app/resident/[id]/story, /choice, /confirm, /voice
+  app/resident/[id]/planner, /choice, /confirm, /voice
   app/staff                   pick a resident
   app/staff/[id]/onboarding, /coach
   app/staff/handoff, /activity
   app/manager                 (stretch)
   components/, lib/api.ts     all backend calls in one place
-/api            (T2 owns routes; agents/ split: T3 voice/story/choice · T4 coach/action/memory)
+/api            (T2 owns routes; agents/ split: T3 voice/planner/choice · T4 coach/action/memory)
   main.py                     FastAPI app and routes
-  agents/                     voice.py, coach.py, story.py, choice.py, action.py,
+  agents/                     voice.py, coach.py, planner.py, choice.py, action.py,
                               handoff.py, memory/ (observer, consolidator, routines, retriever)
   services/                   gemini.py, elevenlabs.py (T1), cloudinary.py, mcp_client.py
   tests/                      test sets and evaluation script
@@ -74,6 +74,7 @@ See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVEN
 | TTS | ElevenLabs low-latency model, cached by voice + text | Repeated phrases play instantly; saves credits. |
 | Budget and cost maths | Plain code, not the LLM | LLMs get arithmetic wrong. The agent only phrases the result. |
 | Routine detection | SQL grouping by weekday and hour, then Gemini phrases it | Patterns from data, not guesses. |
+| Planner / staff visits | **Google Calendar MCP** server the Planner subagent calls; dual-write to `visit_events` | The resident's typed routine (e.g. 1:00pm, 2h, daily) expands — in plain code, not the LLM — into `visit_events` (source of truth), which the subagent books on staff's Google Calendar via MCP. **Fallback if the MCP is down**: import a Google Calendar export once and render its events on the same weekly grid — identical UI. Only resident-approved visits reach Google; never notes, reasons or health info. |
 | Calendar action (stretch) | Per-resident **Google Calendar**, dual-write | `calendar_events` in Tiger Data stays the source of truth; Google is a synced view. It's *the resident's* calendar — agent writes only resident-approved events, staff subscribe as readers. Real integration with zero contract changes (`add_to_calendar` input/output unchanged), and it drops cleanly if time runs out. |
 | Base profile layer | Import existing binder/record documents once at seed time (Gemini document understanding) | The binder gets read once — by the system. Extracted facts enter the memory store with `source = document` ("From records, 2019"), never shown as the resident's words, first in line for "Is this still true?" confirmation. Directly answers the problem statement and replaces hand-written seed JSON with a real capability. Staff upload UI is stretch. |
 | Gaze input | WebGazer, client-side dynamic import only | Browser + webcam, no special hardware; touches `window` so SSR must be disabled. 2×3 big-tile grid — webcam gaze resolves regions, not points. |
@@ -99,8 +100,8 @@ Everything fits in free tiers plus participant credits for a 24-hour build. Bigg
 | residents | id, home_id, first_name, voice_id, communication_style, weekly_budget |
 | staff | id, name, role (staff \| manager), last_shift_end |
 | tiles | id, resident_id, label, category, cloudinary_id, times_used |
-| story_chapters | id, resident_id, chapter_key, text, photo_ids, audio_url, status (draft \| approved) |
-| story_answers | id, resident_id, chapter_key, question, answer, created_at |
+| routines | id, resident_id, person (staff_id), start_time, length_min, days (default all 7), source, created_at |
+| visit_events | id, resident_id, staff_id, starts_at, ends_at, source (resident \| staff \| inferred), google_event_id, approved, created_at |
 | sentences | id, resident_id, tiles, options, chosen_text, approved, created_at |
 | choices | id, resident_id, question, options (label, photo, cost), chosen, status (chosen \| not_yet_decided), created_at |
 | memories | id, resident_id, type (preference \| event \| routine), content, embedding, source (resident \| staff \| emh \| document \| inferred), source_date, times_seen, first_seen, last_seen, status (confirmed \| pending \| dismissed) |
@@ -126,7 +127,7 @@ Task IDs match cards on the task board. Do them in order unless marked parallel.
 
 ### James (T1): Voice lead
 
-You own everything the user hears: resident voices, narration, the Story interview agent, the Coach voice mode, spoken approvals, and demo audio.
+You own everything the user hears: resident voices, the spoken planner/approval cards, the Coach voice mode, spoken confirmations, and demo audio.
 
 **T1.1 — ElevenLabs setup and resident voices (hour 0–1)**
 
@@ -150,21 +151,18 @@ You own everything the user hears: resident voices, narration, the Story intervi
 - Long-press on any button speaks its label (pre-generate these labels).
 - ✅ Done when: **Milestone 1** — tiles → suggestions → approve → spoken, end to end.
 
-**T1.4 — Story interview agent (hours 6–10)**
+**T1.4 — Spoken planner proposals (hours 6–10)**
 
-- ElevenLabs Agent "Story Interviewer". Warm, slow, friendly voice.
-- System prompt rules: one short question at a time; plain words; only the current chapter; always offer 2–4 picture choices through show_choices; never assume an answer; thank the person after each answer.
-- Client tool `show_choices(question, options)`: rendered by T4's PhotoChoiceGrid; returns the tapped label.
-- Webhook tool `save_answer(resident_id, chapter, question, answer)` → `POST /story/answer`.
-- Chapter list and 3–5 questions per chapter (write with T3).
-- At chapter end, agent calls draft_chapter → `POST /story/draft`, reads the draft aloud, asks "Is this right?" with yes/no tiles.
-- ✅ Done when: one chapter fully interviewed with taps only and a draft read back.
+- When the Planner subagent proposes visit times, speak the one-sentence summary in the resident's voice: "Meet staff at 1:00, finish by 3:00, every day. Is that right?" with yes/no tiles.
+- Client tool `show_choices(question, options)`: rendered by T4's PhotoChoiceGrid; returns the tapped label (reused for picking a person/day).
+- Pre-generate the common planner phrases (times on the hour/half-hour, "every day", day names) so readback is instant.
+- ✅ Done when: a routine proposed by the subagent is read aloud and approved by tap.
 
-**T1.5 — Chapter narration (hours 10–12)**
+**T1.5 — Planner booking confirmation (hours 10–12)**
 
-- `POST /story/approve`: generate narration in the resident's voice, save audio_url, mark chapter approved.
-- Pre-generate narration for all seeded chapters for Marcus and Dana.
-- ✅ Done when: **Milestone 2** — story page plays in the resident's voice.
+- After the resident approves, speak the booked confirmation ("Done. You'll see staff at 1:00 every day.") once `POST /planner/book` returns.
+- Pre-generate confirmation audio for the seeded routines for Marcus and Dana.
+- ✅ Done when: **Milestone 2** — a routine set by taps books a staff visit and the confirmation plays in the resident's voice.
 
 **T1.6 — Coach voice mode (hours 12–14)**
 
@@ -187,7 +185,7 @@ You own everything the user hears: resident voices, narration, the Story intervi
 - Lead two rehearsals. Record voice-over for the backup video. Present the live demo.
 - ✅ Done when: demo runs with zero audio waits.
 
-**Dependencies**: from T2 — /story/answer and /coach/ask (mock by hour 1). From T3 — chapter questions and PhotoChoiceGrid (hour 7), /story/draft (hour 9), voice picker screen (hour 16). From T4 — Coach answer format (hour 8), Coach chat embed.
+**Dependencies**: from T2 — /planner/book and /coach/ask (mock by hour 1). From T3 — planner routine fields and PhotoChoiceGrid (hour 7), /planner/plan (hour 9), voice picker screen (hour 16). From T4 — Coach answer format (hour 8), Coach chat embed.
 
 ### Tiffany (T2): Data and MCP lead
 
@@ -202,8 +200,8 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 
 **T2.2 — Seed data (hours 1–3)**
 
-- Marcus: 12 tiles (coffee, tea, bowling, Raptors, park, music, bus, quiet, Lisa, help, yes, no); 2 draft story chapters; preferences (double-double, quiet spaces, bowling Saturdays, live basketball goal).
-- Dana: 12 tiles (garden, sister, groceries, tea, walk, money, TV, help, yes, no, etc.); 2 draft chapters; weekly budget $60.
+- Marcus: 12 tiles (coffee, tea, bowling, Raptors, park, music, bus, quiet, Lisa, help, yes, no); a seeded routine + its visit_events; preferences (double-double, quiet spaces, bowling Saturdays, live basketball goal).
+- Dana: 12 tiles (garden, sister, groceries, tea, walk, money, TV, help, yes, no, etc.); a seeded routine (meet staff 1:00p.m., 2h, daily → 1:00p.m.–3:00p.m. visit_events for 7 days from Nov 8, 2026); weekly budget $60.
 - 2 weeks of EMH notes, checklist entries with reasons ("grocery shopping: didn't happen, bus cancelled"), significant events.
 - 2 weeks of memory history including a visible pattern: Marcus picked tea 5 times this week after months of coffee.
 - 3 staff (one new staff "Jordan" with no prior shifts), 2 homes, 1 manager.
@@ -213,14 +211,14 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 
 **T2.3 — resident-profile MCP server (hours 3–6)**
 
-- Tools: get_profile, get_story, save_story_chapter, ask_about (retrieval only; T4's Coach does the wording), suggest_sentence (calls T3's Voice agent), log_sentence, log_choice, add_observation.
+- Tools: get_profile, get_planner, save_routine, ask_about (retrieval only; T4's Coach does the wording), suggest_sentence (calls T3's Voice agent), log_sentence, log_choice, add_observation.
 - Every returned fact includes source and date.
 - Backend `mcp_client.py`: one function per tool, used by routes and agents.
 - ✅ Done when: all tools return correct data for both residents.
 
 **T2.4 — Replace mocks with real routes (hours 6–12)**
 
-- Wire /residents, /sentences, /story/answer, /story/{id}, /observations, /choices/{id}/decide to the MCP servers.
+- Wire /residents, /sentences, /planner/routine, /planner/{id}, /observations, /choices/{id}/decide to the MCP servers.
 - Build the emh mock server: get_contact_notes, get_checklist, get_significant_events.
 - ✅ Done when: Milestone 2 data paths are real, not mocked.
 
@@ -234,18 +232,23 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 
 **T2.6 — Actions MCP server and mock services (hours 14–16)**
 
-- Tools: plan_actions (calls T4's Action agent), send_message (real email), add_to_calendar, book_activity (writes to bookings), next_bus (optional), create_staff_task.
-- **Approval gate: action tools refuse to run unless the plan status is approved.**
+- Tools: plan_actions (calls T4's Action agent), send_message (real email), add_to_calendar, book_staff_visit (planner — via Google Calendar MCP, dual-writes visit_events), import_calendar (planner fallback — staff upload a .zip Google Calendar export (Google Takeout, `.ics` files inside); parse it onto the grid), book_activity (writes to bookings), next_bus (optional), create_staff_task.
+- **Approval gate: action tools (incl. book_staff_visit) refuse to run unless the plan/visit status is approved.**
 - Mock booking page at /mock-booking showing current bookings.
 - Log every step to action_results.
-- **Stretch — per-resident Google Calendar** (first thing to cut if behind; core path works without it):
-  - One Google Cloud project + Calendar API + one service account; key goes in `.env` as `GOOGLE_SERVICE_ACCOUNT_JSON`.
-  - Seed step creates "Marcus — In My Words" and "Dana — In My Words" calendars and shares **read** access to the staff demo accounts (`GOOGLE_CALENDAR_STAFF_EMAILS`). Pre-create these the night before the demo.
-  - `add_to_calendar` dual-writes: `calendar_events` row first (source of truth), then pushes the event to the resident's Google Calendar with an "approved by Marcus" note. If the Google call fails, DB-only still demos — same UI.
-  - Only resident-approved events ever reach Google — never notes, reasons, or health info. Those stay in Tiger Data where Handoff needs them (calendars can't hold "didn't happen — bus cancelled").
-  - Optional: staff tasks also land on a per-home staff calendar so the "drive Marcus Saturday 1:30" ride shows up where staff already look.
-  - Demo beat upgrade: during Choice + Action, the approved bowling trip appears in real Google Calendar on screen. Judge Q&A answer (add to T4's list): demo data is fictional; production targets an org Workspace tenant with Canadian data residency, and the calendar only receives approved events.
-- ✅ Done when: approving a plan books, adds to calendar, sends a real email and creates a staff task.
+- **Google Calendar MCP (planner path)** — the Planner subagent books staff visits through a Google Calendar MCP server; fallback is manual import:
+  - One Google Cloud project + Calendar API + one service account; key goes in `.env` as `GOOGLE_SERVICE_ACCOUNT_JSON`. Staff demo accounts in `GOOGLE_CALENDAR_STAFF_EMAILS`. Pre-create the night before the demo.
+  - `book_staff_visit` dual-writes: `visit_events` row first (source of truth), then creates the event on the **staff member's** Google Calendar (so staff see the visit where they already look), with an "approved by Dana" note. If the Google/MCP call fails, DB-only still demos — same grid.
+  - **Fallback if the MCP server doesn't work**: staff upload a one-time **.zip export of their Google Calendar** (Settings → Export in Google Calendar, or Google Takeout — the .zip holds `.ics` files per calendar); `import_calendar` unzips, parses the `.ics` events, and renders them on the planner grid. No live booking, identical UI.
+  - Only resident-approved visits ever reach Google — never notes, reasons, or health info. Those stay in Tiger Data where Handoff needs them.
+  - Recurrence is plain code: a 7-days-a-week routine expands to one visit_event per day; the LLM only phrases the proposal.
+- **Stretch — staff calendar import (separate from the fallback above; this one writes live)**: a staff self-service tool that migrates an existing calendar into Google Calendar via a parse-and-insert pipeline, not the MCP wrapper:
+  1. Unpack the uploaded `.zip` in a temp environment; detect `.ics` (or JSON/CSV) files.
+  2. Parse each event's title, start/end, timezone and recurrence; normalize every timestamp to local time in plain code (never the LLM).
+  3. `propose_calendar_import` returns the normalized list (with duplicate flags) for an approval card — staff review before anything is written.
+  4. Once approved, `commit_calendar_import` loops through and calls Google Calendar's `events.insert` for each one, writing live.
+  5. Checks for existing overlapping events first, so a re-import never double-books staff's real calendar.
+- ✅ Done when: approving a routine books a recurring staff visit on the calendar (or renders imported visits), sends any real email and creates a staff task. (Stretch tool is separately done when a staff-uploaded .zip produces an approval card and, once approved, live events on Google Calendar.)
 
 **T2.7 — Handoff agent (hour 16)**
 
@@ -264,7 +267,7 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
 
 ### Ahmed (T3): Resident experience & pitch lead (AI + screens)
 
-You own everything the resident directly uses — the prompts AND the screens: Speak For Me, My Story, Supported Choice, approvals and confirmations. You are also accessibility lead, own the shared Gemini wrapper, and own the pitch: deck, demo video, Devpost, domain.
+You own everything the resident directly uses — the prompts AND the screens: Speak For Me, My Planner, Supported Choice, approvals and confirmations. You are also accessibility lead, own the shared Gemini wrapper, and own the pitch: deck, demo video, Devpost, domain.
 
 **T3.1 — Gemini wrapper (hour 0–1)**
 
@@ -288,18 +291,19 @@ You own everything the resident directly uses — the prompts AND the screens: S
 - Long-press any button to hear its label.
 - ✅ Done when: **Milestone 1** — tiles → suggestions → approve → spoken, end to end.
 
-**T3.4 — PhotoChoiceGrid + interview questions (hours 6–7)**
+**T3.4 — PhotoChoiceGrid + planner routine fields (hours 6–7)**
 
-- PhotoChoiceGrid: a question plus 2–4 big photo tiles; used by the Story agent's show_choices tool (hand to T1 by hour 7).
-- Write the 7 chapter templates and 3–5 picture-answerable questions each (with T1).
-- ✅ Done when: T1's Story agent can trigger the grid and receive the tapped label.
+- PhotoChoiceGrid: a question plus 2–4 big photo tiles; reused by the planner to pick a staff person and days (hand to T1/T2 by hour 7).
+- Define the routine-input fields: person (staff tiles), start time, length, days (default all 7).
+- ✅ Done when: the grid returns the tapped label and the routine fields are agreed with T2.
 
-**T3.5 — Story chapter writer + story pages (hours 7–9)**
+**T3.5 — Planner subagent + My Planner screens (hours 7–9)**
 
-- `POST /story/draft`: turn story_answers into a 3–5 sentence first-person chapter. Use only what was answered. Ready by hour 9 for T1's readback.
-- Story pages: photo, short text, play button for narration. Embed the ElevenLabs conversation and register client tools (with T1).
+- `POST /planner/plan`: expand a saved routine into proposed visit_events — **recurrence math in plain code**, Gemini only phrases the proposal. Ready by hour 9 for T1's readback.
+- My Planner screens: routine-input screen, then a weekly grid (7 days) showing visit blocks (e.g. 1:00p.m.–3:00p.m.), with an approval card before booking.
+- Planner subagent books via the Google Calendar MCP (T2's `book_staff_visit`); if that's down, a staff-uploaded .zip calendar export renders the same grid instead.
 - Sleep hours 9–12; up for **Milestone 2**.
-- ✅ Done when: draft uses only interview answers and reads naturally; a chapter can be built and played back.
+- ✅ Done when: a routine set by taps shows blocks on the weekly grid and an approved booking lands on the calendar.
 
 **T3.6 — Choice agent + choice screen (hours 12–14)**
 
@@ -351,11 +355,11 @@ You own everything staff use — the prompts AND the screens: Coach, memory inte
 
 **T4.4 — Coach agent + Coach chat + onboarding path (hours 6–10)**
 
-- `POST /coach/ask`: recall relevant memories, profile, story, observations, EMH notes; answer in 1–3 plain sentences.
+- `POST /coach/ask`: recall relevant memories, profile, routines/planner, observations, EMH notes; answer in 1–3 plain sentences.
 - Output includes sources: type (resident | staff | emh | document | pattern) and date for each fact — document facts read as "From records, ".
 - If nothing relevant is found, return unknown ("I don't know, ask Marcus").
 - Coach chat UI: text and voice; every answer shows source badges ("In Marcus's words", "Staff note, Mar 3", "Pattern noticed", "From records, 2019").
-- Onboarding path: Essentials (2 min, generated from confirmed memories), Story, Routines timeline, progress indicator.
+- Onboarding path: Essentials (2 min, generated from confirmed memories), Routines/planner, timeline, progress indicator.
 - ✅ Done when: 15/15 test questions answered with correct source labels; unknowns handled; a new staff member can complete Essentials.
 
 **T4.5 — Handoff screen + observation form (hours 10–12)**
@@ -414,17 +418,17 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 - Long-press any button to hear its label.
 - ✅ Done when: **Milestone 1** works with real suggestions and audio.
 
-**T4.4 — Story screens (hours 6–10)**
+**T4.4 — My Planner screens (hours 6–10)**
 
-- PhotoChoiceGrid: a question plus 2–4 big photo tiles; used by the Story agent's show_choices tool (with T1).
-- Embed the ElevenLabs conversation and register client tools.
-- Story pages: photo, short text, play button for narration.
-- ✅ Done when: a chapter can be built and played back.
+- PhotoChoiceGrid: a question plus 2–4 big photo tiles; reused by the planner to pick a staff person and days (with T1/T3).
+- Routine-input screen (person, start time, length, days — default all 7) and a weekly visit grid (7 days) showing blocks like 1:00p.m.–3:00p.m.
+- Approval card before any booking; booking goes via T2's `book_staff_visit` (Google Calendar MCP), with a staff-uploaded .zip calendar export as the fallback, rendering the same grid.
+- ✅ Done when: a routine set by taps shows on the weekly grid and an approved visit lands on the calendar.
 
 **T4.5 — Staff screens (hours 10–14)**
 
 - Pick-a-resident screen.
-- Onboarding path: Essentials (2 min), Story, Routines timeline, progress indicator.
+- Onboarding path: Essentials (2 min), Routines/planner, timeline, progress indicator.
 - Coach chat: text and voice; every answer shows source badges ("In Marcus's words", "Staff note, Mar 3", "Pattern noticed").
 - Handoff list and add-observation form.
 - ✅ Done when: if a new staff member can complete Essentials and ask the Coach questions.
@@ -452,7 +456,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 - Stretch: manager view.
 - ✅ Done when: deck, video, Devpost and live URL done by hour 23.
 
-**Dependencies**: from T2 — mock endpoints (hour 1). From T1 — /speak (hour 4), Story agent client tool names (hour 6). From T3 — suggestion and Coach answer formats (hour 1).
+**Dependencies**: from T2 — mock endpoints (hour 1), book_staff_visit (hour 7). From T1 — /speak (hour 4), spoken planner-card format (hour 6). From T3 — suggestion, planner routine fields and Coach answer formats (hour 1).
 
 ## 8. Master schedule
 
@@ -462,10 +466,10 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 | 1–3 | T1.2 speak service | T2.2 seed data | T3.2 Voice agent | T4.2 Cloudinary, binder prompt |
 | 3–6 | T1.2 + T1.3 | T2.3 profile MCP | T3.2 testing + T3.3 Speak screen | T4.3 components, staff shell |
 | **6** | **MILESTONE 1** | **MILESTONE 1** | **MILESTONE 1** | **MILESTONE 1** |
-| 6–9 | T1.4 Story agent | T2.4 real routes, EMH (sleep 7–10) | T3.4 grid + questions, T3.5 chapter writer | T4.4 Coach agent + chat |
-| 9–12 | Sleep 9–12, then T1.5 narration | T2.4 continued | Sleep 9–12 | T4.4 onboarding, T4.5 Handoff screen |
+| 6–9 | T1.4 spoken planner proposals | T2.4 real routes, EMH (sleep 7–10) | T3.4 grid + routine fields, T3.5 planner subagent | T4.4 My Planner screens |
+| 9–12 | Sleep 9–12, then T1.5 booking readback | T2.4 continued | Sleep 9–12 | T4.4 planner screens, T4.5 Handoff screen |
 | **12** | **MILESTONE 2** | **MILESTONE 2** | **MILESTONE 2** | **MILESTONE 2** |
-| 12–14 | T1.5 narration, T1.6 Coach voice | T2.5 memory MCP | T3.6 Choice agent + screen | T4.6 memory core, then sleep 13–16 |
+| 12–14 | T1.5 booking readback, T1.6 Coach voice | T2.5 memory MCP | T3.6 Choice agent + screen | T4.6 memory core, then sleep 13–16 |
 | 14–16 | T1.7 spoken approvals | T2.6 actions MCP | T3.7 approval card, confirm, voice picker | (sleep) |
 | 16–18 | T1.8 latency | T2.7 Handoff, freeze | T3.8 accessibility pass | T4.6 finish + T4.7 Action agent, wiring |
 | **18** | **FEATURE FREEZE** | **FEATURE FREEZE** | **FEATURE FREEZE** | **FEATURE FREEZE** |
@@ -487,7 +491,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 
 **Milestone 2 (hour 12)**
 
-1. Run one Story chapter by taps only. Approve the draft. Hear narration.
+1. Set a routine by taps only ("meet staff 1:00p.m., 2h, every day"). See 1:00p.m.–3:00p.m. blocks on the weekly grid. Approve the booking; the staff visit lands on the calendar and the confirmation plays.
 2. Switch to staff (Jordan). Ask the Coach "What upsets Marcus?" Answer has a source badge.
 3. Ask something unknown. Coach says "I don't know, ask Marcus."
 

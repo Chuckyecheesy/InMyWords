@@ -26,6 +26,7 @@ import type {
   StoryChapter,
   Tile,
 } from "./types";
+import type { PlannerVisit, StaffOption } from "./planner";
 export type { AgentNote };
 export type ActionPlan = ActionPlanShape;
 import type { ServiceCategory, ServiceRequest, ServiceStatus } from "./services";
@@ -605,7 +606,7 @@ export async function savePhoto(input: {
 import type { InputEvent, InputProfile } from "./input/types";
 import { DEFAULT_PROFILE } from "./input/profile";
 
-/** Batched OUTCOME events from the input controller — never video. */
+/** Batched OUTCOME events from the input controller, never video. */
 export function postInputEvents(events: InputEvent[]) {
   return sendJson<{ saved: number }>("/input-events", { events });
 }
@@ -652,5 +653,273 @@ export async function getCustomGestures(residentId: string): Promise<TaughtGestu
     const label = item ? text(item.tile_label) : null;
     if (!item || !label || !Array.isArray(item.samples)) return [];
     return [{ tile_label: label, samples: item.samples as number[][] }];
+  });
+}
+
+// ---------- Records library (ROADMAP Phase 3) ----------
+
+export type ResidentRecord = {
+  id: number;
+  title: string;
+  category: string;
+  author: string | null;
+  doc_date: string | null;
+  uploaded_at: string;
+  body: string;
+};
+
+export async function getRecords(residentId: string): Promise<ResidentRecord[]> {
+  const raw = await fetchJson(`/records/${residentId}`);
+  const rows = list(raw, "records");
+  if (!rows) return [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    if (!item || typeof item.title !== "string") return [];
+    return [item as unknown as ResidentRecord];
+  });
+}
+
+export function addRecord(input: {
+  resident_id: string;
+  title: string;
+  body: string;
+  category: string;
+  author?: string;
+  doc_date?: string;
+}) {
+  return sendJson<{ ok: boolean; id: number }>("/records", input);
+}
+
+// ---------- Custom cards (ROADMAP Phase 4) ----------
+
+export function addTile(input: {
+  resident_id: string;
+  label: string;
+  cloudinary_id: string;
+  category?: string;
+}) {
+  return sendJson<{ ok: boolean; tile: Tile | null }>("/tiles", input);
+}
+
+export function setTileArchived(tileId: string | number, residentId: string, archived: boolean) {
+  return sendJson<{ ok: boolean; archived: boolean }>(`/tiles/${tileId}/archive`, {
+    resident_id: residentId,
+    archived,
+  });
+}
+
+/** Uncached resident fetch for client components that just mutated tiles. */
+export async function getResidentFresh(id: string): Promise<Resident | null> {
+  return normalizeResident(id, await fetchJson(`/residents/${encodeURIComponent(id)}`));
+}
+
+// ---------- My Planner (PROJECT_PLAN §2.5) ----------
+
+/** Who residents can choose when the planner API is not answering. */
+const SAMPLE_STAFF: StaffOption[] = [
+  { id: "sam", name: "Sam" },
+  { id: "jordan", name: "Jordan" },
+];
+
+function normalizeVisit(value: unknown): PlannerVisit | null {
+  const row = record(value);
+  const starts = text(row?.starts_at);
+  const ends = text(row?.ends_at);
+  if (!row || !starts || !ends) return null;
+  const source = row.source === "staff" || row.source === "inferred" ? row.source : "resident";
+  return {
+    id: typeof row.id === "number" ? row.id : null,
+    staff: text(row.staff) ?? "",
+    starts_at: starts,
+    ends_at: ends,
+    source,
+    label: text(row.label) ?? "",
+    approved: row.approved === true,
+    google_synced: row.google_synced === true,
+    read_only: row.read_only === true,
+    title: text(row.title) ?? undefined,
+    all_day: row.all_day === true,
+  };
+}
+
+function visitsOf(value: unknown): PlannerVisit[] | null {
+  return list(value, "visits")
+    ?.map(normalizeVisit)
+    .filter((v): v is PlannerVisit => v !== null) ?? null;
+}
+
+export type PlannerWeek = { visits: PlannerVisit[]; staff: StaffOption[] };
+
+export async function getPlanner(id: string): Promise<Result<PlannerWeek>> {
+  const raw = record(await fetchJson(`/planner/${encodeURIComponent(id)}`));
+  const visits = raw && !raw.error ? visitsOf(raw) : null;
+  if (raw && visits) {
+    const staff = (Array.isArray(raw.staff) ? raw.staff : [])
+      .map((s) => record(s))
+      .flatMap((s) => (s && text(s.id) && text(s.name) ? [{ id: text(s.id)!, name: text(s.name)! }] : []));
+    return { data: { visits, staff: staff.length ? staff : SAMPLE_STAFF }, origin: "api" };
+  }
+  return { data: { visits: [], staff: SAMPLE_STAFF }, origin: "sample" };
+}
+
+export type RoutineInput = {
+  resident_id: string;
+  person: string;
+  start: string;
+  length_min: number;
+  days?: string[] | null;
+  start_date?: string;
+};
+
+/** The server answers 200 with {"error"} or {"refused"} for planner refusals. */
+async function plannerCall(path: string, body: unknown): Promise<MutationResult<Record<string, unknown>>> {
+  const result = await sendJson<Record<string, unknown>>(path, body);
+  if (!result.ok) return result;
+  const data = record(result.data);
+  if (!data) return { ok: false, error: "The planner sent an empty answer." };
+  if (data.refused || data.error) return { ok: false, error: text(data.error) ?? "That was not allowed." };
+  return { ok: true, data };
+}
+
+/** The approval card's week preview. The server saves nothing (rule 1). */
+export async function previewRoutine(input: RoutineInput): Promise<MutationResult<PlannerVisit[]>> {
+  const result = await plannerCall("/planner/preview", input);
+  if (!result.ok) return result;
+  return { ok: true, data: visitsOf(result.data) ?? [] };
+}
+
+export async function saveRoutine(
+  input: RoutineInput,
+): Promise<MutationResult<{ routine_id: number; visits: PlannerVisit[] }>> {
+  const result = await plannerCall("/planner/routine", input);
+  if (!result.ok) return result;
+  const id = result.data.routine_id;
+  if (typeof id !== "number") return { ok: false, error: "The routine was not saved." };
+  return { ok: true, data: { routine_id: id, visits: visitsOf(result.data) ?? [] } };
+}
+
+export type Booking = {
+  visits: PlannerVisit[];
+  google_synced: boolean;
+  planner: string;
+};
+
+/** After approval: the Planner subagent puts the visits on staff's calendar. */
+export async function bookVisits(input: {
+  resident_id: string;
+  routine_id: number;
+  approved: boolean;
+}): Promise<MutationResult<Booking>> {
+  const result = await plannerCall("/planner/book", input);
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    data: {
+      visits: visitsOf(result.data) ?? [],
+      google_synced: result.data.google_synced === true,
+      planner: text(result.data.planner) ?? "rules",
+    },
+  };
+}
+
+/** Fallback: a staff .zip calendar export, shown read-only on the grid. */
+export async function importCalendarView(input: {
+  resident_id: string;
+  calendar_zip_b64: string;
+  /** First day of the window shown (the grid's Sunday); the server expands repeats into it. */
+  start_date?: string;
+  days?: number;
+}): Promise<MutationResult<PlannerVisit[]>> {
+  const result = await plannerCall("/planner/import", input);
+  if (!result.ok) return result;
+  return { ok: true, data: (visitsOf(result.data) ?? []).map((v) => ({ ...v, read_only: true })) };
+}
+
+// ---------- Accounts & privacy (ROADMAP Phase 2) ----------
+// Sessions are HTTP-only cookies set by the API; browser calls ride the
+// same-origin /backend proxy, so they flow without extra configuration.
+
+export type SessionUser = {
+  role: "resident" | "staff" | "manager";
+  resident_id: string | null;
+  staff_id: string | null;
+  display_name: string;
+};
+
+export type SessionInfo = {
+  mode: "open" | "required";
+  user: SessionUser | null;
+  assignments: string[];
+};
+
+export function login(loginId: string, secret: string) {
+  return sendJson<{ ok: boolean; user: SessionUser }>("/auth/login", {
+    login_id: loginId,
+    secret,
+  });
+}
+
+export function logout() {
+  return sendJson<{ ok: boolean }>("/auth/logout", {});
+}
+
+export async function getSession(): Promise<SessionInfo | null> {
+  const raw = record(await fetchJson("/auth/me"));
+  if (!raw) return null;
+  return raw as unknown as SessionInfo;
+}
+
+export async function getResidentLogins(): Promise<
+  { resident_id: string; display_name: string }[]
+> {
+  const raw = record(await fetchJson("/auth/residents"));
+  const rows = Array.isArray(raw?.residents) ? raw.residents : [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    if (!item || typeof item.resident_id !== "string") return [];
+    return [{ resident_id: item.resident_id, display_name: text(item.display_name) ?? item.resident_id }];
+  });
+}
+
+export function createResident(input: {
+  first_name: string;
+  pin: string;
+  home_id?: string;
+  communication_style?: string;
+  weekly_budget?: number | null;
+  staff_ids?: string[];
+}) {
+  return sendJson<{ ok: boolean; resident_id: string }>("/residents", input);
+}
+
+// ---------- Get staff help (ROADMAP Phase 6) ----------
+
+export type HelpRequest = {
+  id: number;
+  resident_id: string;
+  status: "open" | "acknowledged" | "done";
+  created_at: string;
+  acknowledged_by: string | null;
+  acknowledged_at: string | null;
+};
+
+export function requestHelp(residentId: string) {
+  return sendJson<{ ok: boolean; request: HelpRequest }>("/help", { resident_id: residentId });
+}
+
+export async function getHelpRequests(residentId?: string): Promise<HelpRequest[]> {
+  const query = residentId ? `?resident_id=${encodeURIComponent(residentId)}` : "";
+  const raw = record(await fetchJson(`/help${query}`));
+  const rows = Array.isArray(raw?.requests) ? raw.requests : [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    if (!item || typeof item.id !== "number") return [];
+    return [item as unknown as HelpRequest];
+  });
+}
+
+export function acknowledgeHelp(taskId: number, staffId: string) {
+  return sendJson<{ ok: boolean; request: HelpRequest }>(`/help/${taskId}/acknowledge`, {
+    staff_id: staffId,
   });
 }

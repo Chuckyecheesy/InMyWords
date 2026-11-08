@@ -10,7 +10,7 @@ Staff often meet a resident through a binder someone else wrote years ago. The n
 
 ## What it does
 
-A resident taps photo tiles. The app offers two or three short sentences from their own life. Nothing is spoken until they approve it. They can also answer story questions by tapping pictures, pick an outing and see what it costs, and confirm or reject a pattern the app noticed. Staff get a coach with a source on every fact, and a handoff of what changed since the last shift.
+A resident taps photo tiles. The app offers two or three short sentences from their own life. Nothing is spoken until they approve it. They can also set their own routine in a planner — "meet staff at 1:00 for 2 hours, every day" — and the app books that recurring staff visit on a shared calendar, pick an outing and see what it costs, and confirm or reject a pattern the app noticed. Staff get a coach with a source on every fact, and a handoff of what changed since the last shift.
 
 A choice is theirs, or it is "not decided yet." There is no "staff decided."
 
@@ -18,7 +18,7 @@ A choice is theirs, or it is "not decided yet." There is no "staff decided."
 
 - Next.js screens, tablet first, with 64px targets, large type, high contrast, and a long-press that speaks a button's name.
 - FastAPI in front of four MCP servers: profile, memory, actions, and a mock EMH record.
-- Gemini writes sentences, story lines, and consequence phrases. Code, not the model, does the budget math.
+- Gemini writes sentences, phrases the planner's visit proposals, and writes consequence phrases. Code, not the model, does the budget and recurrence math.
 - ElevenLabs speaks only after approval, and caches the line.
 - Tiger Data holds memories with a source and a time. Until a resident confirms a pattern, it stays labelled "pattern noticed."
 
@@ -28,7 +28,7 @@ Keeping the resident in charge meant every path had a gate: suggestions are not 
 
 ## Accomplishments
 
-Marcus can go from tiles to a spoken sentence, from a picture interview to a chapter, and from "bowling" to one approval card. Dana has the same screens with her own budget. The tea-versus-coffee contradiction stays a question until he taps yes.
+Marcus can go from tiles to a spoken sentence and from "bowling" to one approval card. Dana sets a routine and her 1:00p.m.–3:00p.m. staff visit books itself across the week — her call, on her calendar. The tea-versus-coffee contradiction stays a question until he taps yes.
 
 ## What's next
 
@@ -42,8 +42,8 @@ Built to enter these tracks:
 |---|---|
 | Overall | AAC, life story, and staff onboarding together |
 | Cloudinary Community Impact | One tile recipe so messy photos become the same kind of picture |
-| ElevenLabs | Three voices each for Marcus and Dana, narration, and spoken approvals |
-| Gemini | Sentence, story, choice, coach, memory, and action wording |
+| ElevenLabs | Three voices each for Marcus and Dana, and spoken approval cards |
+| Gemini | Sentence, planner, choice, coach, memory, and action wording; Google Calendar MCP |
 | Tiger Data | Memories with vectors, timestamps, and the action log |
 | Entire | The team's coding sessions |
 | GoDaddy | The project domain, pointed at the app with `DEPLOY_DOMAIN` |

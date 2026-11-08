@@ -279,7 +279,7 @@ def _clause(raw: str, name: str, use_name: bool) -> str:
         if note:
             evidence = _clause(note, name, use_name=False)
             if evidence:
-                line += f" — {evidence}"
+                line += f", {evidence}"
         return line
 
     if low.startswith("being rushed through breakfast"):
@@ -364,7 +364,7 @@ def _lead(kind: str, fact: dict, name: str) -> str:
     if kind == "emh":
         return "The EMH record says "
     if kind == "pattern":
-        return f"We've noticed a pattern, but {name} hasn't confirmed it yet — "
+        return f"We've noticed a pattern, but {name} hasn't confirmed it yet, "
     return ""
 
 
@@ -417,6 +417,6 @@ def coach_answer(facts: list[dict], name: str, question: str = "") -> str:
         clause = _clause(flagged["content"], name, use_name=False)
         year = _year(flagged)
         opener = f"The {year} record also says" if year else "An older record says"
-        warning = f"{opener} {clause}, but that may be out of date — it's worth asking {name}."
+        warning = f"{opener} {clause}, but that may be out of date, it's worth asking {name}."
         answer = f"{answer} {warning}".strip()
-    return answer or "I don't know — it's best to ask " + name + "."
+    return answer or "I don't know, it's best to ask " + name + "."

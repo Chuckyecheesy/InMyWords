@@ -1,7 +1,7 @@
 /**
  * JSON shapes the web app expects from the frozen API (docs/CONTRACTS.md).
  * Field names are snake_case so they match the Python backend.
- * A change here is a contract change — say so in team chat first.
+ * A change here is a contract change, say so in team chat first.
  */
 
 export type SourceType =

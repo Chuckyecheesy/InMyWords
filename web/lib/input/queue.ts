@@ -1,5 +1,5 @@
 /**
- * Outcome-event queue (GAZE_GESTURE_PLAN §4.5) — one event per outcome,
+ * Outcome-event queue (GAZE_GESTURE_PLAN §4.5), one event per outcome,
  * never per frame. Flush every 2s or at 20 events; beacon on page hide;
  * failed batches retry on the next flush (max 3 tries per batch).
  */

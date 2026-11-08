@@ -7,7 +7,7 @@ import { hasCameraConsent, setCameraConsent } from "@/lib/input/consent";
 import { useLongPress } from "./shared";
 
 /**
- * "Use my eyes and hands" — off by default, one tap off, visible indicator
+ * "Use my eyes and hands", off by default, one tap off, visible indicator
  * whenever the camera runs (GAZE_GESTURE_PLAN §5). Nothing camera-related
  * starts unless this is on.
  */
@@ -21,7 +21,7 @@ export function CameraConsent({
   onChange: (consent: boolean) => void;
 }) {
   // Server-rendered HTML must match the first client render, so consent
-  // starts false everywhere and localStorage is read AFTER hydration —
+  // starts false everywhere and localStorage is read AFTER hydration , 
   // reading it during render caused a hydration text mismatch.
   const [savedConsent, setSavedConsent] = useState({ residentId, consent: false });
   useEffect(() => {

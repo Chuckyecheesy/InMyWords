@@ -20,7 +20,7 @@ type WebGazerInstance = {
   recordScreenPosition(x: number, y: number, type: string): void;
   clearData(): Promise<void>;
   removeMouseEventListeners(): void;
-  params: { faceMeshSolutionPath: string };
+  params: { faceMeshSolutionPath: string; camConstraints?: MediaStreamConstraints };
 };
 
 let webgazer: WebGazerInstance | null = null;
@@ -47,6 +47,21 @@ export async function resetForResident(id: string): Promise<void> {
 export function completeCalibration(id: string): void {
   if (resident === id) calibrated = true;
 }
+
+export function cameraStartMessage(error: unknown): string {
+  const name = error instanceof DOMException || error instanceof Error ? error.name : "";
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Allow the camera for this site in the address bar, then try again.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No camera was found on this device.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError") {
+    return "The camera is busy in another app or tab. Close it, then try again.";
+  }
+  return "The camera could not start. Reload the page and try again.";
+}
+
 
 async function loadWebGazer(): Promise<WebGazerInstance> {
   const w = window as unknown as { webgazer?: WebGazerInstance };
@@ -110,6 +125,7 @@ export function startGaze(residentId: string): Promise<void> {
     if (token !== generation) throw new Error("Camera start cancelled.");
     webgazer = instance;
     instance.params.faceMeshSolutionPath = "/models/mediapipe/face_mesh";
+    instance.params.camConstraints = { video: true, audio: false };
     instance.saveDataAcrossSessions(false);
     if (resident !== residentId) {
       releaseCamera(running ? instance : null);

@@ -932,10 +932,6 @@ textarea {
   font-size: var(--text-small);
 }
 
-.entry-preview-tile:first-child {
-  border-color: var(--accent);
-}
-
 .entry-preview-photo {
   position: relative;
   display: block;
@@ -5168,6 +5164,932 @@ textarea {
 .entry-stage .kicker {
   color: var(--stage-kicker, #d9efe9);
 }
+
+/* The real brand icon carries its own bubble — no chip behind it. */
+.wordmark-mark[data-brand] {
+  background: transparent;
+  border-radius: 0;
+}
+
+.wordmark-mark[data-brand] img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Full logo on the pitch stage (dark variant). */
+.pitch-logo {
+  height: 44px;
+  width: auto;
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+[data-theme="contrast"] .pitch-logo-dark { display: none; }
+.pitch-logo-light { display: none; }
+[data-theme="contrast"] .pitch-logo-light { display: block; }
+
+/* Playable entry preview: tiles are buttons now. */
+button.entry-preview-tile {
+  cursor: pointer;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  font: inherit;
+  font-weight: 700;
+}
+
+button.entry-preview-tile[aria-pressed="true"] {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-soft);
+}
+
+button.entry-preview-play {
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font: inherit;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+}
+
+button.entry-preview-play:disabled { opacity: 0.6; }
+
+/* Compact source disclosure on Coach answers. */
+.sources-disclosure summary {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--ink-2);
+  list-style: none;
+}
+
+.sources-disclosure summary::-webkit-details-marker { display: none; }
+
+.sources-disclosure summary::before {
+  content: "▸";
+  transition: transform var(--dur-1) var(--ease);
+}
+
+.sources-disclosure[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.sources-disclosure[open] {
+  padding-bottom: var(--space-2);
+}
+
+/* Records library. */
+.records-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 var(--space-3);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  min-height: 52px;
+  flex: 1;
+  max-width: 420px;
+}
+
+.records-search input {
+  border: none;
+  background: transparent;
+  font: inherit;
+  width: 100%;
+  min-height: 48px;
+  outline: none;
+}
+
+.record-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.record-title { font-weight: 800; }
+.record-date { color: var(--ink-3); font-size: 0.95rem; margin-left: auto; }
+
+.record-body {
+  border-top: 1px solid var(--line);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  color: var(--ink-2);
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.field input,
+.field select,
+.field textarea {
+  font: inherit;
+  padding: 12px var(--space-3);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  min-height: 52px;
+}
+
+.field textarea { min-height: 120px; }
+
+/* My cards (Phase 4). */
+.card-manage {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+}
+
+.card-label-input {
+  font: inherit;
+  font-size: 1.6rem;
+  font-weight: 800;
+  text-align: center;
+  padding: 14px var(--space-4);
+  border: 2px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  min-height: 64px;
+  width: min(420px, 100%);
+}
+
+.photo-pool {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: var(--space-3);
+}
+
+.photo-pool-item {
+  border: 2px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  padding: 6px;
+  cursor: pointer;
+  min-height: 110px;
+}
+
+.photo-pool-item[aria-pressed="true"] {
+  border-color: var(--accent);
+  outline: 3px solid var(--accent-soft);
+}
+
+.photo-pool-item img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: calc(var(--radius-2) - 4px);
+}
+
+.card-preview {
+  max-width: 220px;
+}
+
+/* Letter board (Phase 4 typing mode). */
+.speak-modes {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.typed-strip .typed-text {
+  font-size: 1.8rem;
+  font-weight: 800;
+  min-height: 2.4rem;
+  margin: 0 0 var(--space-3);
+  overflow-wrap: anywhere;
+}
+
+.letter-board {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.letter-row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.letter-key {
+  flex: 1;
+  min-width: 64px;
+  min-height: 72px;
+  font: inherit;
+  font-size: 1.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.letter-key:active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+/* ---------- My Planner (PROJECT_PLAN §2.5) ---------- */
+
+.feature-card[data-tone="planner"] {
+  --art-bg: var(--sage-soft);
+}
+
+.planner {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.planner-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.planner-head h1 {
+  margin: 0;
+}
+
+/* Calendar week: hour scale + seven day columns, events placed by time.
+   Sunday to Saturday, the same layout every week. */
+.planner-range {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-body);
+  color: var(--ink-2);
+}
+
+.cal {
+  --cal-hour-h: 64px;     /* one hour; >= the tap floor */
+  --cal-gutter: 92px;
+  --cal-col-min: 128px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: var(--stroke) solid var(--line-strong);
+  /* Its own scroll area, so the day names and hour scale stay in view.
+     Narrow portrait tablets also scroll sideways rather than squash. */
+  max-height: max(480px, calc(100vh - 300px));
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.cal:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.cal-head,
+.cal-allday,
+.cal-body {
+  display: grid;
+  grid-template-columns: var(--cal-gutter) repeat(7, minmax(var(--cal-col-min), 1fr));
+  min-width: calc(var(--cal-gutter) + 7 * var(--cal-col-min));
+}
+
+.cal-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  border-bottom: var(--stroke) solid var(--line-strong);
+}
+
+.cal-dayhead {
+  display: grid;
+  justify-items: center;
+  padding: var(--space-3) var(--space-2);
+  border-left: var(--stroke) solid var(--line);
+}
+
+.cal-weekday {
+  font-size: var(--text-body);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.cal-date {
+  display: inline-grid;
+  place-items: center;
+  min-width: 48px;
+  height: 48px;
+  border-radius: var(--r-pill);
+  font-size: var(--text-h3);
+  font-weight: 700;
+}
+
+.cal-dayhead[data-today] .cal-weekday {
+  color: var(--accent-strong);
+}
+
+.cal-dayhead[data-today] .cal-date {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.cal-allday {
+  border-bottom: var(--stroke) solid var(--line-strong);
+}
+
+.cal-allday-cell {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-left: var(--stroke) solid var(--line);
+}
+
+.cal-gutter {
+  display: grid;
+  grid-auto-rows: var(--cal-hour-h);
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.cal-head .cal-gutter {
+  z-index: 3;
+}
+
+.cal-hour {
+  padding: 0 var(--space-2);
+  font-size: var(--text-small);  /* 22px floor, like all resident text */
+  color: var(--ink-3);
+  text-align: right;
+  transform: translateY(-0.6em);
+}
+
+.cal-allday .cal-hour {
+  align-self: center;
+  transform: none;
+}
+
+/* The ol keeps days as a list for screen readers; visually, seven columns. */
+.cal-days {
+  grid-column: 2 / -1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(var(--cal-col-min), 1fr));
+}
+
+.cal-day {
+  position: relative;
+  min-width: 0;
+  height: calc(var(--cal-hours) * var(--cal-hour-h));
+  border-left: var(--stroke) solid var(--line);
+  /* hour lines */
+  background-image: linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: 100% var(--cal-hour-h);
+}
+
+.cal-day[data-today] {
+  background-color: var(--accent-softer);
+}
+
+.visit-block {
+  /* Column, not grid: in a fixed-height grid an overflow:hidden row can
+     collapse to 0px and lose "Meeting with Sam". Time and what never shrink;
+     only the trailing label is clipped when the block is short. */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--r-sm);
+  background: var(--src-resident-bg);
+  color: var(--src-resident);
+  border-left: 5px solid var(--src-resident);
+  font-size: var(--text-body);
+  line-height: 1.2;
+  overflow: hidden;
+}
+
+.cal-event {
+  position: absolute;
+  box-sizing: border-box;
+  min-height: 30px;
+  /* a hairline gap between side-by-side and stacked events */
+  border-right: 2px solid var(--surface);
+  border-bottom: 2px solid var(--surface);
+}
+
+.cal-chip {
+  position: static;
+  display: block;
+  padding: 4px var(--space-2);
+  border-radius: var(--r-xs);
+  background: var(--src-staff-bg);
+  color: var(--src-staff);
+  font-size: var(--text-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Imported staff hours: shown, never booked — drawn differently on purpose. */
+.visit-block[data-kind="imported"] {
+  background: var(--src-staff-bg);
+  color: var(--src-staff);
+  border-left: 5px dashed var(--src-staff);
+}
+
+.visit-time,
+.visit-block .visit-what {
+  flex-shrink: 0;
+}
+
+.visit-time {
+  font-size: var(--text-body);
+}
+
+/* "12:00a.m.–" and "6:00a.m." never break inside; the range wraps after the dash. */
+.visit-time > span {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+/* The first label sits on the top edge instead of being nudged above it. */
+.cal-body .cal-gutter .cal-hour:first-child {
+  transform: none;
+}
+
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin: 0;
+  font-size: var(--text-body);
+  color: var(--ink-2);
+}
+
+.cal-swatch {
+  display: inline-block;
+  width: 28px;
+  height: 22px;
+  border-radius: var(--r-xs);
+  background: var(--src-resident-bg);
+  border-left: 5px solid var(--src-resident);
+}
+
+.cal-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.visit-synced-icon {
+  margin-left: 6px;
+  vertical-align: -3px;
+}
+
+.cal-swatch[data-kind="imported"] {
+  background: var(--src-staff-bg);
+  border-left: 5px dashed var(--src-staff);
+}
+
+.visit-what {
+  color: var(--ink);
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+/* Under an hour: one line, start time + what; the full range is in aria-label. */
+.visit-block[data-short] {
+  flex-direction: row;
+  gap: var(--space-2);
+  padding-top: 2px;
+  padding-bottom: 2px;
+  white-space: nowrap;
+}
+
+.visit-block[data-short] .visit-what {
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.visit-label,
+.visit-synced {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+}
+
+.visit-synced {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+[data-theme="contrast"] .cal,
+[data-theme="contrast"] .cal-day {
+  border-color: #000;
+}
+
+.planner-question {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.planner-question h2 {
+  margin: 0;
+  font-size: var(--text-h2);
+}
+
+.planner-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.planner-choice {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: var(--tap-large);
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--r-lg);
+  border: var(--stroke-strong) solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-lead);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.planner-choice:hover {
+  border-color: var(--accent);
+}
+
+.planner-choice[aria-pressed="true"],
+.planner-choice[data-primary] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.planner-choice:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.planner-monogram {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-pill);
+  background: var(--cat-people);
+  color: var(--sage-ink);
+  font-weight: 700;
+}
+
+.planner-preview {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-body);
+}
+
+.planner-preview li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+
+.planner-staff {
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--r-lg);
+  border: var(--stroke) dashed var(--line-strong);
+  font-size: var(--text-body);
+}
+
+.planner-staff summary {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+[data-theme="contrast"] .planner-day,
+[data-theme="contrast"] .planner-choice {
+  border: 3px solid #000;
+}
+
+[data-theme="contrast"] .visit-block {
+  background: #fff;
+  color: #000;
+  border-left-color: #000;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .planner-approval .cancel-window {
+    animation: none;
+  }
+}
+
+/* ---------- Accounts & privacy (ROADMAP Phase 2) ---------- */
+
+.login-shell {
+  min-height: 100dvh;
+  display: grid;
+  place-items: start center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--surface);
+}
+
+.login-page {
+  width: min(560px, 100%);
+}
+
+.login-people {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-3);
+}
+
+.login-person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 112px;
+  padding: var(--space-3);
+  border: 2px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-person:hover,
+.login-person:focus-visible {
+  border-color: var(--accent);
+}
+
+.pin-dots {
+  font-size: 2rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+  margin: var(--space-2) 0;
+}
+
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: var(--space-2);
+  max-width: 320px;
+  margin: 0 auto;
+}
+
+.pin-key {
+  min-height: 72px;
+  min-width: 64px;
+  font-size: 1.75rem;
+  font-weight: 700;
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.pin-key:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.pin-key:not(:disabled):hover,
+.pin-key:focus-visible {
+  border-color: var(--accent);
+}
+
+.pin-go {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.login-staff {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.session-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: var(--surface);
+}
+
+.session-guard .setup-card {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  max-width: 480px;
+}
+
+.s-user .btn {
+  margin-left: auto;
+}
+
+.new-resident .check-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.05rem;
+  padding: var(--space-1) 0;
+}
+
+.new-resident .check-row input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--accent);
+}
+
+.new-resident select,
+.new-resident textarea {
+  font: inherit;
+  padding: var(--space-2);
+  border: 2px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card);
+  color: inherit;
+}
+
+/* Keep the picture-to-speech path primary; reveal optional tools on request. */
+.speak-intro {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.speak-intro h1 {
+  font-size: var(--text-h2);
+}
+
+.speak-disclosure {
+  border: var(--stroke) solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.speak-disclosure > summary {
+  min-height: 64px;
+  padding: 16px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.speak-disclosure[open] > :not(summary) {
+  margin: 0 16px 16px;
+}
+
+.speak .composer-actions {
+  flex-wrap: wrap;
+}
+
+.speak .composer-actions > .big-button {
+  order: -1;
+  flex: 1;
+}
+
+.speak-extra-actions {
+  flex-basis: 100%;
+}
+
+.speak-time {
+  flex-shrink: 0;
+}
+
+/* ---------- Advanced access & staff help (ROADMAP Phase 6) ---------- */
+
+.help-fab {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 55;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 64px;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--r-pill, 999px);
+  border: 2px solid var(--accent);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 1.15rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgb(0 0 0 / 0.14);
+}
+
+.help-fab:hover,
+.help-fab:focus-visible {
+  background: var(--accent);
+  color: #fff;
+}
+
+.help-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgb(0 0 0 / 0.45);
+}
+
+.help-card {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: stretch;
+  text-align: center;
+  width: min(480px, 100%);
+}
+
+.urgent-banner {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: #7c2d12;
+  color: #fff;
+}
+
+.urgent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: 1.1rem;
+}
+
+.urgent-row strong {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* One-finger mode: wider spacing + bigger targets, same layout everywhere. */
+html[data-touch="onefinger"] .tile-grid,
+html[data-touch="onefinger"] .letter-board .letter-row,
+html[data-touch="onefinger"] .pin-pad {
+  gap: var(--space-4);
+}
+
+html[data-touch="onefinger"] .letter-key {
+  min-width: 84px;
+  min-height: 92px;
+  font-size: 2rem;
+}
+
+html[data-touch="onefinger"] .btn[data-size="lg"],
+html[data-touch="onefinger"] .btn[data-size="xl"] {
+  min-height: 80px;
+  padding-inline: var(--space-4);
+}
+
+html[data-touch="onefinger"] .pin-key {
+  min-height: 88px;
+}
+
 /* Category-level communication: large pictures, explicit review, visible input. */
 .service-page { max-width: 1120px; margin-inline: auto; }
 .service-page h1:focus { outline: none; }

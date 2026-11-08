@@ -147,7 +147,7 @@ export function GazeTileGrid({
                 }}
                 aria-label={tile.label}
                 onClick={() => {
-                  // Touch always works too — same flow, logged as touch upstream.
+                  // Touch always works too, same flow, logged as touch upstream.
                   if (tile.id === PAUSE_TILE.id) {
                     controller.pause();
                     setPaused(true);

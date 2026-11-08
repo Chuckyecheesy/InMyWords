@@ -7,7 +7,7 @@ import type { InputProfile } from "@/lib/input/types";
 import { SourceChip } from "./SourceChip";
 
 /**
- * "How {name} communicates" (GAZE_GESTURE_PLAN G7) — top of Essentials.
+ * "How {name} communicates" (GAZE_GESTURE_PLAN G7), top of Essentials.
  * Template sentences from the input profile; labelled as input history,
  * never presented as the resident's own words.
  */

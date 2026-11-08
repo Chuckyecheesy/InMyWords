@@ -6,7 +6,7 @@ import { Camera, HandMetal, Sparkles } from "lucide-react";
 import { getCustomGestures, saveCustomGesture } from "@/lib/api";
 import { hasCameraConsent } from "@/lib/input/consent";
 import { normalizeLandmarks, type GestureSample } from "@/lib/input/custom-gestures";
-import { startGaze, stopGaze } from "@/lib/input/gaze";
+import { cameraStartMessage, startGaze, stopGaze } from "@/lib/input/gaze";
 import {
   latestLandmarks,
   onCustomGesture,
@@ -21,7 +21,7 @@ const SAMPLES_NEEDED = 5;
 
 /**
  * G8 teach screen: pick a tile, hold your hand shape, capture 5 samples,
- * then try it live. Landmarks only — never video. The taught gesture
+ * then try it live. Landmarks only, never video. The taught gesture
  * selects its tile and still goes through the normal confirmation flow.
  */
 export function TeachGesture({ resident }: { resident: Resident }) {
@@ -32,6 +32,7 @@ export function TeachGesture({ resident }: { resident: Resident }) {
   const [message, setMessage] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [tryHits, setTryHits] = useState<string[]>([]);
+  const [cameraAttempt, setCameraAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,10 +47,16 @@ export function TeachGesture({ resident }: { resident: Resident }) {
       try {
         await startGaze(resident.id);
         if (cancelled) return;
+        setCameraOn(true);
+        setMessage(null);
+      } catch (error) {
+        if (!cancelled) setMessage(cameraStartMessage(error));
+        return;
+      }
+      try {
         await startGestures();
-        if (!cancelled) setCameraOn(true);
       } catch {
-        if (!cancelled) setMessage("The camera could not start. Check permissions and HTTPS.");
+        if (!cancelled) setMessage("The camera is on, but hand tracking did not start. Tap Try again.");
       }
     })();
     return () => {
@@ -57,7 +64,7 @@ export function TeachGesture({ resident }: { resident: Resident }) {
       stopGestures();
       stopGaze();
     };
-  }, [consent, resident.id]);
+  }, [consent, resident.id, cameraAttempt]);
 
   useEffect(() => {
     if (!saved) return;
@@ -74,7 +81,7 @@ export function TeachGesture({ resident }: { resident: Resident }) {
     }
     const normalized = normalizeLandmarks(landmarks);
     if (!normalized) {
-      setMessage("That frame didn't work — try again.");
+      setMessage("That frame didn't work, try again.");
       return;
     }
     setMessage(null);
@@ -183,7 +190,7 @@ export function TeachGesture({ resident }: { resident: Resident }) {
               </span>
             ))}
           </div>
-          {!cameraOn ? <p className="note">Starting camera…</p> : null}
+          {!cameraOn && !message ? <p className="note">Starting camera…</p> : null}
           {message ? <p className="note">{message}</p> : null}
           <div className="setup-actions">
             <button type="button" className="btn" data-variant="primary" data-size="xl" onClick={capture} disabled={!cameraOn}>
@@ -200,6 +207,20 @@ export function TeachGesture({ resident }: { resident: Resident }) {
             >
               Save gesture
             </button>
+            {!cameraOn ? (
+              <button
+                type="button"
+                className="btn"
+                data-variant="soft"
+                data-size="lg"
+                onClick={() => {
+                  setMessage(null);
+                  setCameraAttempt((attempt) => attempt + 1);
+                }}
+              >
+                Try again
+              </button>
+            ) : null}
             <button type="button" className="btn" data-variant="ghost" data-size="lg" onClick={() => { setTile(null); reset(); }}>
               Start over
             </button>

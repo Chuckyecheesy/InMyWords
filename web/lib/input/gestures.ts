@@ -1,6 +1,6 @@
 /**
  * MediaPipe Gesture Recognizer wrapper (GAZE_GESTURE_PLAN G4).
- * VIDEO mode, 1 hand, reading WebGazer's video element — ONE shared camera
+ * VIDEO mode, 1 hand, reading WebGazer's video element, ONE shared camera
  * stream, never a second getUserMedia. Client-side dynamic import only.
  * All processing stays on the device.
  */
@@ -54,11 +54,27 @@ export async function startGestures(): Promise<void> {
   } catch {
     fileset = await vision.FilesetResolver.forVisionTasks(WASM_CDN);
   }
-  const created = await vision.GestureRecognizer.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
-    runningMode: "VIDEO",
+  let created;
+  // WebGazer's face-mesh build leaves an Emscripten `Module` on window.
+  // GestureRecognizer reads `Module.noExitRuntime`, and that getter aborts
+  // the face-mesh runtime. Replace the global before the recognizer
+  // instantiates its own wasm. Face mesh keeps the object it closed over.
+  const host = window as unknown as { Module?: unknown };
+  host.Module = undefined;
+  const options = {
+    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" as const },
+    runningMode: "VIDEO" as const,
     numHands: 1,
-  });
+  };
+  try {
+    created = await vision.GestureRecognizer.createFromOptions(fileset, options);
+  } catch {
+    // Some machines have no usable GPU delegate. CPU still reads the same camera.
+    created = await vision.GestureRecognizer.createFromOptions(fileset, {
+      ...options,
+      baseOptions: { ...options.baseOptions, delegate: "CPU" },
+    });
+  }
   if (token !== generation) { created.close(); return; }
   recognizer = created;
   detector = new GestureDetector();
@@ -78,7 +94,7 @@ export function stopGestures(): void {
 
 /**
  * Screens that accept gestures subscribe; everywhere else nothing listens
- * (§4.4 — gestures are ignored on screens that don't opt in).
+ * (§4.4, gestures are ignored on screens that don't opt in).
  */
 export function onGesture(cb: (fired: FiredGesture) => void): () => void {
   listeners.add(cb);
@@ -99,7 +115,7 @@ export function onCustomGesture(cb: (tileLabel: string) => void): () => void {
   return () => customListeners.delete(cb);
 }
 
-/** Latest frame's 21 hand landmarks — the teach screen captures these. */
+/** Latest frame's 21 hand landmarks, the teach screen captures these. */
 export function latestLandmarks(): Landmark[] | null {
   return lastLandmarks;
 }

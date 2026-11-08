@@ -320,7 +320,7 @@ def to_markdown(report: dict) -> str:
             if finding["group"] != current:
                 current = finding["group"]
                 lines.extend(["", f"### {GROUP_TITLES[current]}", ""])
-            lines.append(f"- `{finding['selector']}` — {finding['summary']} {finding['fix']}".rstrip())
+            lines.append(f"- `{finding['selector']}`, {finding['summary']} {finding['fix']}".rstrip())
     if report.get("truncated", {}).get("contrast_capped"):
         lines.extend([
             "",
@@ -358,7 +358,7 @@ def _aggregate_markdown(ratio, reports: list[dict]) -> str:
     ]
     for report in reports:
         if report.get("error"):
-            lines.append(f"- {report.get('url')}: error — {report['error']}")
+            lines.append(f"- {report.get('url')}: error, {report['error']}")
         else:
             lines.append(f"- {report.get('url')}: {report.get('ratio')}")
     lines.extend(["", "## Disclaimer", "", DISCLAIMER, ""])

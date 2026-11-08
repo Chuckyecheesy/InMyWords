@@ -105,6 +105,19 @@ if profile and profile.get("events_counted"):
     else:
         print("  ok   profile matches the worked example (gaze, Thumb_Up, ~1045ms, evening note)")
 
+print("records library (Phase 3)")
+hit("POST", "/records",
+    {"resident_id": "marcus", "title": "Swim program intake",
+     "body": "Marcus joined the Monday swim program. Prefers the quiet early slot.",
+     "category": "update", "author": "Sam", "doc_date": "2026-11-08"}, ("ok",))
+library = hit("GET", "/records/marcus", expect_keys=("records",))
+if library:
+    titles = [r.get("title") for r in library.get("records", [])]
+    if "Swim program intake" not in titles:
+        failures.append("records roundtrip: added record not returned")
+    if "Resident Information Binder" not in titles:
+        failures.append("records seed: binder document missing from library")
+
 print("custom gestures (G8)")
 sample = [round(0.01 * i, 4) for i in range(63)]
 hit("POST", "/custom-gestures",
@@ -112,6 +125,92 @@ hit("POST", "/custom-gestures",
 taught = hit("GET", "/custom-gestures/marcus", expect_keys=("gestures",))
 if taught and not any(g.get("tile_label") == "go outside" for g in taught.get("gestures", [])):
     failures.append("custom-gestures roundtrip: saved gesture not returned")
+
+print("my cards (Phase 4)")
+made = hit("POST", "/tiles",
+           {"resident_id": "marcus", "label": "smoke test card",
+            "cloudinary_id": "tile_music", "category": "my cards"}, ("ok",))
+tile_id = ((made or {}).get("tile") or {}).get("id")
+if tile_id:
+    resident = hit("GET", "/residents/marcus", expect_keys=("tiles",))
+    labels = [t.get("label") for t in (resident or {}).get("tiles", [])]
+    if "smoke test card" not in labels:
+        failures.append("tiles roundtrip: new card missing from resident tiles")
+    hit("POST", f"/tiles/{tile_id}/archive", {"resident_id": "marcus", "archived": True}, ("ok",))
+    resident = hit("GET", "/residents/marcus", expect_keys=("tiles",))
+    labels = [t.get("label") for t in (resident or {}).get("tiles", [])]
+    if "smoke test card" in labels:
+        failures.append("tiles archive: archived card still returned")
+    else:
+        print("  ok   card added, then archived out of the grid")
+else:
+    failures.append("tiles create: no tile_id returned")
+
+print("accounts & privacy (Phase 2)")
+import urllib.error  # noqa: E402
+
+
+def raw(method, path, body=None, cookie=None):
+    """Like hit() but returns (status, payload, set_cookie) and treats 4xx as data."""
+    data = json.dumps(body).encode() if body is not None else None
+    headers = {"Content-Type": "application/json"}
+    if cookie:
+        headers["Cookie"] = cookie
+    req = urllib.request.Request(BASE + path, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return resp.status, json.loads(resp.read().decode()), resp.headers.get("Set-Cookie", "")
+    except urllib.error.HTTPError as exc:
+        return exc.code, {}, ""
+
+
+def expect(name, got, want):
+    if got == want:
+        print(f"  ok   {name}")
+    else:
+        failures.append(f"{name}: expected {want}, got {got}")
+        print(f"  FAIL {name} — expected {want}, got {got}")
+
+
+status, _, _ = raw("POST", "/auth/login", {"login_id": "dana", "secret": "9999"})
+expect("wrong PIN rejected", status, 401)
+
+status, _, dana_cookie = raw("POST", "/auth/login", {"login_id": "dana", "secret": "2468"})
+expect("resident login (dana)", status, 200)
+dana_cookie = dana_cookie.split(";")[0]
+status, _, _ = raw("GET", "/residents/dana", cookie=dana_cookie)
+expect("dana reads her own page", status, 200)
+status, _, _ = raw("GET", "/residents/marcus", cookie=dana_cookie)
+expect("dana blocked from marcus (403)", status, 403)
+status, _, _ = raw("GET", "/records/marcus", cookie=dana_cookie)
+expect("dana blocked from marcus records (403)", status, 403)
+
+status, _, jordan_cookie = raw("POST", "/auth/login",
+                               {"login_id": "jordan@inmywords.demo", "secret": "bluejay-demo"})
+expect("staff login (jordan)", status, 200)
+jordan_cookie = jordan_cookie.split(";")[0]
+status, _, _ = raw("GET", "/residents/marcus", cookie=jordan_cookie)
+expect("jordan reads assigned resident", status, 200)
+status, _, _ = raw("GET", "/residents/dana", cookie=jordan_cookie)
+expect("jordan blocked from unassigned resident (403)", status, 403)
+
+print("get staff help (Phase 6)")
+status, made, _ = raw("POST", "/help", {"resident_id": "marcus"})
+expect("resident requests help", status, 200)
+help_id = (made.get("request") or {}).get("id")
+if help_id:
+    status, mine, _ = raw("GET", "/help?resident_id=marcus")
+    open_ids = [r["id"] for r in mine.get("requests", [])]
+    expect("request visible to the resident", help_id in open_ids, True)
+    status, _, _ = raw("GET", "/help", cookie=dana_cookie)
+    expect("residents cannot read the staff banner (403)", status, 403)
+    status, acked, _ = raw("POST", f"/help/{help_id}/acknowledge",
+                           {"staff_id": "jordan"}, cookie=jordan_cookie)
+    expect("staff acknowledges", status, 200)
+    expect("acknowledged by jordan",
+           (acked.get("request") or {}).get("acknowledged_by"), "jordan")
+else:
+    failures.append("help request: no id returned")
 
 print("staff")
 hit("GET", "/handoff?staff_id=jordan&resident_id=marcus", expect_keys=("items",))

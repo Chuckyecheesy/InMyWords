@@ -29,7 +29,7 @@ MARCUS_BINDER_FACTS = [
     {
         "type": "preference",
         "content": "Sister Lisa is his primary contact",
-        "evidence": "Lisa (sister) — primary contact. Calls Sunday evenings; visits monthly.",
+        "evidence": "Lisa (sister), primary contact. Calls Sunday evenings; visits monthly.",
     },
     {
         "type": "preference",
@@ -53,7 +53,7 @@ MARCUS_BINDER_FACTS = [
         "evidence": (
             "He communicates with single words, gestures, and a small set of "
             "picture cards kept in the kitchen drawer. He understands far more "
-            "than he says — speak to him normally, not slowly."
+            "than he says, speak to him normally, not slowly."
         ),
     },
     {

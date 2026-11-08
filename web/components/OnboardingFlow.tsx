@@ -233,7 +233,7 @@ export function OnboardingFlow({
                 <span aria-hidden="true">
                   <Hourglass size={18} />
                 </span>
-                Wait. There are no time limits — don&apos;t finish {name}&apos;s sentences.
+                Wait. There are no time limits, don&apos;t finish {name}&apos;s sentences.
               </li>
               <li>
                 <span aria-hidden="true">
@@ -250,7 +250,7 @@ export function OnboardingFlow({
             <div className="step-head">
               <p className="eyebrow">Step 3 · About 2 minutes</p>
               <h2 id="step-title">Routines &amp; preferences</h2>
-              <p>Every fact shows where it came from. Records from 2021 may be out of date — check with {name}.</p>
+              <p>Every fact shows where it came from. Records from 2021 may be out of date, check with {name}.</p>
             </div>
             <h3>Routines</h3>
             <FactList items={profile.routines} name={name} />
@@ -266,7 +266,7 @@ export function OnboardingFlow({
               <div className="callout" data-tone="info">
                 <Badge tone="pattern" label="Pattern noticed" />
                 <div className="callout-body">
-                  {profile.pending[0].text} Not confirmed by {name} yet — offer both options.
+                  {profile.pending[0].text} Not confirmed by {name} yet, offer both options.
                 </div>
               </div>
             ) : null}

@@ -1,4 +1,4 @@
-"""resident-profile MCP server (BUILD_PLAN T2.3) — 8 tools.
+"""resident-profile MCP server (BUILD_PLAN T2.3), 8 tools.
 
 Run:  python mcp/profile_server.py          (streamable HTTP on :8101)
 
@@ -8,7 +8,7 @@ sentence writer in api/agents/voice.py (text only, same output shape).
 
 from fastmcp import FastMCP
 
-from store import get_store, source_label
+from store import get_store, source_label, visit_view
 
 mcp = FastMCP("resident-profile")
 
@@ -135,7 +135,7 @@ def save_story_chapter(resident: str, chapter: str, text: str, photos: list[str]
 
 @mcp.tool
 def ask_about(resident: str, question: str) -> dict:
-    """Retrieval only — returns matching facts with source + date + label.
+    """Retrieval only, returns matching facts with source + date + label.
     William's Coach agent does the wording; if facts is empty the Coach
     must answer 'I don't know, ask <name>'."""
     store = get_store()
@@ -192,7 +192,7 @@ def suggest_sentence(resident: str, tiles: list[str], time_of_day: str = "") -> 
 
 @mcp.tool
 def log_sentence(resident: str, sentence: str, approved: bool, tiles: list[str] | None = None) -> dict:
-    """Record a spoken (or rejected) sentence. approved=False is still logged —
+    """Record a spoken (or rejected) sentence. approved=False is still logged , 
     rejections teach the memory layer too."""
     store = get_store()
     sentence_id = store.log_sentence(resident, tiles or [], sentence, approved)
@@ -201,7 +201,7 @@ def log_sentence(resident: str, sentence: str, approved: bool, tiles: list[str] 
 
 @mcp.tool
 def log_choice(resident: str, options: list[dict], chosen: str | None = None, question: str = "") -> dict:
-    """Record a choice. chosen=None means 'not decided yet' — there is NO
+    """Record a choice. chosen=None means 'not decided yet', there is NO
     'staff decided' path, by design."""
     store = get_store()
     status = "chosen" if chosen else "not_yet_decided"
@@ -212,7 +212,7 @@ def log_choice(resident: str, options: list[dict], chosen: str | None = None, qu
 @mcp.tool
 def get_observations(resident: str, since: str = "") -> dict:
     """Staff observations for a resident, optionally since an ISO timestamp.
-    (Additive read tool — the Handoff agent needs it.)"""
+    (Additive read tool, the Handoff agent needs it.)"""
     store = get_store()
     rows = store.get_observations(resident, since or None)
     return {"observations": [{"staff": o["staff_id"], "note": o["note"],
@@ -222,7 +222,7 @@ def get_observations(resident: str, since: str = "") -> dict:
 @mcp.tool
 def get_choices(resident: str, since: str = "") -> dict:
     """Choices with status, optionally since an ISO timestamp.
-    (Additive read tool — the Handoff agent needs it.)"""
+    (Additive read tool, the Handoff agent needs it.)"""
     store = get_store()
     rows = store.get_choices(resident, since or None)
     return {"choices": [{"chosen": c["chosen"], "status": c["status"],
@@ -231,8 +231,39 @@ def get_choices(resident: str, since: str = "") -> dict:
 
 
 @mcp.tool
+def add_record(resident: str, title: str, body: str, category: str = "update",
+               author: str = "", doc_date: str = "") -> dict:
+    """Records library (ROADMAP Phase 3): add a document or dated staff
+    update. Append-only; never overwrites older records. Facts from records
+    surface in ask_about with 'From records' labels, never as the
+    resident's words."""
+    allowed = ("binder", "care plan", "update", "medical", "other")
+    if category not in allowed:
+        return {"error": f"category must be one of {allowed}"}
+    if not title.strip() or not body.strip():
+        return {"error": "title and body are required"}
+    store = get_store()
+    doc = store.add_document(resident, title.strip(), category, author or None,
+                             doc_date or None, body.strip())
+    return {"id": doc["id"], "title": doc["title"], "store_mode": store.mode}
+
+
+@mcp.tool
+def get_records(resident: str) -> dict:
+    """The resident's records library, newest document date first."""
+    store = get_store()
+    docs = store.get_documents(resident)
+    return {"resident": resident,
+            "records": [{"id": d["id"], "title": d["title"], "category": d["category"],
+                         "author": d.get("author"), "doc_date": str(d.get("doc_date") or "") or None,
+                         "uploaded_at": str(d.get("uploaded_at") or "")[:10],
+                         "body": d["body"]} for d in docs],
+            "store_mode": store.mode}
+
+
+@mcp.tool
 def add_observation(resident: str, staff: str, note: str) -> dict:
-    """Save a staff observation — stored separately from the resident's words,
+    """Save a staff observation, stored separately from the resident's words,
     never overwrites them."""
     store = get_store()
     obs_id = store.add_observation(resident, staff, note)
@@ -253,6 +284,131 @@ def save_tile(resident: str, label: str, cloudinary_id: str, category: str = "")
         return {"error": f"unknown resident '{resident}'"}
     tile, replaced = store.save_tile(resident, label, category.strip() or None, cloudinary_id)
     return {"resident": resident, "tile": tile, "replaced": replaced, "store_mode": store.mode}
+
+
+# ---- My Planner (PROJECT_PLAN §2.5) ----
+
+
+def _routine_blocks(resident, staff, start_time, length_min, days, start_date):
+    """Shared checks + plain-code expansion. Returns (resident_row, blocks, error)."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from calendar_core import DEFAULT_TZ, expand_routine
+
+    store = get_store()
+    r = store.get_resident(resident)
+    if not r:
+        return None, None, {"error": f"unknown resident '{resident}'"}
+    if not store.get_staff(staff):
+        return None, None, {"error": f"unknown staff '{staff}'"}
+    start_date = start_date or datetime.now(ZoneInfo(DEFAULT_TZ)).date().isoformat()
+    try:
+        return r, expand_routine(start_date, start_time, length_min, days=days, tz=DEFAULT_TZ), None
+    except ValueError as exc:
+        return None, None, {"error": str(exc)}
+
+
+@mcp.tool
+def preview_routine(resident: str, staff: str, start_time: str, length_min: int,
+                    days: list[str] | None = None, start_date: str | None = None) -> dict:
+    """What a routine would look like on the week, for the approval card.
+    WRITES NOTHING (rule 1): the routine is saved only after the resident
+    approves it."""
+    _, blocks, err = _routine_blocks(resident, staff, start_time, length_min, days, start_date)
+    if err:
+        return err
+    return {"resident": resident, "staff": staff,
+            "visits": [{"staff": staff, **b} for b in blocks]}
+
+
+@mcp.tool
+def save_routine(resident: str, staff: str, start_time: str, length_min: int,
+                 days: list[str] | None = None, start_date: str | None = None) -> dict:
+    """The resident's routine ("meet Sam at 13:00 for 120 minutes", every day by
+    default) expanded into one visit block per day for a week. Plain code does
+    the time maths. Nothing is booked: every visit waits for the approval card."""
+    from calendar_core import WEEKDAYS
+
+    r, blocks, err = _routine_blocks(resident, staff, start_time, length_min, days, start_date)
+    if err:
+        return err
+    store = get_store()
+    routine, visits = store.create_routine(resident, staff, start_time, int(length_min),
+                                           list(days) if days else list(WEEKDAYS), "resident", blocks)
+    return {"routine_id": routine["id"], "resident": resident,
+            "visits": [visit_view(v, r["first_name"]) for v in visits]}
+
+
+@mcp.tool
+def get_planner(resident: str) -> dict:
+    """Every visit block for the resident, earliest first, plus the staff
+    the resident can choose to see."""
+    store = get_store()
+    r = store.get_resident(resident)
+    if not r:
+        return {"error": f"unknown resident '{resident}'"}
+    visits = sorted(store.get_visits(rid=resident), key=lambda v: v["starts_at"])
+    staff = [{"id": s["id"], "name": s["name"]} for s in store.list_staff() if s.get("role") == "staff"]
+    return {"resident": resident, "visits": [visit_view(v, r["first_name"]) for v in visits],
+            "staff": staff}
+
+
+@mcp.tool
+def set_tile_archived(resident: str, tile_id: int, archived: bool = True) -> dict:
+    """Custom cards (ROADMAP Phase 4): hide a card from the resident's grid,
+    or restore it. Archived cards are never deleted, so undo always works."""
+    store = get_store()
+    ok = store.set_tile_archived(resident, tile_id, archived)
+    if not ok:
+        return {"error": f"no tile {tile_id} for '{resident}'"}
+    return {"ok": True, "tile_id": tile_id, "archived": archived, "store_mode": store.mode}
+
+
+@mcp.tool
+def get_auth_user(login_id: str) -> dict:
+    """Accounts (ROADMAP Phase 2): look up a login row by resident id or staff
+    email. Returns the PBKDF2 hash for the API to verify; never a raw secret.
+    This server stays internal (localhost) — the API is the sole gatekeeper."""
+    store = get_store()
+    user = store.get_user(login_id)
+    if not user:
+        return {"error": f"no user '{login_id}'"}
+    return {"user": user, "store_mode": store.mode}
+
+
+@mcp.tool
+def list_resident_logins() -> dict:
+    """The shared-tablet sign-in grid: residents who can log in (id + display
+    name only; no hashes)."""
+    store = get_store()
+    return {"residents": store.list_resident_logins(), "store_mode": store.mode}
+
+
+@mcp.tool
+def get_staff_assignments(staff_id: str) -> dict:
+    """Which residents a staff member supports. Scope rule: staff see assigned
+    residents only; managers see all; residents see themselves."""
+    store = get_store()
+    return {"resident_ids": store.get_assignments(staff_id), "store_mode": store.mode}
+
+
+@mcp.tool
+def create_resident(resident_id: str, first_name: str, home_id: str = "",
+                    communication_style: str = "", weekly_budget: float | None = None,
+                    secret_hash: str = "", staff_ids: list[str] | None = None,
+                    tiles: list[dict] | None = None) -> dict:
+    """Create-a-resident (staff): resident row + starter tiles + photo/PIN
+    login + staff assignments. Everything staff enters stays staff-provided
+    until the resident confirms it through the normal memory-confirm flow."""
+    store = get_store()
+    result = store.create_resident({
+        "id": resident_id, "first_name": first_name, "home_id": home_id or None,
+        "communication_style": communication_style, "weekly_budget": weekly_budget,
+        "secret_hash": secret_hash, "staff_ids": staff_ids or [], "tiles": tiles or []})
+    if isinstance(result, dict) and result.get("error"):
+        return result
+    return {"resident": result, "store_mode": store.mode}
 
 
 if __name__ == "__main__":

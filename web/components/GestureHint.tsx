@@ -6,7 +6,7 @@ import { onGesture } from "@/lib/input/gestures";
 
 /**
  * Thumbs-up = yes, open palm = no (GAZE_GESTURE_PLAN §5). Screens that
- * accept gestures render this next to their approve/cancel buttons —
+ * accept gestures render this next to their approve/cancel buttons , 
  * elsewhere nothing listens, so gestures are ignored by design.
  */
 export function GestureHint({

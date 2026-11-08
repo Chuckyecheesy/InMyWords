@@ -1,5 +1,5 @@
 /**
- * Gaze smoothing (GAZE_GESTURE_PLAN §4.1) — pure logic, unit-tested.
+ * Gaze smoothing (GAZE_GESTURE_PLAN §4.1), pure logic, unit-tested.
  * Median of the last 10 valid points; drop off-screen points and
  * single-frame jumps larger than 40% of screen width; "lost" after 1s
  * without a valid point.

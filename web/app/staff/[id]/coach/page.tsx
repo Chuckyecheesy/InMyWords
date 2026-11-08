@@ -30,7 +30,7 @@ export default async function CoachPage({ params }: { params: Promise<{ id: stri
           <ul className="tips" style={{ fontSize: 15 }}>
             <li>
               <span aria-hidden="true">1</span>
-              It only uses {name}&apos;s profile, records, EMH notes and staff observations — through the profile and memory services.
+              It only uses {name}&apos;s profile, records, EMH notes and staff observations, through the profile and memory services.
             </li>
             <li>
               <span aria-hidden="true">2</span>

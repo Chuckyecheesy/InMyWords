@@ -55,6 +55,7 @@ FEATURE_MODELS = {
     "memory_easy": (LITE_MODEL, STEADY_MODEL),
     "photo": (STEADY_MODEL, FLASH_MODEL),  # T4.2 photo checker (vision)
     "action": (LITE_MODEL, STEADY_MODEL),  # T4.7 Action agent: lite measured 1-5s, 5/5 goals
+    "planner": (STEADY_MODEL, FLASH_MODEL),  # Planner subagent: tool calls that write calendar events
 }
 EMBED_MODEL = "gemini-embedding-001"
 
@@ -131,7 +132,7 @@ SCHEMAS: dict[str, dict] = {
         "consequences": _object(
             "Supported Choice. One short neutral line per option, including "
             '"not decided yet". Do not recommend. Do not write prices or money '
-            "left — code calculates those and appends them onto each option.",
+            "left, code calculates those and appends them onto each option.",
             {
                 "options": {
                     "type": "array",
@@ -261,7 +262,7 @@ SCHEMAS: dict[str, dict] = {
             "Action agent. Steps from the allowlist only. "
             "create_staff_task is staff_tasks, not an online step. "
             "cost is the price the prompt supplied for that step, copied, not calculated. "
-            "Do not include a total — code sums cost.",
+            "Do not include a total, code sums cost.",
             {
                 "online_steps": {
                     "type": "array",
@@ -405,7 +406,7 @@ EXAMPLES: dict[str, dict] = {
                 },
                 {
                     "step": "add_to_calendar",
-                    "detail": "Bowling — Saturday 2:00pm",
+                    "detail": "Bowling, Saturday 2:00pm",
                     "cost": 0,
                 },
                 {
@@ -600,6 +601,88 @@ def generate_for(feature: str, prompt: str, schema: dict, **kwargs) -> dict:
             last = exc
             print(f"[gemini] {feature}: {model} failed ({type(exc).__name__}); "
                   + ("trying fallback" if index < len(chain) - 1 else "no fallback left"))
+    assert last is not None
+    raise last
+
+
+def run_tools(
+    feature: str,
+    prompt: str,
+    functions: list[dict],
+    execute,
+    *,
+    system: str | None = None,
+    max_turns: int = 6,
+    should_stop=None,
+    client=None,
+    timeout_ms: int = 20000,
+    use_fallback_model: bool = True,
+) -> dict:
+    """Let the model work through tool calls (function calling, manual loop).
+
+    functions: [{"name", "description", "parameters": JSON Schema}].
+    execute(name, args) -> dict runs one call; its result goes back to the
+    model. The caller's execute is the guardrail: nothing runs unless it
+    says so. Automatic function calling is off, so the SDK never runs
+    anything on its own.
+    should_stop(calls) -> bool ends the loop early (e.g. the calendar is down).
+
+    Returns {"calls": [{"name", "args", "result"}], "text", "turns", "model",
+    "finished"}. finished is False when max_turns ran out mid-work. Falls
+    back to the feature's second model only if the first failed before any
+    call ran, so a retry never repeats a write. use_fallback_model=False
+    skips that, for callers whose own fallback is faster (plain code).
+    """
+    from google.genai import types
+
+    if not prompt or not prompt.strip():
+        raise ValueError("prompt is empty")
+    gen = client or _client()
+    config = {
+        "temperature": 0.1,
+        "tools": [types.Tool(function_declarations=[
+            types.FunctionDeclaration(name=f["name"], description=f["description"],
+                                      parameters_json_schema=_gemini_schema(f["parameters"]))
+            for f in functions])],
+        "automatic_function_calling": {"disable": True},
+        "http_options": {"timeout": timeout_ms, "retry_options": {"attempts": 1}},
+    }
+    if system:
+        config["system_instruction"] = system
+
+    calls: list[dict] = []
+    last: Exception | None = None
+    chain = models_for(feature) if use_fallback_model else models_for(feature)[:1]
+    for model in chain:
+        contents = [types.Content(role="user", parts=[types.Part.from_text(text=prompt)])]
+        try:
+            for turn in range(1, max_turns + 1):
+                response = gen.models.generate_content(model=model, contents=contents, config=config)
+                wanted = list(getattr(response, "function_calls", None) or [])
+                if not wanted:
+                    return {"calls": calls, "text": getattr(response, "text", "") or "",
+                            "turns": turn, "model": model, "finished": True}
+                contents.append(response.candidates[0].content)
+                replies = []
+                for fc in wanted:
+                    args = dict(fc.args or {})
+                    try:
+                        result = execute(fc.name, args)
+                    except Exception as exc:  # a bad call is reported to the model, not raised
+                        result = {"error": f"{type(exc).__name__}: {exc}"}
+                    if not isinstance(result, dict):
+                        result = {"result": result}
+                    calls.append({"name": fc.name, "args": args, "result": result})
+                    replies.append(types.Part.from_function_response(name=fc.name, response=result))
+                contents.append(types.Content(role="user", parts=replies))
+                if should_stop and should_stop(calls):
+                    return {"calls": calls, "text": "", "turns": turn, "model": model, "finished": True}
+            return {"calls": calls, "text": "", "turns": max_turns, "model": model, "finished": False}
+        except Exception as exc:  # network, 5xx, quota
+            last = exc
+            print(f"[gemini] {feature}: {model} tool loop failed ({type(exc).__name__})")
+            if calls:
+                break  # something already ran; never replay writes on another model
     assert last is not None
     raise last
 

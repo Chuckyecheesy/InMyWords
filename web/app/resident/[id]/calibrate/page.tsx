@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CameraOff, Eye, Hand, Sparkles } from "lucide-react";
 import { hasCameraConsent } from "@/lib/input/consent";
 import {
+  cameraStartMessage,
   clearCalibration,
   completeCalibration,
   resetGazeSamples,
@@ -20,7 +21,7 @@ import {
  * 9-point calibration + accuracy check (GAZE_GESTURE_PLAN §5, G2).
  * Targets at 10/50/90% of width and height, 5 taps each while looking.
  * Accuracy: 5 random points; Good < 15% of screen width, Okay 15–25%,
- * Try again > 25%. Session-only — nothing persists.
+ * Try again > 25%. Session-only, nothing persists.
  */
 
 const POSITIONS = [0.1, 0.5, 0.9].flatMap((y) => [0.1, 0.5, 0.9].map((x) => ({ x, y })));
@@ -45,7 +46,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   const [cameraOn, setCameraOn] = useState(false);
   const [result, setResult] = useState<"good" | "okay" | "retry" | null>(null);
   const [starting, setStarting] = useState(false);
-  const [cameraError, setCameraError] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   useEffect(() => {
     cancelled.current = false;
@@ -68,7 +69,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
   async function begin() {
     const token = lifecycle.current;
     setStarting(true);
-    setCameraError(false);
+    setCameraError(null);
     try {
       await startGaze(id);
       if (cancelled.current || token !== lifecycle.current) return;
@@ -78,8 +79,8 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
       setPhase("calibrating");
       setTargetIndex(0);
       setTaps(0);
-    } catch {
-      if (!cancelled.current && token === lifecycle.current) setCameraError(true);
+    } catch (error) {
+      if (!cancelled.current && token === lifecycle.current) setCameraError(cameraStartMessage(error));
     } finally {
       if (!cancelled.current && token === lifecycle.current) setStarting(false);
     }
@@ -195,7 +196,7 @@ export default function CalibratePage({ params }: { params: Promise<{ id: string
           </button>
           {cameraError ? (
             <p className="note" role="status">
-              The camera could not start. Check permissions, then try again.
+              {cameraError}
             </p>
           ) : null}
         </div>

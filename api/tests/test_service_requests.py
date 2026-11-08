@@ -1,6 +1,7 @@
 import sys
 import tempfile
 import unittest
+from contextlib import nullcontext
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -67,7 +68,10 @@ class ServiceRequestTests(unittest.TestCase):
             ('list_service_requests', 'get', '/service-requests', None),
             ('update_service_request', 'patch', '/service-requests/123', {'status': 'cancelled'}),
         ]:
-            with patch.object(main.mcp_client, name, AsyncMock(side_effect=RuntimeError('offline'))):
+            listing = patch.object(main.mcp_client, 'list_service_requests', AsyncMock(return_value={
+                'requests': [{'id': '123', 'resident_id': 'marcus'}]
+            })) if name == 'update_service_request' else nullcontext()
+            with listing, patch.object(main.mcp_client, name, AsyncMock(side_effect=RuntimeError('offline'))):
                 response = getattr(client, method)(url, **({'json': payload} if payload else {}))
             self.assertEqual(response.status_code, 503)
 
@@ -76,6 +80,20 @@ class ServiceRequestTests(unittest.TestCase):
             response = TestClient(main.app).post('/custom-gestures', json={
                 'resident_id': 'marcus', 'tile': 'Coffee', 'samples': [[0.] * 63] * 5})
         self.assertEqual(response.status_code, 503)
+
+    def test_request_scope_and_staff_only_status_updates(self):
+        row = self.create()
+        scope = {'session': {'role': 'resident', 'rid': 'dana'}, 'assignments': []}
+        main.app.dependency_overrides[main.current_scope] = lambda: scope
+        self.addCleanup(main.app.dependency_overrides.clear)
+        client = TestClient(main.app)
+        self.assertEqual(client.post('/service-requests', json=dict(
+            resident_id='marcus', categories=['family'], submission_key='key', approved=True)).status_code, 403)
+        with patch.object(main.mcp_client, 'list_service_requests', AsyncMock(return_value={'requests': [row]})):
+            self.assertEqual(client.get('/service-requests?resident_id=marcus').status_code, 403)
+            self.assertEqual(client.get('/service-requests').json(), {'requests': []})
+            self.assertEqual(client.patch('/service-requests/' + row['id'], json={'status': 'cancelled'}).status_code, 403)
+            self.assertEqual(client.patch('/service-requests/' + row['id'], json={'status': 'acknowledged'}).status_code, 403)
 
 
 if __name__ == '__main__':

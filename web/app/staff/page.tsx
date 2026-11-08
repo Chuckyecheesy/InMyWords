@@ -41,7 +41,7 @@ export default async function StaffDashboard() {
 
       {sample ? (
         <div style={{ marginBottom: "var(--space-5)" }}>
-          <DataBanner>Sample data — the API didn&apos;t answer, so these are the demo residents.</DataBanner>
+          <DataBanner>Sample data, the API didn&apos;t answer, so these are the demo residents.</DataBanner>
         </div>
       ) : null}
 
@@ -55,11 +55,11 @@ export default async function StaffDashboard() {
             <div>
               <h2 id="shift-title">Start your shift</h2>
               <p>
-                First shift — showing the last two weeks.{" "}
+                First shift, showing the last two weeks.{" "}
                 {attention.length > 0 ? `${attention.length} things to know about.` : "Nothing urgent."}
               </p>
             </div>
-            <Link href="/staff/handoff" className="btn">
+            <Link href="/staff/updates" className="btn">
               Since last shift
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
@@ -103,7 +103,7 @@ export default async function StaffDashboard() {
           <section className="panel">
             <div className="panel-head">
               <h2>Recent updates</h2>
-              <Link href="/staff/handoff" className="text-link" style={{ fontSize: 14 }}>
+              <Link href="/staff/updates" className="text-link" style={{ fontSize: 14 }}>
                 See all
               </Link>
             </div>
