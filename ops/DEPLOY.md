@@ -4,7 +4,7 @@ Ported from the Two Worlds setup in `agentic-social-research/ops/`, adapted for 
 
 ## What runs where
 
-One Vultr Cloud Compute VM: `vc2-1c-2gb`, Toronto (`yto`), Ubuntu 24.04, with a 2 GB swapfile for `next build`. Every service runs as the `app` user on `127.0.0.1`. The code lives in `/srv/inmywords`, owned by root and read-only to the services.
+One Vultr Cloud Compute VM: `vc2-2c-4gb` (2 vCPU, 4 GB; resized from `vc2-1c-2gb` on 2026-11-08 because 1 vCPU stalled under load and deploys), Toronto (`yto`), Ubuntu 24.04, with a 2 GB swapfile for `next build`. Every service runs as the `app` user on `127.0.0.1`. The code lives in `/srv/inmywords`, owned by root and read-only to the services.
 
 | systemd unit | Port | What |
 |---|---|---|
@@ -39,7 +39,7 @@ Then deploy with `DEPLOY_DOMAIN=yourdomain.xyz`. Caddy requests the certificates
 # 1. Vultr console → Account → API: enable the API, add this machine's IP to Access Control.
 #    Put VULTR_API_KEY=<key> in the repo-root .env (gitignored).
 node ops/vultr.js check
-node ops/vultr.js create --yes          # ≈ $10/month, billed hourly while it exists
+node ops/vultr.js create --yes          # vc2-1c-2gb ≈ $10/month; resize later with `node ops/vultr.js resize <id> vc2-2c-4gb --yes` (≈ $20/month)
 node ops/vultr.js instances             # wait for status active; note the IP
 
 # 2. Record the host and pin its SSH host key (CI refuses unknown host keys)
