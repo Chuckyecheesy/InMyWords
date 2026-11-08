@@ -55,8 +55,8 @@ export function PhotoChoiceGrid({
 
       <div className="choice-options">
         {options.map((option) => {
-          const photoUrl = tileImageUrl(option.photo_id, "calm");
-          const contrastUrl = tileImageUrl(option.photo_id, "contrast");
+          const photoUrl = option.photo_id ? tileImageUrl(option.photo_id, "calm") : null;
+          const contrastUrl = option.photo_id ? tileImageUrl(option.photo_id, "contrast") : null;
           const isSelected = selectedLabel === option.label;
 
           return (
@@ -74,18 +74,26 @@ export function PhotoChoiceGrid({
                 onClick={() => handleClick(option.label)}
               >
                 <picture>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className="choice-img choice-img-calm"
-                    src={photoUrl}
-                    alt=""
-                  />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className="choice-img choice-img-contrast"
-                    src={contrastUrl}
-                    alt=""
-                  />
+                  {photoUrl && (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        className="choice-img choice-img-calm"
+                        src={photoUrl}
+                        alt=""
+                      />
+                    </>
+                  )}
+                  {contrastUrl && (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        className="choice-img choice-img-contrast"
+                        src={contrastUrl}
+                        alt=""
+                      />
+                    </>
+                  )}
                 </picture>
                 <span className="choice-label">{option.label}</span>
               </button>

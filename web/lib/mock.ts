@@ -377,9 +377,13 @@ export function sampleRoutines(id: string): Highlight[] {
   return (byId(routines, id) ?? []).map((item) => ({ ...item }));
 }
 
-export function sampleCoach(id: string): (CoachAnswer & { question: string }) | null {
-  const row = byId(coach, id);
-  return row ? { ...row, sources: row.sources.map((source) => ({ ...source })) } : null;
+export function sampleCoach(id: string): (CoachAnswer & { question: string })[] {
+  const rows = byId(coach, id);
+  return rows ? rows.map((row) => ({
+    question: row.question,
+    answer: row.answer,
+    sources: row.sources.map((source) => ({ ...source }))
+  })) : [];
 }
 
 export function samplePending(id: string): PendingMemory[] | null {

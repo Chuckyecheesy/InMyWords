@@ -665,8 +665,8 @@ a {
 }
 
 .choice-option.is-selected .choice-button {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--focus);
+  background: var(--focus);
   color: var(--paper);
 }
 
@@ -701,7 +701,7 @@ a {
   margin-top: var(--space-2);
   border-radius: var(--radius);
   background: var(--paper);
-  border: 2px solid var(--accent);
+  border: 2px solid var(--focus);
   text-align: center;
 }
 
@@ -865,7 +865,7 @@ a {
 
 .coach-question {
   background: var(--accent-light);
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid var(--focus);
   margin-left: var(--space-2);
 }
 
@@ -967,7 +967,7 @@ a {
 
 .coach-input-field:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--focus);
   box-shadow: 0 0 0 3px var(--accent-light);
 }
 
@@ -1002,7 +1002,7 @@ a {
 
 .onboarding-section h2 {
   margin-bottom: var(--space-2);
-  border-bottom: 2px solid var(--accent);
+  border-bottom: 2px solid var(--focus);
   padding-bottom: var(--space-1);
 }
 
@@ -1016,7 +1016,7 @@ a {
   padding: var(--space-2);
   border-radius: var(--radius);
   background: var(--paper-alt);
-  border-left: 4px solid var(--accent);
+  border-left: 4px solid var(--focus);
 }
 
 .essential-item p {
@@ -1063,9 +1063,319 @@ a {
 .onboarding-footer {
   text-align: center;
   padding: var(--space-3);
-  border-top: 2px solid var(--accent);
+  border-top: 2px solid var(--focus);
   margin-top: var(--space-3);
   font-size: var(--text-h3);
-  color: var(--accent);
+  color: var(--focus);
   font-weight: 600;
+}
+
+/* OnboardingFlow (Multi-step) */
+.onboarding-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  min-height: 100vh;
+}
+
+.onboarding-progress {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--paper);
+  padding: var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 4px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--focus);
+  transition: width 0.3s ease;
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-1);
+  padding: 0 0 var(--space-2) 0;
+}
+
+.progress-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  text-align: center;
+}
+
+.progress-step[data-status="current"] .step-number {
+  background: var(--focus);
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.progress-step[data-status="completed"] .step-number {
+  background: var(--voice);
+  color: var(--paper);
+}
+
+.progress-step[data-status="pending"] .step-number {
+  background: var(--line);
+  color: var(--text-muted);
+}
+
+.step-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.step-label {
+  font-size: calc(var(--text-sm) * 0.9);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.progress-step[data-status="current"] .step-label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Section content */
+.onboarding-section {
+  padding: var(--space-3);
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.section-eyebrow {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--space-2);
+  font-style: italic;
+}
+
+.section-preview {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  margin-bottom: var(--space-2);
+  color: var(--text-muted);
+}
+
+.routines-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+}
+
+.routine-item {
+  padding: var(--space-2);
+  border-radius: var(--radius);
+  background: var(--paper-alt);
+  border-left: 4px solid var(--focus);
+}
+
+.routine-item p {
+  margin: 0 0 var(--space-1) 0;
+  font-size: var(--text-body);
+}
+
+.routine-source {
+  display: inline-block;
+  font-size: calc(var(--text-body) * 0.85);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.complete-message {
+  text-align: center;
+  padding: var(--space-3);
+}
+
+.complete-message h2 {
+  font-size: var(--text-h1);
+  color: var(--voice);
+  margin-bottom: var(--space-2);
+}
+
+.complete-message p {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  max-width: 60ch;
+  margin: 0 auto;
+}
+
+.next-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.next-steps a {
+  text-decoration: none;
+}
+
+.next-steps a button {
+  width: 100%;
+}
+
+.ready-button {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-body);
+  border: none;
+  border-radius: var(--radius);
+  background: var(--voice);
+  color: var(--paper);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 64px;
+  transition: background 0.2s ease;
+}
+
+.ready-button:hover {
+  background: var(--voice);
+}
+
+/* Coach sidebar link */
+.coach-sidebar-link {
+  position: fixed;
+  bottom: var(--space-3);
+  right: var(--space-3);
+  z-index: 5;
+}
+
+.coach-quick-link {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-body);
+  background: var(--focus);
+  color: var(--paper);
+  border: none;
+  border-radius: var(--radius);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: background 0.2s ease, transform 0.2s ease;
+  min-height: 56px;
+}
+
+.coach-quick-link:hover {
+  background: var(--focus);
+  transform: translateY(-2px);
+}
+
+/* Navigation buttons */
+.onboarding-nav {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: center;
+  padding: var(--space-3);
+  max-width: 800px;
+  margin: var(--space-3) auto 0;
+}
+
+.nav-button {
+  flex: 1;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-body);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 56px;
+  transition: all 0.2s ease;
+}
+
+.nav-button:hover:not(:disabled) {
+  background: var(--paper-alt);
+  border-color: var(--focus);
+}
+
+.nav-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.next-button {
+  background: var(--focus);
+  color: var(--paper);
+  border-color: var(--focus);
+}
+
+.next-button:hover:not(:disabled) {
+  background: var(--focus);
+  border-color: var(--focus);
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: var(--space-3);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Mobile responsive */
+@media (max-width: 720px) {
+  .onboarding-container {
+    padding: var(--space-1);
+    gap: var(--space-2);
+  }
+
+  .onboarding-progress {
+    padding: var(--space-1) var(--space-1) 0;
+  }
+
+  .progress-steps {
+    flex-wrap: wrap;
+  }
+
+  .step-number {
+    width: 36px;
+    height: 36px;
+    font-size: calc(var(--text-sm) * 0.8);
+  }
+
+  .step-label {
+    font-size: calc(var(--text-sm) * 0.75);
+  }
+
+  .onboarding-section {
+    padding: var(--space-2);
+  }
+
+  .coach-sidebar-link {
+    bottom: var(--space-2);
+    right: var(--space-2);
+  }
+
+  .onboarding-nav {
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .nav-button {
+    width: 100%;
+  }
 }

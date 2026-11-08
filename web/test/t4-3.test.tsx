@@ -458,12 +458,12 @@ describe("T4.3", { concurrency: false }, () => {
       cleanup();
       const { default: Onboarding } = await import("../app/staff/[id]/onboarding/page.tsx");
       render(await Onboarding({ params: Promise.resolve({ id: "marcus" }) }));
-      screen.getByRole("heading", { name: "Essentials" });
+      screen.getByRole("heading", { name: /Onboarding/ });
 
       cleanup();
       const { default: Coach } = await import("../app/staff/[id]/coach/page.tsx");
       render(await Coach({ params: Promise.resolve({ id: "marcus" }) }));
-      screen.getByRole("heading", { name: "Ask" });
+      screen.getByRole("heading", { name: /Ask the Coach/ });
 
       cleanup();
       const { default: Handoff } = await import("../app/staff/handoff/page.tsx");

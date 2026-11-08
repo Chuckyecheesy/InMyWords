@@ -422,7 +422,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 - Onboarding path: Essentials (2 min), Story, Routines timeline, progress indicator.
 - Coach chat: text and voice; every answer shows source badges ("In Marcus's words", "Staff note, Mar 3", "Pattern noticed").
 - Handoff list and add-observation form.
-- ✅ Done when: a new staff member can complete Essentials and ask the Coach questions.
+- ✅ Done when: if a new staff member can complete Essentials and ask the Coach questions.
 
 **T4.6 — Choice, action and memory screens (hours 14–16)**
 
