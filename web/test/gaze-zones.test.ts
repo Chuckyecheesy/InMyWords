@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  BubbleMagnet,
   GAZE_DWELL_MS,
   GAZE_GRACE_MS,
   GAZE_SWITCH_MS,
@@ -51,6 +52,35 @@ test("an open confirm step ignores category columns", () => {
     { x: 150, y: 20 },
     { viewportWidth: 1000, confirming: false, categories: cards, other: "say" },
   ), "say");
+});
+
+test("a close look snaps onto the bubble center and stays there", () => {
+  const magnet = new BubbleMagnet();
+  const first = magnet.snap({ x: 20, y: 140 }, cards);
+  assert.deepEqual(first, { x: 150, y: 250, id: "refreshments" });
+  for (const point of [{ x: 40, y: 180 }, { x: 260, y: 300 }, { x: 90, y: 220 }]) {
+    const held = magnet.snap(point, cards);
+    assert.equal(held.id, "refreshments");
+    assert.deepEqual({ x: held.x, y: held.y }, { x: 150, y: 250 });
+  }
+});
+
+test("a look that reaches the next bubble center is pulled there", () => {
+  const magnet = new BubbleMagnet();
+  magnet.snap({ x: 150, y: 250 }, cards);
+  const moved = magnet.snap({ x: 490, y: 250 }, cards);
+  assert.deepEqual(moved, { x: 490, y: 250, id: "entertainment" });
+});
+
+test("noise on the border does not flicker between bubbles", () => {
+  const magnet = new BubbleMagnet();
+  magnet.snap({ x: 150, y: 250 }, cards);
+  const edge = magnet.snap({ x: 340, y: 250 }, cards);
+  assert.equal(edge.id, "refreshments");
+  assert.equal(edge.x, 150);
+  const away = magnet.snap({ x: 1200, y: 20 }, cards);
+  assert.equal(away.id, null);
+  assert.equal(away.x, 1200);
 });
 
 test("a zone needs about three quarters of the recent samples", () => {
