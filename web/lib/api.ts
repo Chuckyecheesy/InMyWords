@@ -156,7 +156,10 @@ function normalizeMemory(value: unknown, index: number): PendingMemory | null {
   if (!content || !source) return null;
   if (type !== "preference" && type !== "event" && type !== "routine") return null;
   return {
-    id: text(row.id) ?? `memory-${index}`,
+    id:
+      typeof row.id === "number" && Number.isFinite(row.id)
+        ? String(row.id)
+        : text(row.id) ?? `memory-${index}`,
     type,
     content,
     source,
@@ -333,25 +336,101 @@ export function decideChoice(choiceId: string, chosen: string) {
   );
 }
 
-export function planActions(input: { resident_id: string; goal: string }) {
-  return sendJson<{
-    steps: unknown[];
-    staff_tasks: unknown[];
-    total_cost: number;
-  }>("/actions/plan", input);
+export type ActionStep = {
+  step: string;
+  detail: string;
+  cost: number;
+};
+
+export type StaffTaskStep = {
+  task: string;
+  due: string | null;
+};
+
+export type ActionPlan = {
+  plan_id: number;
+  goal: string;
+  online_steps: ActionStep[];
+  staff_tasks: StaffTaskStep[];
+  total_cost: number;
+  status: string;
+};
+
+function normalizePlan(value: unknown): ActionPlan | null {
+  const row = record(value);
+  if (!row) return null;
+  const planId = row.plan_id;
+  const goal = text(row.goal);
+  const steps = list(row.online_steps, "online_steps");
+  const tasks = list(row.staff_tasks, "staff_tasks");
+  const total = row.total_cost;
+  if (typeof planId !== "number" || !goal || !steps || !tasks || typeof total !== "number") {
+    return null;
+  }
+  return {
+    plan_id: planId,
+    goal,
+    total_cost: total,
+    status: text(row.status) ?? "proposed",
+    online_steps: steps.flatMap((item) => {
+      const step = record(item);
+      const name = step ? text(step.step) : null;
+      const detail = step ? text(step.detail) : null;
+      if (!step || !name || !detail) return [];
+      return [{ step: name, detail, cost: typeof step.cost === "number" ? step.cost : 0 }];
+    }),
+    staff_tasks: tasks.flatMap((item) => {
+      const task = record(item);
+      const name = task ? text(task.task) : null;
+      if (!task || !name) return [];
+      return [{ task: name, due: text(task.due) }];
+    }),
+  };
 }
 
-export function approveAction(planId: string) {
-  return sendJson<{ results: unknown[] }>(
-    `/actions/${encodeURIComponent(planId)}/approve`,
+export async function planActions(input: { resident_id: string; goal: string }) {
+  const result = await sendJson<unknown>("/actions/plan", input);
+  if (!result.ok) return result;
+  const plan = normalizePlan(result.data);
+  if (!plan) return { ok: false as const, error: "The plan did not include its steps." };
+  return { ok: true as const, data: plan };
+}
+
+export function approveAction(planId: string, residentId: string) {
+  const params = new URLSearchParams({ resident_id: residentId });
+  return sendJson<{ results?: { step: string; result: string }[]; status?: string }>(
+    `/actions/${encodeURIComponent(planId)}/approve?${params}`,
     {},
   );
 }
 
-export function confirmMemory(memoryId: string, answer: "yes" | "no") {
+export function cancelAction(planId: string, residentId: string) {
+  const params = new URLSearchParams({ resident_id: residentId });
+  return sendJson<{ plan_id?: number; status?: string; error?: string }>(
+    `/actions/${encodeURIComponent(planId)}/cancel?${params}`,
+    {},
+  );
+}
+
+export function confirmMemory(memoryId: string, answer: "yes" | "no", residentId: string) {
   return sendJson<{ ok: boolean }>(
     `/memories/${encodeURIComponent(memoryId)}/confirm`,
-    { answer },
+    { confirmed: answer === "yes", resident_id: residentId },
+  );
+}
+
+export type VoiceOption = {
+  voice_id: string;
+  label: string;
+  preview_text: string;
+  preview_url: string;
+};
+
+export function getVoices(residentId: string) {
+  return sendJson<{ current: string | null; options: VoiceOption[] }>(
+    `/voices/${encodeURIComponent(residentId)}`,
+    undefined,
+    "GET",
   );
 }
 
