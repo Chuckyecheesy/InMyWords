@@ -279,6 +279,19 @@ async def set_tile_archived(resident, tile_id, archived=True):
                        {"resident": resident, "tile_id": tile_id, "archived": archived})
 
 
+# ---- Get staff help (ROADMAP Phase 6) ----
+
+async def request_staff_help(resident):
+    return await _call("actions", "request_staff_help", {"resident": resident})
+
+async def get_help_requests(resident="", open_only=True):
+    return await _call("actions", "get_help_requests",
+                       {"resident": resident, "open_only": open_only})
+
+async def acknowledge_help(task_id, staff):
+    return await _call("actions", "acknowledge_help", {"task_id": task_id, "staff": staff})
+
+
 # ---- accounts & scope (ROADMAP Phase 2) ----
 
 async def get_auth_user(login_id):

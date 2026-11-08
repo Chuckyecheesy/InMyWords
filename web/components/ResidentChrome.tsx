@@ -8,6 +8,7 @@ import { House, Volume2 } from "lucide-react";
 import { speak } from "@/lib/api";
 import { deviceSpeechAvailable, speakWithDevice } from "@/lib/speech";
 import { DisplayMenu } from "./DisplayMenu";
+import { HelpButton } from "./HelpButton";
 import { Avatar, WordmarkMark } from "./ui";
 
 const LONG_PRESS_MS = 600;
@@ -185,6 +186,7 @@ export function ResidentChrome({
       <main id="main" className="r-main">
         {children}
       </main>
+      <HelpButton residentId={id} />
     </div>
   );
 }
