@@ -273,6 +273,12 @@ export function suggestSentences(input: {
   return sendJson<{ options: string[] }>("/suggest", input);
 }
 
+/** A signed URL to start one Story (T1.4) or Coach (T1.6) voice session. Null if unavailable. */
+export async function agentSession(kind: "story" | "coach"): Promise<string | null> {
+  const data = (await fetchJson(`/agents/${kind}/session`)) as { signed_url?: unknown } | null;
+  return typeof data?.signed_url === "string" ? data.signed_url : null;
+}
+
 export function speak(input: { resident_id: string; text: string }) {
   return sendJson<{ audio_url: string }>("/speak", input);
 }

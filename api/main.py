@@ -235,6 +235,21 @@ async def speak(body: SpeakBody, request: Request):
     return await speak_approved(request, body.resident_id, body.text)
 
 
+@app.get("/agents/{kind}/session")
+async def agent_session(kind: str):
+    """Additive: a signed URL to start a Story (T1.4) or Coach (T1.6) voice session."""
+    if kind not in elevenlabs.AGENTS:
+        raise HTTPException(404, f"No agent '{kind}'")
+    agent = elevenlabs.agent_id(kind)
+    if not agent or not elevenlabs.configured():
+        raise HTTPException(503, "The voice guide isn't set up yet.")
+    try:
+        return {"signed_url": await elevenlabs.signed_url(agent)}
+    except elevenlabs.ElevenLabsError as exc:
+        print(f"[agent session] {exc}")
+        raise HTTPException(502, "Couldn't start the voice guide right now.") from exc
+
+
 @app.post("/sentences")
 async def log_sentence(body: SentenceBody, background: BackgroundTasks):
     result, live = await _mcp(

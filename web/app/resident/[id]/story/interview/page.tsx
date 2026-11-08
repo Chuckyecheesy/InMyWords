@@ -11,6 +11,7 @@ import {
   type StoryChapterTemplate,
   type StoryQuestion,
 } from "@/lib/story-chapters";
+import { startStoryGuide, type GuideStatus, type StoryGuide } from "@/lib/story-agent";
 
 class StepBack extends Error {}
 
@@ -31,7 +32,10 @@ export default function StoryInterviewPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [mode, setMode] = useState<"pick" | "ask" | "review">("pick");
+  const [mode, setMode] = useState<"pick" | "ask" | "review" | "guide">("pick");
+  const [guideOn, setGuideOn] = useState(false);
+  const [guideStatus, setGuideStatus] = useState<GuideStatus | null>(null);
+  const guide = useRef<StoryGuide | null>(null);
   const [chapter, setChapter] = useState<StoryChapterTemplate | null>(null);
   const [step, setStep] = useState(0);
   const [stepCount, setStepCount] = useState(0);
@@ -69,8 +73,45 @@ export default function StoryInterviewPage({
       waiter.current?.reject(new Error("left the interview"));
       waiter.current = null;
       delete window.showChoices;
+      void guide.current?.end();
+      guide.current = null;
     };
   }, []);
+
+  // T1.4: the Story Interviewer asks the chapter's questions out loud and shows
+  // pictures through window.showChoices. It saves each answer itself, so this
+  // path never calls saveStoryAnswer. The chapter review and approval stay here.
+  async function runGuide(nextChapter: StoryChapterTemplate) {
+    runId.current += 1;
+    setChapter(nextChapter);
+    setError(null);
+    setMode("guide");
+    const started = await startStoryGuide({
+      residentId: id,
+      residentName: id.charAt(0).toUpperCase() + id.slice(1),
+      chapter: nextChapter,
+      onStatus: (status) => {
+        setGuideStatus(status);
+        if (status === "ended" && guide.current) {
+          guide.current = null;
+          waiter.current?.reject(new Error("guide ended"));
+          waiter.current = null;
+          void showReview(nextChapter.chapter_key);
+        }
+      },
+    });
+    if (!started) {
+      setError("The story guide isn't available right now. You can still tap through the questions.");
+      setGuideStatus(null);
+      void runChapter(nextChapter);
+      return;
+    }
+    guide.current = started;
+  }
+
+  function endGuide() {
+    void guide.current?.end();
+  }
 
   async function hear(label: string) {
     const spoken = await speak({ resident_id: id, text: label });
@@ -135,7 +176,7 @@ export default function StoryInterviewPage({
     waiter.current = null;
     if (fromAgent) {
       current.resolve(pending);
-      setMode("pick");
+      setMode(guide.current ? "guide" : "pick");
       setRequest(null);
       setPending(null);
       setFromAgent(false);
@@ -160,6 +201,9 @@ export default function StoryInterviewPage({
         <section className="stack" aria-label="Chapters">
           <h2>Which chapter?</h2>
           <p>One question at a time. Tap a picture to answer.</p>
+          <BigButton onClick={() => setGuideOn((on) => !on)} onLongPress={hear}>
+            {guideOn ? "Story guide: on" : "Story guide: off"}
+          </BigButton>
           <div className="chapter-picker">
             {STORY_CHAPTERS.map((item) => (
               <ChapterButton
@@ -167,7 +211,7 @@ export default function StoryInterviewPage({
                 title={item.title}
                 chapterKey={item.chapter_key}
                 onSpeak={() => void hear(item.title)}
-                onOpen={() => void runChapter(item)}
+                onOpen={() => void (guideOn ? runGuide(item) : runChapter(item))}
               />
             ))}
           </div>
@@ -197,6 +241,24 @@ export default function StoryInterviewPage({
             </BigButton>
           </div>
         </>
+      ) : null}
+
+      {mode === "guide" && chapter ? (
+        <section className="stack" aria-live="polite">
+          <h2>{chapter.title}</h2>
+          <p>
+            {guideStatus === "starting"
+              ? "The story guide is getting ready…"
+              : guideStatus === "talking"
+                ? "The story guide is talking."
+                : guideStatus === "error"
+                  ? "The story guide had a problem."
+                  : "The story guide is listening. Pictures will show here."}
+          </p>
+          <BigButton onClick={endGuide} onLongPress={hear}>
+            Stop the story guide
+          </BigButton>
+        </section>
       ) : null}
 
       {mode === "review" && chapter ? (
