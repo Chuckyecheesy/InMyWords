@@ -339,12 +339,34 @@ class SeedStore:
         facts += [{"content": n["note"], "source": "emh", "date": n["created_at"][:10],
                    "status": "confirmed", "kind": "emh_note", "id": None, "update_reason": None}
                   for n in self.emh_notes if n["resident_id"] == rid]
+        facts += [{"content": f"{d['title']}: {d['body'][:400]}", "source": "document",
+                   "date": str(d.get("doc_date") or "")[:10] or None,
+                   "status": "confirmed", "kind": "document", "id": None, "update_reason": None}
+                  for d in self.get_documents(rid)]
         ranked = self._rank(rid, facts, [f["content"] for f in facts], query, limit,
                             dates=[f["date"] for f in facts])
         for f in ranked:
             f.pop("score", None)  # keep the contract shape
             f.pop("similarity", None)
         return ranked
+
+    # ---- records library (ROADMAP Phase 3) ----
+
+    def add_document(self, rid, title, category, author, doc_date, body):
+        self._reload_runtime()
+        docs = self._runtime.setdefault("documents", [])
+        doc = {"id": len(docs) + 1, "resident_id": rid, "title": title,
+               "category": category, "author": author, "doc_date": doc_date,
+               "uploaded_at": _now(), "body": body}
+        docs.append(doc)
+        self._save_runtime()
+        return doc
+
+    def get_documents(self, rid):
+        self._reload_runtime()
+        return sorted(
+            [d for d in self._runtime.get("documents", []) if d["resident_id"] == rid],
+            key=lambda d: str(d.get("doc_date") or ""), reverse=True)
 
     def get_emh_notes(self, rid, since=None):
         notes = [n for n in self.emh_notes if n["resident_id"] == rid]
@@ -745,6 +767,8 @@ class PostgresStore:
         room = limit - len(facts)
         if words and room > 0:
             note_match = " OR ".join(["strpos(lower(note), %s) > 0"] * len(words))
+            doc_match = " OR ".join(
+                ["strpos(lower(title || ' ' || body), %s) > 0"] * len(words))
             facts += self._all(
                 f"""SELECT note AS content, 'staff' AS source, created_at::date::text AS date,
                           'confirmed' AS status, 'observation' AS kind, NULL::int AS id,
@@ -753,9 +777,27 @@ class PostgresStore:
                    UNION ALL
                    SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note', NULL::int, NULL::text
                    FROM emh_notes WHERE resident_id = %s AND ({note_match})
+                   UNION ALL
+                   SELECT title || ': ' || left(body, 400), 'document', doc_date::text,
+                          'confirmed', 'document', NULL::int, NULL::text
+                   FROM documents WHERE resident_id = %s AND ({doc_match})
                    LIMIT %s""",
-                tuple([rid, *words, rid, *words, room]))
+                tuple([rid, *words, rid, *words, rid, *words, room]))
         return facts
+
+    # ---- records library (ROADMAP Phase 3) ----
+
+    def add_document(self, rid, title, category, author, doc_date, body):
+        doc_id = self._insert(
+            "INSERT INTO documents (resident_id, title, category, author, doc_date, body) "
+            "VALUES (%s,%s,%s,%s,%s,%s)",
+            (rid, title, category, author, doc_date, body))
+        return self._one("SELECT * FROM documents WHERE id = %s", (doc_id,))
+
+    def get_documents(self, rid):
+        return self._all(
+            "SELECT * FROM documents WHERE resident_id = %s "
+            "ORDER BY doc_date DESC NULLS LAST, uploaded_at DESC", (rid,))
 
     def get_emh_notes(self, rid, since=None):
         if since:

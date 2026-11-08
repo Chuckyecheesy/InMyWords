@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Activity, Building2, History, LayoutDashboard, MonitorSmartphone } from "lucide-react";
+import { Building2, History, LayoutDashboard, MonitorSmartphone } from "lucide-react";
 import { DEMO_STAFF } from "@/lib/mock";
 import { DisplayMenu } from "./DisplayMenu";
 import { Avatar, WordmarkMark } from "./ui";
@@ -21,8 +21,7 @@ export function StaffShell({ people, children }: { people: Person[]; children: R
   const isCurrent = useCurrent();
   const main = [
     { href: "/staff", label: "Today", icon: LayoutDashboard, exact: true },
-    { href: "/staff/handoff", label: "Since last shift", icon: History },
-    { href: "/staff/activity", label: "Activity log", icon: Activity },
+    { href: "/staff/updates", label: "Updates", icon: History },
   ];
 
   return (

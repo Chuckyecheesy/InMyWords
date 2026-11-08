@@ -178,6 +178,14 @@ async def add_observation(resident, staff, note):
 async def get_observations(resident, since=""):
     return await _call("profile", "get_observations", {"resident": resident, "since": since})
 
+async def add_record(resident, title, body, category="update", author="", doc_date=""):
+    return await _call("profile", "add_record",
+                       {"resident": resident, "title": title, "body": body,
+                        "category": category, "author": author, "doc_date": doc_date})
+
+async def get_records(resident):
+    return await _call("profile", "get_records", {"resident": resident})
+
 async def get_choices(resident, since=""):
     return await _call("profile", "get_choices", {"resident": resident, "since": since})
 
