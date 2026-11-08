@@ -264,9 +264,43 @@ async def log_sentence(body: SentenceBody):
 
 # ---------- My Story ----------
 
+# Used only when the profile MCP server is down. The live path persists
+# through save_story_answer so a reload still shows the interview.
+_local_story_answers: list[dict] = []
+
+
 @app.post("/story/answer")
-def story_answer(body: StoryAnswerBody):
-    return {"ok": True}
+async def story_answer(body: StoryAnswerBody):
+    result, live = await _mcp(
+        mcp_client.save_story_answer(body.resident_id, body.chapter, body.question, body.answer),
+        None,
+    )
+    if live:
+        if result.get("error"):
+            raise HTTPException(404, result["error"])
+        return {"ok": True, "id": result.get("id")}
+    row = {
+        "id": len(_local_story_answers) + 1,
+        "resident_id": body.resident_id,
+        "chapter": body.chapter,
+        "question": body.question,
+        "answer": body.answer,
+    }
+    _local_story_answers.append(row)
+    return {"ok": True, "id": row["id"]}
+
+
+@app.get("/story/{resident_id}/answers")
+async def get_story_answers(resident_id: str, chapter: str = ""):
+    result, live = await _mcp(mcp_client.get_story_answers(resident_id, chapter), None)
+    if live:
+        if result.get("error"):
+            raise HTTPException(404, result["error"])
+        return {"answers": result.get("answers", [])}
+    rows = [row for row in _local_story_answers if row["resident_id"] == resident_id]
+    if chapter:
+        rows = [row for row in rows if row["chapter"] == chapter]
+    return {"answers": rows}
 
 
 @app.post("/story/draft")

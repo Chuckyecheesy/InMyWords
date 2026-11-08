@@ -115,9 +115,13 @@ class SeedStore:
         # Action-related writes persist to a shared runtime file so the
         # actions server, backend and mock-booking page (separate processes)
         # see the same bookings before the real database exists.
-        self._runtime_path = SEED_DIR / ".runtime.json"
+        # Story answers live in the same file so a browser reload still
+        # sees the interview after the profile server restarts.
+        runtime_file = os.environ.get("IMW_RUNTIME_FILE", ".runtime.json")
+        runtime_path = Path(runtime_file)
+        self._runtime_path = runtime_path if runtime_path.is_absolute() else SEED_DIR / runtime_file
         self._runtime = {"action_plans": [], "action_results": [], "bookings": [],
-                         "calendar_events": [], "staff_tasks": []}
+                         "calendar_events": [], "staff_tasks": [], "story_answers": []}
         if self._runtime_path.exists():
             try:
                 self._runtime.update(json.loads(self._runtime_path.read_text(encoding="utf-8")))
@@ -206,9 +210,21 @@ class SeedStore:
         return self.observations[-1]["id"]
 
     def save_story_answer(self, rid, chapter_key, question, answer):
-        self.story_answers.append({"resident_id": rid, "chapter_key": chapter_key,
-                                   "question": question, "answer": answer, "created_at": _now()})
-        return True
+        self._reload_runtime()
+        answers = self._runtime.setdefault("story_answers", [])
+        row = {"id": len(answers) + 1, "resident_id": rid, "chapter_key": chapter_key,
+               "question": question, "answer": answer, "created_at": _now()}
+        answers.append(row)
+        self.story_answers.append(row)
+        self._save_runtime()
+        return row["id"]
+
+    def get_story_answers(self, rid, chapter_key=None):
+        self._reload_runtime()
+        rows = [a for a in self._runtime.get("story_answers", []) if a["resident_id"] == rid]
+        if chapter_key:
+            rows = [a for a in rows if a["chapter_key"] == chapter_key]
+        return rows
 
     # ---- handoff reads (T2.7) ----
 
@@ -494,10 +510,18 @@ class PostgresStore:
             (rid, staff_id, note))
 
     def save_story_answer(self, rid, chapter_key, question, answer):
-        self._insert(
+        return self._insert(
             "INSERT INTO story_answers (resident_id, chapter_key, question, answer) VALUES (%s,%s,%s,%s)",
             (rid, chapter_key, question, answer))
-        return True
+
+    def get_story_answers(self, rid, chapter_key=None):
+        if chapter_key:
+            return self._all(
+                "SELECT * FROM story_answers WHERE resident_id = %s AND chapter_key = %s ORDER BY id",
+                (rid, chapter_key))
+        return self._all(
+            "SELECT * FROM story_answers WHERE resident_id = %s ORDER BY id",
+            (rid,))
 
     # ---- memory layer (T2.5) ----
 

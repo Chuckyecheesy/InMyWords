@@ -63,6 +63,38 @@ def get_story(resident: str) -> dict:
     return {"resident": resident, "chapters": store.get_story(resident), "store_mode": store.mode}
 
 
+def _answer_row(row: dict) -> dict:
+    created = row.get("created_at")
+    return {
+        "id": row.get("id"),
+        "resident_id": row.get("resident_id"),
+        "chapter": row.get("chapter_key") or row.get("chapter"),
+        "question": row.get("question"),
+        "answer": row.get("answer"),
+        "created_at": str(created) if created else None,
+    }
+
+
+@mcp.tool
+def save_story_answer(resident: str, chapter: str, question: str, answer: str) -> dict:
+    """Save one picture-interview answer. Does not approve or narrate the chapter."""
+    store = get_store()
+    if not store.get_resident(resident):
+        return {"error": f"no resident '{resident}'"}
+    answer_id = store.save_story_answer(resident, chapter, question, answer)
+    return {"ok": True, "id": answer_id, "store_mode": store.mode}
+
+
+@mcp.tool
+def get_story_answers(resident: str, chapter: str = "") -> dict:
+    """Interview answers for a resident, oldest first. Optional chapter key."""
+    store = get_store()
+    if not store.get_resident(resident):
+        return {"error": f"no resident '{resident}'"}
+    rows = store.get_story_answers(resident, chapter or None)
+    return {"answers": [_answer_row(row) for row in rows], "store_mode": store.mode}
+
+
 @mcp.tool
 def save_story_chapter(resident: str, chapter: str, text: str, photos: list[str] | None = None) -> dict:
     """Save a draft story chapter (status=draft until the resident approves it)."""
