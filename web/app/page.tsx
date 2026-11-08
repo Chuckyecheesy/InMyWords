@@ -3,6 +3,7 @@ import { ArrowRight, Building2, ClipboardList } from "lucide-react";
 import { DataBanner } from "@/components/DataBanner";
 import { DisplayMenu } from "@/components/DisplayMenu";
 import { EntryPreview } from "@/components/EntryPreview";
+import { HeroScene } from "@/components/nature";
 import { Avatar, WordmarkMark } from "@/components/ui";
 import { getResident } from "@/lib/api";
 import { DEMO_RESIDENT_IDS, homeFor } from "@/lib/mock";
@@ -40,6 +41,10 @@ export default async function EntryPage() {
             <EntryPreview />
           </div>
         </section>
+
+        <div className="entry-scene">
+          <HeroScene />
+        </div>
 
         {sample ? <DataBanner>Sample data, the API didn&apos;t answer, so these are the demo residents.</DataBanner> : null}
 

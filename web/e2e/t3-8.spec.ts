@@ -11,7 +11,7 @@ test.describe("T3.8 accessibility and pitch", () => {
     page.on("request", (request) => {
       if (request.method() === "POST") posts.push(request.url());
     });
-    await page.goto("/resident/marcus/speak");
+    await page.goto("/resident/marcus/speak/words");
     await page.getByRole("button", { name: "coffee" }).click();
     const spoken = page.waitForResponse(
       (response) => response.url().includes("/speak") && response.request().method() === "POST",

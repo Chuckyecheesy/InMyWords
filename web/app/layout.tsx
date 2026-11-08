@@ -1,26 +1,27 @@
 import type { Metadata } from "next";
-import { Atkinson_Hyperlegible_Next, Instrument_Serif } from "next/font/google";
+import { Atkinson_Hyperlegible_Next, Fraunces } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 
 // Atkinson Hyperlegible Next: designed for low-vision readers; clear
-// letterforms suit AAC labels. Instrument Serif gives My Story its voice.
+// letterforms suit AAC labels. Fraunces (soft, warm serif) gives headings
+// and My Story their voice.
 const body = Atkinson_Hyperlegible_Next({
   subsets: ["latin"],
   variable: "--font-body",
   display: "swap",
 });
 
-const serif = Instrument_Serif({
+const serif = Fraunces({
   subsets: ["latin"],
-  weight: "400",
   style: ["normal", "italic"],
+  axes: ["SOFT", "opsz"],
   variable: "--font-serif",
   display: "swap",
 });
 
 export const viewport = {
-  themeColor: "#f8f7f4",
+  themeColor: "#f7f2ea",
 };
 
 export const metadata: Metadata = {
@@ -33,7 +34,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-const themeScript = `(function(){try{var t=localStorage.getItem("imw-theme");if(t==="contrast"||t==="calm"){document.documentElement.dataset.theme=t;}else if(window.matchMedia("(prefers-contrast: more)").matches){document.documentElement.dataset.theme="contrast";}var s=localStorage.getItem("imw-text");if(s==="large"){document.documentElement.dataset.text="large";}var f=localStorage.getItem("imw-touch");if(f==="onefinger"){document.documentElement.dataset.touch="onefinger";}}catch(e){}})();`;
+const themeScript = `(function(){try{var d=document.documentElement;var t=localStorage.getItem("imw-theme");if(t==="contrast"||t==="calm"||t==="dark"){d.dataset.theme=t;}else if(window.matchMedia("(prefers-contrast: more)").matches){d.dataset.theme="contrast";}else if(window.matchMedia("(prefers-color-scheme: dark)").matches){d.dataset.theme="dark";}var s=localStorage.getItem("imw-text");if(s==="large"){d.dataset.text="large";}var f=localStorage.getItem("imw-touch");if(f==="onefinger"){d.dataset.touch="onefinger";}}catch(e){}})();`;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -50,6 +51,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         />
       </head>
       <body>
+        <div className="atmosphere" aria-hidden="true" />
         {children}
       </body>
     </html>

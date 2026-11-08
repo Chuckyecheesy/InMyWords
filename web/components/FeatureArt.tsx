@@ -16,7 +16,7 @@ export function FeatureArt({ kind }: { kind: "speak" | "story" | "choice" | "pla
         </div>
         <div
           className="art-piece"
-          style={{ left: "40%", top: "12%", width: 48, height: 48, borderRadius: 999, background: "var(--accent)", color: "#fff", zIndex: 2 }}
+          style={{ left: "40%", top: "12%", width: 48, height: 48, borderRadius: 999, background: "var(--accent)", color: "var(--on-accent)", zIndex: 2 }}
         >
           <Check size={26} strokeWidth={3} />
         </div>
@@ -74,7 +74,7 @@ export function FeatureArt({ kind }: { kind: "speak" | "story" | "choice" | "pla
       </div>
       <div
         className="art-piece"
-        style={{ left: "38%", top: "14%", width: 48, height: 48, borderRadius: 999, background: "var(--accent)", color: "#fff", zIndex: 2 }}
+        style={{ left: "38%", top: "14%", width: 48, height: 48, borderRadius: 999, background: "var(--accent)", color: "var(--on-accent)", zIndex: 2 }}
       >
         <Check size={26} strokeWidth={3} />
       </div>

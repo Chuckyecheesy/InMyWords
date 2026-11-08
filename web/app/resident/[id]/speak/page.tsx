@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ImagePlus, Keyboard, Sparkles } from "lucide-react";
+import { ImagePlus, Keyboard, MessageSquareText, Sparkles } from "lucide-react";
 import { CategorySpeaker } from "@/components/CategorySpeaker";
 import { getResident } from "@/lib/api";
 
@@ -16,6 +16,10 @@ export default async function SpeakPage({ params }: { params: Promise<{ id: stri
       <details className="speak-disclosure">
         <summary>Other ways to communicate</summary>
         <nav className="speak-modes" aria-label="Other ways to say it">
+        <Link href={`/resident/${id}/speak/words`} className="btn" data-variant="soft" data-size="lg">
+          <MessageSquareText size={20} aria-hidden="true" />
+          My own words
+        </Link>
         <Link href={`/resident/${id}/type`} className="btn" data-variant="soft" data-size="lg">
           <Keyboard size={20} aria-hidden="true" />
           Type instead

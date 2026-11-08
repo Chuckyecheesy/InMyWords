@@ -18,90 +18,126 @@
 
 :root,
 [data-theme="calm"] {
-  /* Surfaces */
-  --bg: #f8f7f4;
-  --surface: #ffffff;
-  --surface-2: #eef0e9;
-  --surface-3: #e2e7dc;
-  --scrim: rgba(26, 31, 46, 0.42);
+  /* Surfaces — warm oat paper */
+  --bg: #f7f2ea;
+  --surface: #fffcf7;
+  --surface-2: #f2ebe0;
+  --surface-3: #eae1d3;
+  --scrim: rgba(58, 47, 42, 0.42);
 
-  /* Ink */
-  --ink: #1a1f2e;
-  --ink-2: #46534b;
-  --ink-3: #58665c;
-  --on-accent: #ffffff;
+  /* Ink — soft cocoa */
+  --ink: #3a2f2a;
+  --ink-2: #5a4b43;
+  --ink-3: #66574e;
+  --on-accent: #fffcf7;
 
   /* Lines */
-  --line: #dedfd7;
-  --line-strong: #7c9082;
+  --line: #e6dccd;
+  --line-strong: #94806f;
 
-  /* Accent: accessible forest sage; pale sage is selection/background only. */
-  --accent: #4b6653;
-  --accent-strong: #344d3b;
-  --accent-soft: #e5ecdf;
-  --accent-softer: #f0f4ec;
+  /* Accent: dusty clay-rose actions; blush for selection/background only. */
+  --accent: #8c4b3b;
+  --accent-strong: #6e3a2d;
+  --accent-soft: #f6e6dd;
+  --accent-softer: #fbf2ec;
 
   /* Supporting */
-  --blue: #2a5d7c;
-  --blue-soft: #dceaf2;
-  --coral: #f1a58d;
-  --coral-ink: #96432a;
-  --coral-soft: #fcebe4;
-  --amber-ink: #7a5410;
-  --amber-soft: #fbf0d9;
-  --sage-ink: #344d3b;
-  --sage-soft: #e5ecdf;
-  --danger: #b42318;
-  --danger-soft: #fdecea;
-  --success: #1f7a4d;
-  --success-soft: #e4f4ea;
+  --blue: #3f5a73;
+  --blue-soft: #e4ebf2;
+  --coral: #e8b4a6;
+  --coral-ink: #8a4733;
+  --coral-soft: #f6e2d9;
+  --amber-ink: #6e5119;
+  --amber-soft: #f6ead2;
+  --sage-ink: #3f5f41;
+  --sage-soft: #e3ece1;
+  --danger: #a8321f;
+  --danger-soft: #fbe9e4;
+  --success: #3f6b47;
+  --success-soft: #e3ece1;
 
   /* Provenance — CONTRACTS.md source labels. Never colour alone:
      every badge also carries an icon and words. */
-  --src-resident: #344d3b;
-  --src-resident-bg: #e5ecdf;
-  --src-staff: #2a5d7c;
-  --src-staff-bg: #dceaf2;
-  --src-emh: #3f4f5a;
-  --src-emh-bg: #eceeee;
-  --src-document: #7a5410;
-  --src-document-bg: #fbf0d9;
-  --src-pattern: #96432a;
-  --src-pattern-bg: #fcebe4;
-  --src-task: #1a1f2e;
-  --src-task-bg: #eef0e9;
+  --src-resident: #3f5f41;
+  --src-resident-bg: #e3ece1;
+  --src-staff: #34506a;
+  --src-staff-bg: #e4ebf2;
+  --src-emh: #4f4a6b;
+  --src-emh-bg: #ebe7f3;
+  --src-document: #6e5119;
+  --src-document-bg: #f6ead2;
+  --src-pattern: #8a4733;
+  --src-pattern-bg: #f6e2d9;
+  --src-task: #3a2f2a;
+  --src-task-bg: #f2ebe0;
 
   /* AAC category tints (soft, never the only cue — labels always shown) */
-  --cat-drinks: #fcebe4;
-  --cat-food: #fcebe4;
-  --cat-activities: #dceaf2;
-  --cat-people: #e5ecdf;
-  --cat-places: #e7eee5;
-  --cat-feelings: #fbf0d9;
-  --cat-answers: #eef0e9;
-  --cat-words: #eef0e9;
+  --cat-drinks: #f6e2d9;
+  --cat-food: #f6e2d9;
+  --cat-activities: #e4ebf2;
+  --cat-people: #e3ece1;
+  --cat-places: #e8efe4;
+  --cat-feelings: #f6ead2;
+  --cat-answers: #f2ebe0;
+  --cat-words: #f2ebe0;
 
   /* Legacy names kept for older components and the a11y contrast tests */
-  --paper: #f8f7f4;
-  --card: #ffffff;
-  --voice: #344d3b;
-  --voice-bg: #e5ecdf;
-  --staff: #2a5d7c;
-  --staff-bg: #dceaf2;
-  --record: #7a5410;
-  --record-bg: #fbf0d9;
-  --emh: #3f4f5a;
-  --emh-bg: #eceeee;
-  --pattern: #96432a;
-  --pattern-bg: #fcebe4;
+  --paper: #f7f2ea;
+  --card: #fffcf7;
+  --voice: #3f5f41;
+  --voice-bg: #e3ece1;
+  --staff: #34506a;
+  --staff-bg: #e4ebf2;
+  --record: #6e5119;
+  --record-bg: #f6ead2;
+  --emh: #4f4a6b;
+  --emh-bg: #ebe7f3;
+  --pattern: #8a4733;
+  --pattern-bg: #f6e2d9;
+
+  /* Atmosphere: paper grain behind every screen */
+  --grain-opacity: 0.07;
+  --grain-blend: multiply;
+
+  /* Nature illustrations */
+  --leaf: #8aa58a;
+  --leaf-2: #6f8f70;
+  --leaf-3: #aec4a6;
+  --stem: #6d7f5e;
+  --vein: #c9d8c3;
+  --petal: #e8b4a6;
+  --petal-2: #f0d29a;
+  --petal-3: #c9b6d9;
+  --honey: #d9b26f;
+  --fur: #d9a47c;
+  --fur-2: #c48862;
+  --fur-3: #f4e1cc;
+  --bird: #8c6f5e;
+  --bird-2: #6f5546;
+  --breast: #d98a6c;
+  --hill-1: #e4ead9;
+  --hill-2: #cfdcc4;
+  --hill-3: #b5c8aa;
+  --sun: #f2cf8a;
+  --moon: #efe6cc;
+  --cloud: #fffaf2;
+  --pebble: #ddd2c4;
+  --pebble-2: #cbbfae;
+  --pot: #c98b6b;
+  --pot-2: #b47657;
+  --shell: #d9b26f;
+  --shell-2: #b98d45;
+  --snail: #d6c2b4;
+  --nature-ink: #4d3f38;
 
   /* Focus */
-  --focus: #344d3b;
+  --focus: #3f6fa0;
   --focus-ring: 3px;
 
   /* Type */
   --font-ui: var(--font-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-story: var(--font-serif), ui-serif, Georgia, serif;
+  --font-display: var(--font-serif), ui-serif, Georgia, serif;
 
   --text-body: 22px;
   --text-small: 22px;
@@ -158,9 +194,9 @@
   --stroke-strong: 2px;
 
   /* Elevation */
-  --shadow-1: 0 1px 2px rgba(26, 31, 46, 0.06), 0 1px 1px rgba(26, 31, 46, 0.03);
-  --shadow-2: 0 6px 18px -6px rgba(26, 31, 46, 0.12), 0 2px 4px rgba(26, 31, 46, 0.04);
-  --shadow-3: 0 28px 56px -20px rgba(26, 31, 46, 0.28), 0 4px 12px rgba(26, 31, 46, 0.06);
+  --shadow-1: 0 1px 2px rgba(110, 70, 50, 0.06), 0 2px 6px rgba(110, 70, 50, 0.04);
+  --shadow-2: 0 10px 28px -8px rgba(110, 70, 50, 0.16), 0 2px 4px rgba(110, 70, 50, 0.04);
+  --shadow-3: 0 30px 60px -20px rgba(110, 70, 50, 0.3), 0 4px 12px rgba(110, 70, 50, 0.06);
 
   /* Motion */
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -174,6 +210,107 @@
   --sidebar: 272px;
 
   color-scheme: light;
+}
+
+/* Dark: plum-charcoal night garden. Follows prefers-color-scheme until the
+   person picks a theme in the Display menu. */
+[data-theme="dark"] {
+  --bg: #211c1f;
+  --surface: #2d272b;
+  --surface-2: #342d31;
+  --surface-3: #3b3337;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --ink: #f3eae2;
+  --ink-2: #d7cac0;
+  --ink-3: #c9bbb1;
+  --on-accent: #2a1b16;
+  --line: #463c41;
+  --line-strong: #8f8085;
+  --accent: #e3a893;
+  --accent-strong: #efc0ae;
+  --accent-soft: #4a3530;
+  --accent-softer: #3a2c29;
+  --blue: #b3cbe2;
+  --blue-soft: #2c343d;
+  --coral: #c99486;
+  --coral-ink: #f2c1ae;
+  --coral-soft: #45322d;
+  --amber-ink: #ecd29f;
+  --amber-soft: #3d3427;
+  --sage-ink: #c3dcbf;
+  --sage-soft: #2f3a30;
+  --danger: #ffaa9e;
+  --danger-soft: #4a2522;
+  --success: #a9d6b2;
+  --success-soft: #26362a;
+  --src-resident: #c3dcbf;
+  --src-resident-bg: #2f3a30;
+  --src-staff: #c2d4e6;
+  --src-staff-bg: #2c343d;
+  --src-emh: #d6cfee;
+  --src-emh-bg: #35304a;
+  --src-document: #ecd29f;
+  --src-document-bg: #3d3427;
+  --src-pattern: #f2c1ae;
+  --src-pattern-bg: #45322d;
+  --src-task: #f3eae2;
+  --src-task-bg: #3a3236;
+  --cat-drinks: #43312c;
+  --cat-food: #43312c;
+  --cat-activities: #2c343d;
+  --cat-people: #2f3a30;
+  --cat-places: #2f3830;
+  --cat-feelings: #3d3427;
+  --cat-answers: #342d31;
+  --cat-words: #342d31;
+  --paper: #211c1f;
+  --card: #2d272b;
+  --voice: #c3dcbf;
+  --voice-bg: #2f3a30;
+  --staff: #c2d4e6;
+  --staff-bg: #2c343d;
+  --record: #ecd29f;
+  --record-bg: #3d3427;
+  --emh: #d6cfee;
+  --emh-bg: #35304a;
+  --pattern: #f2c1ae;
+  --pattern-bg: #45322d;
+  --focus: #a8c4e0;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px rgba(0, 0, 0, 0.2);
+  --shadow-2: 0 10px 28px -8px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-3: 0 30px 60px -20px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --grain-opacity: 0.09;
+  --grain-blend: soft-light;
+  --leaf: #7f9a7f;
+  --leaf-2: #66816a;
+  --leaf-3: #9db39a;
+  --stem: #7d8f6e;
+  --vein: #a9bca5;
+  --petal: #c99486;
+  --petal-2: #d6b97f;
+  --petal-3: #a996bb;
+  --honey: #e2c084;
+  --fur: #c09070;
+  --fur-2: #a6765a;
+  --fur-3: #e2cfba;
+  --bird: #9a7f6e;
+  --bird-2: #7d6455;
+  --breast: #c97f64;
+  --hill-1: #2d2a2b;
+  --hill-2: #333a32;
+  --hill-3: #3c4838;
+  --sun: #e9cf8f;
+  --moon: #ece2c6;
+  --cloud: #3c3438;
+  --pebble: #4a4044;
+  --pebble-2: #574b50;
+  --pot: #a8735a;
+  --pot-2: #8e604a;
+  --shell: #c9a466;
+  --shell-2: #a7854c;
+  --snail: #8e7f78;
+  --nature-ink: #f3eae2;
+  color-scheme: dark;
 }
 
 [data-theme="contrast"] {
@@ -253,7 +390,7 @@
 }
 
 @media (prefers-contrast: more) {
-  :root:not([data-theme="calm"]) {
+  :root:not([data-theme="calm"]):not([data-theme="dark"]) {
     --bg: #ffffff;
     --surface: #ffffff;
     --surface-2: #ffffff;

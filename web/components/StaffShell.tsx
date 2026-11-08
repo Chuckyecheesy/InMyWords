@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Building2, History, LayoutDashboard, MonitorSmartphone, UserRoundPlus } from "lucide-react";
 import { DisplayMenu } from "./DisplayMenu";
+import { GardenEdge, PottedPlant } from "./nature";
 import { SessionCard } from "./SessionCard";
 import { UrgentHelpBanner } from "./UrgentHelpBanner";
 import { Avatar, WordmarkMark } from "./ui";
@@ -79,6 +80,7 @@ export function StaffShell({ people, children }: { people: Person[]; children: R
             Switch to resident tablet
           </Link>
         </nav>
+        <PottedPlant className="sidebar-plant" animate={false} />
         <SessionCard />
       </aside>
       <div className="s-main">
@@ -104,6 +106,7 @@ export function StaffShell({ people, children }: { people: Person[]; children: R
         </nav>
         <main id="main" className="s-content">
           {children}
+          <GardenEdge />
         </main>
       </div>
     </div>
