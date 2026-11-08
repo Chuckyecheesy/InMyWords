@@ -62,7 +62,7 @@ def seed_public_ids() -> list[str]:
         for chapter in data["story_chapters"]:
             ids.extend(chapter["photo_ids"])
     # Choice mock extras that are not in the resident tile lists.
-    ids.extend(["tiles/marcus_movie", "tiles/marcus_later"])
+    ids.extend(["tiles/marcus_movie", "tiles/marcus_later", "tiles/dana_later"])
     # Preserve order, drop duplicates.
     seen: set[str] = set()
     ordered: list[str] = []

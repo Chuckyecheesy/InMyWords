@@ -13,7 +13,7 @@ agents/
   voice.py             tile tap → 2–3 written sentences (T3.2, wired to POST /suggest)
   coach.py             sourced answers, "I don't know, ask Marcus" (T4)
   story.py             chapter writing from interview answers (T3)
-  choice.py            consequences, never recommends (T3)
+  choice.py            consequences, never recommends (T3.6, wired to POST /choices)
   action.py            online steps vs. staff tasks, approval card (T4)
   handoff.py           since-last-shift summary (T2)
   memory/              observer.py, consolidator.py, routines.py, retriever.py,

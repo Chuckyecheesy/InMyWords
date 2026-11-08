@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mocks
+from agents.choice import SEED_BUDGETS, build_choice
 from agents.coach_wording import coach_answer
 from agents.memory.wiring import observe_event, scan_routines
 from agents.story import LocalBooks, McpBooks, StoryError, local_books, narrate, record_answer, draft as draft_chapter
@@ -342,21 +343,108 @@ async def coach_ask(body: CoachAskBody):
 
 # ---------- Supported Choice ----------
 
+# Created choices, so decide can log the resident who actually tapped.
+# The id from log_choice is used when the profile server is up.
+_open_choices: dict[int, dict] = {}
+_local_choice_ids = 0
+
+
+def _next_choice_id() -> int:
+    global _local_choice_ids
+    _local_choice_ids += 1
+    return _local_choice_ids
+
+
+def _choice_budget(resident_id: str, profile: dict | None, live: bool) -> float | None:
+    if live and isinstance(profile, dict) and not profile.get("error"):
+        value = profile.get("weekly_budget")
+        if value is not None:
+            return float(value)
+    return SEED_BUDGETS.get(resident_id.strip().lower())
+
+
+def _chosen_label(raw: str, options: list[dict]) -> str | None:
+    """A label from this choice, or None for 'not decided yet'."""
+    text = " ".join((raw or "").replace("_", " ").split()).lower()
+    if text in {"not decided yet", "not yet decided"}:
+        return None
+    for option in options:
+        if option["label"].lower() == raw.strip().lower():
+            if option["label"].lower() == "not decided yet":
+                return None
+            return option["label"]
+    return raw.strip() or None
+
+
 @app.post("/choices")
-def create_choice(body: ChoicesBody):
-    return mocks.CHOICE_WITH_CONSEQUENCES
+async def create_choice(body: ChoicesBody):
+    resident_id = "".join(ch for ch in body.resident_id if ch.isalnum() or ch in "_-")[:40]
+    profile, live = await _mcp(mcp_client.get_profile(resident_id), None)
+    name = resident_id[:1].upper() + resident_id[1:] if resident_id else "Resident"
+    if live and isinstance(profile, dict) and profile.get("name"):
+        name = profile["name"]
+    budget = _choice_budget(resident_id, profile if isinstance(profile, dict) else None, live)
+    use_llm = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+    built = build_choice(
+        resident_id=resident_id,
+        question=body.question,
+        options=[option.model_dump() for option in body.options],
+        weekly_budget=budget,
+        generate="auto" if use_llm else None,
+    )
+    logged, logged_live = await _mcp(
+        mcp_client.log_choice(
+            resident_id,
+            options=built["options"],
+            chosen=None,
+            question=built["question"],
+        ),
+        None,
+    )
+    if logged_live and isinstance(logged, dict) and logged.get("id") is not None:
+        choice_id = int(logged["id"])
+    else:
+        choice_id = _next_choice_id()
+    _open_choices[choice_id] = {
+        "resident_id": resident_id,
+        "name": name,
+        "question": built["question"],
+        "options": built["options"],
+    }
+    return {
+        "id": choice_id,
+        "question": built["question"],
+        "weekly_budget": built["weekly_budget"],
+        "status": "not_yet_decided",
+        "options": built["options"],
+    }
 
 
 @app.post("/choices/{choice_id}/decide")
 async def decide_choice(choice_id: int, body: DecideBody, background: BackgroundTasks):
+    row = _open_choices.get(choice_id)
+    if row:
+        chosen = _chosen_label(body.chosen, row["options"])
+        result, live = await _mcp(
+            mcp_client.log_choice(
+                row["resident_id"],
+                options=row["options"],
+                chosen=chosen,
+                question=row["question"],
+            ),
+            None,
+        )
+        status = result["status"] if live else ("chosen" if chosen else "not_yet_decided")
+        if chosen:
+            background.add_task(
+                observe_event,
+                f"{row['name']} chose {chosen}.",
+                "choice",
+                row["resident_id"],
+            )
+        return {"ok": True, "status": status}
     chosen = None if body.chosen == "not_yet_decided" else body.chosen
-    result, live = await _mcp(
-        mcp_client.log_choice("marcus", options=[], chosen=chosen), None)
-    if chosen:
-        background.add_task(observe_event, f"Marcus chose {chosen}.", "choice", "marcus")
-    # TODO(T2.5): look up the choice's resident + options by choice_id once
-    # choices are persisted at creation time (they're created by Ahmed's agent).
-    return {"ok": True, "status": result["status"] if live else ("chosen" if chosen else "not_yet_decided")}
+    return {"ok": True, "status": "chosen" if chosen else "not_yet_decided"}
 
 
 # ---------- Actions ----------
