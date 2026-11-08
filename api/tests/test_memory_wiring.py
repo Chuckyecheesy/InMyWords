@@ -15,18 +15,23 @@ from agents.memory.routines import find_routines  # noqa: E402
 class CoachWordingTests(unittest.TestCase):
     def test_pattern_is_labelled_and_not_confirmed(self):
         out = coach_answer([{"content": "Likes tea now", "label": "Pattern noticed"}], "Marcus")
-        self.assertTrue(out.startswith("Pattern noticed"))
-        self.assertIn("not confirmed by Marcus yet", out)
+        self.assertIn("pattern", out.lower())
+        self.assertIn("hasn't confirmed", out)
+        self.assertNotIn("Pattern noticed:", out)
 
     def test_records_fact_keeps_its_label(self):
         out = coach_answer([{"content": "Drinks coffee", "label": "From records, 2021"}], "Marcus")
-        self.assertTrue(out.startswith("From records, 2021:"))
+        self.assertIn("2021 records", out)
+        self.assertIn("Marcus drinks coffee", out)
 
     def test_flagged_fact_is_called_out_as_possibly_out_of_date(self):
         facts = [{"content": "Likes tea now", "label": "Pattern noticed"},
                  {"content": "Drinks coffee", "label": "From records, 2021",
                   "update_reason": "tea pattern"}]
-        self.assertIn("may be out of date: Drinks coffee", coach_answer(facts, "Marcus"))
+        out = coach_answer(facts, "Marcus")
+        self.assertIn("may be out of date", out)
+        self.assertIn("drinks coffee", out.lower())
+        self.assertIn("worth asking Marcus", out)
 
 
 class ObserveSyncTests(unittest.TestCase):
