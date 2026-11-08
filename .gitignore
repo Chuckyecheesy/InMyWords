@@ -3,6 +3,7 @@
 .env.local
 .env*.local
 *.pem
+inmyways-*.json
 
 # Node / Next.js
 node_modules/

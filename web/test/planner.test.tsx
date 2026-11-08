@@ -13,6 +13,7 @@ void React;
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { MyPlanner } from "../components/MyPlanner.tsx";
+import { StaffPlanner } from "../components/StaffPlanner.tsx";
 import {
   clock,
   daysPhrase,
@@ -385,3 +386,23 @@ describe("calendar scroll position", () => {
     assert.equal(localHour("2026-11-08T18:00:00Z"), 13);
   });
 });
+
+describe("staff see the same week", () => {
+  test("shows the same visit blocks the resident sees, with no way to add one", () => {
+    const pending = visit("2026-11-09", { id: 9, approved: false });
+    const resident = planner({ initialVisits: [...WEEK, pending] });
+    const residentBlocks = [...resident.container.querySelectorAll(".visit-block")].map((b) => b.getAttribute("aria-label"));
+    cleanup();
+
+    const { container } = render(
+      <StaffPlanner residentId="dana" residentName="Dana" visits={[...WEEK, pending]} staff={STAFF} today="2026-11-08" />,
+    );
+    const staffBlocks = [...container.querySelectorAll(".visit-block")].map((b) => b.getAttribute("aria-label"));
+    assert.equal(staffBlocks.length, 7);
+    assert.deepEqual(staffBlocks, residentBlocks);
+    assert.equal(screen.queryByRole("button", { name: "Add a visit" }), null);
+    assert.ok(screen.getByRole("heading", { name: "Dana's week" }));
+    assert.ok(screen.getByText(/Only Dana can add or change them/));
+  });
+});
+

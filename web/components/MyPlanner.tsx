@@ -76,8 +76,7 @@ export function MyPlanner({
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [visits, setVisits] = useState<PlannerVisit[]>(initialVisits);
-  const [imported, setImported] = useState<PlannerVisit[]>([]);
-  const [importNote, setImportNote] = useState<string | null>(null);
+  const { imported, importNote, showCalendarFile } = useCalendarImport(residentId, today);
   const [weekOffset, setWeekOffset] = useState(0);
   const timer = useRef<number | null>(null);
 
@@ -206,29 +205,10 @@ export function MyPlanner({
     setNote("Cancelled. Nothing was booked.");
   }
 
-  async function showCalendarFile(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-    setImportNote("Reading the calendar file…");
-    const b64 = await fileToBase64(file);
-    const result = await importCalendarView({
-      resident_id: residentId,
-      calendar_zip_b64: b64,
-      start_date: weekStartOf(today),
-      days: 63,
-    });
-    if (!result.ok) {
-      setImportNote(result.error);
-      return;
-    }
-    setImported(result.data);
-    setImportNote(`${result.data.length} staff visit times shown. Nothing was booked or sent.`);
-  }
-
   if (step === "week") {
     return (
       <WeekView
+        viewer="resident"
         residentName={residentName}
         today={today}
         weekOffset={weekOffset}
@@ -417,7 +397,12 @@ function dayHeading(visit: PlannerVisit): string {
   return weekFrom(localDate(visit.starts_at))[0].heading;
 }
 
-function WeekView({
+/**
+ * The week calendar. The resident and staff see the same grid with the same
+ * visits; only the resident can add one (choices belong to the resident).
+ */
+export function WeekView({
+  viewer,
   residentName,
   today,
   weekOffset,
@@ -428,13 +413,15 @@ function WeekView({
   importNote,
   onCalendarFile,
 }: {
+  viewer: "resident" | "staff";
   residentName: string;
   today: string;
   weekOffset: number;
   setWeekOffset: (n: number) => void;
   visits: PlannerVisit[];
   staff: StaffOption[];
-  onAdd: () => void;
+  /** Resident only. Staff never add or change a resident's visits. */
+  onAdd?: () => void;
   importNote: string | null;
   onCalendarFile: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
@@ -462,6 +449,8 @@ function WeekView({
     const hour = cal?.querySelector<HTMLElement>(".cal-body .cal-hour");
     if (cal && hour) cal.scrollTop = (scrollHour - bounds.first) * hour.offsetHeight;
   }, [weekOffset, scrollHour, bounds.first]);
+  const isStaff = viewer === "staff";
+  const title = isStaff ? `${residentName}'s week` : "My week";
   const what = (v: PlannerVisit) =>
     v.read_only ? v.title || "Staff time" : `Meeting with ${staffName(staff, v.staff)}`;
 
@@ -470,13 +459,20 @@ function WeekView({
       <header className="planner-head">
         <div>
           <p className="eyebrow">{residentName}&apos;s planner</p>
-          <h1>My week</h1>
+          {isStaff ? <h2>{title}</h2> : <h1>{title}</h1>}
           <p className="planner-range">{range}</p>
         </div>
-        <BigButton tone="approve" onClick={onAdd}>
-          Add a visit
-        </BigButton>
+        {!isStaff && onAdd ? (
+          <BigButton tone="approve" onClick={onAdd}>
+            Add a visit
+          </BigButton>
+        ) : null}
       </header>
+      {isStaff ? (
+        <p className="note">
+          Visits {residentName} chose. Only {residentName} can add or change them, from their tablet.
+        </p>
+      ) : null}
 
       <div className="row planner-weeknav">
         <button type="button" className="btn" data-variant="secondary" data-size="lg" onClick={() => setWeekOffset(weekOffset - 1)}>
@@ -498,7 +494,8 @@ function WeekView({
         <p className="cal-legend">
           {bookedLabel ? (
             <span className="cal-key">
-              <span className="cal-swatch" data-kind="booked" aria-hidden="true" /> Your visits: {bookedLabel}
+              <span className="cal-swatch" data-kind="booked" aria-hidden="true" />{" "}
+              {isStaff ? `Visits ${residentName} chose` : "Your visits"}: {bookedLabel}
             </span>
           ) : null}
           {importedLabel ? (
@@ -550,7 +547,7 @@ function WeekView({
               </span>
             ))}
           </div>
-          <ol className="planner-week cal-days" aria-label={`My week, ${range}`}>
+          <ol className="planner-week cal-days" aria-label={`${title}, ${range}`}>
             {week.map((day) => {
               const placed = layoutDay(byDay.get(day.date) ?? [], day.date, bounds);
               const timed = (byDay.get(day.date) ?? []).filter((v) => !v.all_day);
@@ -642,4 +639,32 @@ function fileToBase64(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+/** Staff's .zip calendar export, shown read-only on the grid. Shared by both views. */
+export function useCalendarImport(residentId: string, today: string) {
+  const [imported, setImported] = useState<PlannerVisit[]>([]);
+  const [importNote, setImportNote] = useState<string | null>(null);
+
+  async function showCalendarFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImportNote("Reading the calendar file…");
+    const b64 = await fileToBase64(file);
+    const result = await importCalendarView({
+      resident_id: residentId,
+      calendar_zip_b64: b64,
+      start_date: weekStartOf(today),
+      days: 63,
+    });
+    if (!result.ok) {
+      setImportNote(result.error);
+      return;
+    }
+    setImported(result.data);
+    setImportNote(`${result.data.length} staff visit times shown. Nothing was booked or sent.`);
+  }
+
+  return { imported, importNote, showCalendarFile };
 }
