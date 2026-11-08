@@ -133,23 +133,44 @@ class PhotoBody(BaseModel):
 
 # ---------- residents ----------
 
+def resident_from_profile(resident_id: str, profile):
+    """Turn a profile-tool result into the public resident body.
+
+    Returns ("missing", message) when the resident does not exist, (body, None)
+    when the payload is usable, and (None, None) when it is not — the route
+    then serves the demo resident instead of answering 500.
+    """
+    if not isinstance(profile, dict):
+        return None, None
+    error = profile.get("error")
+    if error:
+        return "missing", str(error)
+    name = profile.get("name")
+    tiles = profile.get("tiles")
+    if not isinstance(name, str) or not name.strip() or not isinstance(tiles, list):
+        return None, None
+    return {
+        "id": resident_id,
+        "name": name,
+        "voice_id": profile.get("voice_id"),
+        "communication_style": profile.get("communication_style") or "",
+        "tiles": tiles,
+        # extra context beyond the frozen contract — additive, safe
+        "preferences": profile.get("preferences") or [],
+        "routines": profile.get("routines") or [],
+        "pending_patterns": profile.get("pending_patterns") or [],
+    }, None
+
+
 @app.get("/residents/{resident_id}")
 async def get_resident(resident_id: str):
     profile, live = await _mcp(mcp_client.get_profile(resident_id), None)
     if live:
-        if profile.get("error"):
-            raise HTTPException(404, profile["error"])
-        return {
-            "id": resident_id,
-            "name": profile["name"],
-            "voice_id": profile["voice_id"],
-            "communication_style": profile["communication_style"],
-            "tiles": profile["tiles"],
-            # extra context beyond the frozen contract — additive, safe
-            "preferences": profile["preferences"],
-            "routines": profile["routines"],
-            "pending_patterns": profile["pending_patterns"],
-        }
+        body, missing = resident_from_profile(resident_id, profile)
+        if body == "missing":
+            raise HTTPException(404, missing or f"No resident '{resident_id}'")
+        if body:
+            return body
     resident = mocks.RESIDENTS.get(resident_id)
     if not resident:
         raise HTTPException(404, f"No resident '{resident_id}'")

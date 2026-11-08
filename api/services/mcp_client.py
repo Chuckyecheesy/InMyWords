@@ -43,7 +43,14 @@ def _loop_state() -> dict:
     loop = asyncio.get_running_loop()
     state = _per_loop.get(loop)
     if state is None:
-        state = _per_loop[loop] = {"sessions": {}, "lock": asyncio.Lock()}
+        state = _per_loop[loop] = {
+            "sessions": {},
+            "lock": asyncio.Lock(),
+            # One call at a time per server. The streamable session is one
+            # connection; overlapping calls mix their replies and the route
+            # then 500s. Opening Marcus fires several of these at once.
+            "calls": {},
+        }
     return state
 
 
@@ -82,7 +89,20 @@ def _unpack(result):
     return json.loads(text)
 
 
+def _call_lock(server: str) -> asyncio.Lock:
+    state = _loop_state()
+    lock = state["calls"].get(server)
+    if lock is None:
+        lock = state["calls"][server] = asyncio.Lock()
+    return lock
+
+
 async def _call(server: str, tool: str, args: dict):
+    async with _call_lock(server):
+        return await _call_locked(server, tool, args)
+
+
+async def _call_locked(server: str, tool: str, args: dict):
     try:
         client = await _session(server)
     except Exception:

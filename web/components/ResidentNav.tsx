@@ -44,6 +44,7 @@ function NavLink({
   return (
     <Link
       href={href}
+      prefetch={false}
       aria-current={current ? "page" : undefined}
       onPointerDown={press.onPointerDown}
       onPointerUp={press.onPointerUp}
