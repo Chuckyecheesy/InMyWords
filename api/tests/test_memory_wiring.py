@@ -71,6 +71,67 @@ class PhrasingPromptTests(unittest.TestCase):
             wiring._gemini = original
         self.assertEqual(seen["feature"], "memory_easy")
         self.assertIn("third person", seen["prompt"])
+        self.assertIn("'they'", seen["prompt"])
+
+
+class ContradictionTypeTests(unittest.TestCase):
+    def test_different_types_are_still_compared(self):
+        asked = []
+
+        class Fake:
+            @staticmethod
+            def generate_for(feature, prompt, schema, **k):
+                asked.append(prompt)
+                return {"contradicts": True}
+
+        original = wiring._gemini
+        wiring._gemini = lambda: Fake
+        try:
+            got = wiring.gemini_contradicts(
+                {"type": "routine", "content": "Picks tea at snack time"},
+                {"type": "preference", "content": "Drinks coffee"})
+        finally:
+            wiring._gemini = original
+        self.assertTrue(got)
+        self.assertEqual(len(asked), 1)
+
+
+class ContradictionRetryTests(unittest.TestCase):
+    def test_a_failed_check_is_retried_once(self):
+        calls = []
+
+        class Flaky:
+            @staticmethod
+            def generate_for(feature, prompt, schema, **k):
+                calls.append(1)
+                if len(calls) == 1:
+                    raise RuntimeError("503")
+                return {"contradicts": True}
+
+        original = wiring._gemini
+        wiring._gemini = lambda: Flaky
+        try:
+            got = wiring.gemini_contradicts({"type": "event", "content": "tea"},
+                                            {"type": "preference", "content": "coffee"})
+        finally:
+            wiring._gemini = original
+        self.assertTrue(got)
+        self.assertEqual(len(calls), 2)
+
+    def test_two_failures_answer_no_flag(self):
+        class Down:
+            @staticmethod
+            def generate_for(*a, **k):
+                raise RuntimeError("503")
+
+        original = wiring._gemini
+        wiring._gemini = lambda: Down
+        try:
+            got = wiring.gemini_contradicts({"type": "event", "content": "tea"},
+                                            {"type": "preference", "content": "coffee"})
+        finally:
+            wiring._gemini = original
+        self.assertFalse(got)
 
 
 class ScanRoutinesTests(unittest.TestCase):

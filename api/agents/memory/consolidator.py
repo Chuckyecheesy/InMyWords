@@ -7,15 +7,17 @@ memory server bumps times_seen. Anything else is remembered as a candidate.
 
 
 def consolidate(candidate: dict, *, resident_id: str, recall, contradicts,
-                remember, propose_update, threshold: float = 0.9) -> dict:
+                remember, propose_update, threshold: float = 0.9,
+                max_checks: int = 3) -> dict:
     # Memory search is keyword-based today, so "tea" alone never finds
     # "coffee". The general topic ("drinks") bridges that gap and goes first,
     # because the search only reads the first few words.
     query = f"{candidate.get('topic', '')} {candidate['content']}".strip()
     found = recall(resident_id=resident_id, query=query) or []
 
-    for memory in found:
-        if memory.get("status") == "confirmed" and contradicts(candidate, memory):
+    confirmed = [m for m in found if m.get("status") == "confirmed"][:max_checks]
+    for memory in confirmed:  # each check may be a model call, so it is capped
+        if contradicts(candidate, memory):
             reason = (
                 f"New pattern noticed: {candidate['content']} "
                 f"(earlier: {memory.get('content', '')})"

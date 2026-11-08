@@ -145,7 +145,10 @@ def ask_about(resident: str, question: str) -> dict:
     name = r["first_name"] if r else resident
     hits = store.search_facts(resident, question)
     for h in hits:
-        h["label"] = source_label(h["source"] if h["status"] != "pending" else "inferred", name, h["date"])
+        # Only inferred facts read as "pattern noticed" while pending. Binder
+        # facts keep "From records" even when flagged for a re-check.
+        pending_inferred = h["status"] == "pending" and h["source"] in ("inferred", "pattern")
+        h["label"] = source_label("inferred" if pending_inferred else h["source"], name, h["date"])
     return {"resident": resident, "question": question, "facts": hits,
             "unknown": len(hits) == 0, "store_mode": store.mode}
 

@@ -119,6 +119,14 @@ class ConsolidatorTests(unittest.TestCase):
         self.assertEqual(out["action"], "seen_again")
         self.assertEqual(propose.calls, [])
 
+    def test_at_most_max_checks_model_calls_per_candidate(self):
+        confirmed = [{"id": i, "content": f"m{i}", "status": "confirmed"} for i in range(6)]
+        asked = []
+        consolidate(self.CAND, resident_id="marcus", recall=lambda **k: confirmed,
+                    contradicts=lambda c, m: asked.append(m["id"]) or False,
+                    remember=Recorder(), propose_update=Recorder(), max_checks=3)
+        self.assertEqual(len(asked), 3)
+
     def test_topic_widens_the_recall_query(self):
         seen = []
         consolidate(dict(self.CAND, topic="drinks"), resident_id="marcus",

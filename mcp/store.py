@@ -162,15 +162,18 @@ class SeedStore:
             if any(w in text for w in words):
                 hits.append({"content": m["content"], "source": m["source"],
                              "date": m.get("source_date") or m["last_seen"][:10],
-                             "status": m["status"], "kind": "memory"})
+                             "status": m["status"], "kind": "memory",
+                             "id": m["id"], "update_reason": m.get("update_reason")})
         for o in self.observations:
             if o["resident_id"] == rid and any(w in o["note"].lower() for w in words):
                 hits.append({"content": o["note"], "source": "staff",
-                             "date": o["created_at"][:10], "status": "confirmed", "kind": "observation"})
+                             "date": o["created_at"][:10], "status": "confirmed", "kind": "observation",
+                             "id": None, "update_reason": None})
         for n in self.emh_notes:
             if n["resident_id"] == rid and any(w in n["note"].lower() for w in words):
                 hits.append({"content": n["note"], "source": "emh",
-                             "date": n["created_at"][:10], "status": "confirmed", "kind": "emh_note"})
+                             "date": n["created_at"][:10], "status": "confirmed", "kind": "emh_note",
+                             "id": None, "update_reason": None})
         return hits[:limit]
 
     def get_emh_notes(self, rid, since=None):
@@ -482,14 +485,15 @@ class PostgresStore:
         note_match = " OR ".join(["strpos(lower(note), %s) > 0"] * len(words))
         return self._all(
             f"""SELECT content, source, coalesce(source_date::text, last_seen::date::text) AS date,
-                      status, 'memory' AS kind
+                      status, 'memory' AS kind, id,
+                      NULL::text AS update_reason  -- no column yet; see db/schema.sql
                FROM memories WHERE resident_id = %s AND status IN ('confirmed','pending')
                  AND ({memory_match})
                UNION ALL
-               SELECT note, 'staff', created_at::date::text, 'confirmed', 'observation'
+               SELECT note, 'staff', created_at::date::text, 'confirmed', 'observation', NULL::int, NULL::text
                FROM observations WHERE resident_id = %s AND ({note_match})
                UNION ALL
-               SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note'
+               SELECT note, 'emh', created_at::date::text, 'confirmed', 'emh_note', NULL::int, NULL::text
                FROM emh_notes WHERE resident_id = %s AND ({note_match})
                LIMIT %s""",
             tuple([rid, *words, rid, *words, rid, *words, limit]))

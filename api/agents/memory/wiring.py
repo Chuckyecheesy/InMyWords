@@ -53,8 +53,8 @@ def gemini_extract(prompt: str) -> dict:
 def gemini_contradicts(candidate: dict, memory: dict) -> bool:
     """True only when the new fact and the old one cannot both be current.
     Any failure answers False: no flag is better than a wrong flag."""
-    if memory.get("type") != candidate.get("type"):
-        return False
+    # Types are not compared: the model may call tea a routine while the binder
+    # calls coffee a preference. Same topic is judged by the prompt below.
     prompt = (
         "A care team holds an old fact about a person. A new observation may mean "
         "the old fact is out of date and should be re-checked with the person.\n"
@@ -65,11 +65,12 @@ def gemini_contradicts(candidate: dict, memory: dict) -> bool:
         'picks tea). Answer {"contradicts": false} if they are about different '
         "things or simply agree."
     )
-    try:
-        return bool(_gemini().generate_for("memory_easy", prompt, _YES_NO_SCHEMA).get("contradicts"))
-    except Exception as exc:
-        print(f"[memory] contradiction check failed: {exc}")
-        return False
+    for attempt in (1, 2):  # one retry: a failed check would hide a real change
+        try:
+            return bool(_gemini().generate_for("memory_easy", prompt, _YES_NO_SCHEMA).get("contradicts"))
+        except Exception as exc:
+            print(f"[memory] contradiction check failed (try {attempt}): {exc}")
+    return False
 
 
 def plain_routine_text(group: dict) -> str:
@@ -82,7 +83,7 @@ def gemini_phrase(group: dict) -> str:
     fallback = plain_routine_text(group)
     try:
         out = _gemini().generate_for("memory_easy",
-            "Write one short plain sentence, no numbers, in the third person (never 'I' or 'my'; 'he', 'she' or 'they' is fine), "
+            "Write one short plain sentence, no numbers, in the third person using 'they' (never 'I' or 'my', and never 'he' or 'she'), "
             f"describing this routine noticed by staff: {fallback}",
             _PHRASE_SCHEMA)
         return str(out.get("sentence", "")).strip() or fallback
