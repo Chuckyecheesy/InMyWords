@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { createChoice, decideChoice, planActions, speak, type ActionPlan } from "@/lib/api";
+import { createChoice, decideChoice, planActions, speak, type ActionPlan, type AgentNote } from "@/lib/api";
 import { choicePrompt, NOT_DECIDED_LABEL, NOT_DECIDED_VALUE } from "@/lib/choice-prompts";
 import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import { tileImageUrl } from "@/lib/cloudinary";
@@ -11,6 +11,22 @@ import { ApprovalCard } from "./ApprovalCard";
 import { BigButton } from "./shared";
 
 const LONG_PRESS_MS = 600;
+
+function AgentShowcase({ agents }: { agents: AgentNote[] }) {
+  return (
+    <section className="agent-showcase" data-testid="agent-showcase" aria-label="Agents helping with this choice">
+      <h2>Helping with this</h2>
+      <div className="agent-row">
+        {agents.map((agent) => (
+          <article key={agent.id} className="agent-card" data-agent={agent.id}>
+            <span className="choice-label">{agent.name}</span>
+            <span className="note">{agent.note}</span>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 function phraseOf(text: string): string {
   const split = text.indexOf(" Costs ");
@@ -99,6 +115,7 @@ export function ChoiceScreen({
     if (!choice || busy || pressed.current) return;
     setBusy(true);
     setError(null);
+    setPlan(null);
     const value = option.label.toLowerCase() === NOT_DECIDED_LABEL ? NOT_DECIDED_VALUE : option.label;
     const result = await decideChoice(String(choice.id), value);
     setBusy(false);
@@ -163,21 +180,25 @@ export function ChoiceScreen({
           })}
         </div>
         {status ? (
-          <>
-            <p className="eyebrow" data-testid="choice-standing">
-              {choiceStanding(status, residentName, chosen)}
-            </p>
-            <BigButton
-              onLongPress={hear}
-              onClick={() => {
-                setStatus(null);
-                setChosen(null);
-                setPlan(null);
-              }}
-            >
-              Undo
-            </BigButton>
-          </>
+          <p className="eyebrow" data-testid="choice-standing">
+            {choiceStanding(status, residentName, chosen)}
+          </p>
+        ) : null}
+        {status === "chosen" && !plan && !error ? (
+          <p role="status">The agents are looking this up.</p>
+        ) : null}
+        {plan && plan.agents.length > 0 ? <AgentShowcase agents={plan.agents} /> : null}
+        {status ? (
+          <BigButton
+            onLongPress={hear}
+            onClick={() => {
+              setStatus(null);
+              setChosen(null);
+              setPlan(null);
+            }}
+          >
+            Undo
+          </BigButton>
         ) : null}
       </section>
       {plan ? <ApprovalCard residentId={residentId} plan={plan} /> : null}

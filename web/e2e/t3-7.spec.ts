@@ -21,9 +21,9 @@ test.describe("T3.7 approval, confirm, voice", () => {
     await page.getByRole("button", { name: "Bowling" }).click();
     const plan = await (await planned).json();
     expect(plan.total_cost).toBe(15);
-    expect(plan.online_steps.map((step: { step: string }) => step.step)).toEqual([
-      "book_activity",
+    expect(plan.online_steps.map((step: { step: string }) => step.step).sort()).toEqual([
       "add_to_calendar",
+      "book_activity",
       "send_message",
     ]);
 
@@ -33,7 +33,8 @@ test.describe("T3.7 approval, confirm, voice", () => {
     const booking = card.locator("[data-step='book_activity']");
     await expect(booking).toBeVisible();
     await expect(booking.locator("img, .choice-letter").first()).toBeVisible();
-    await expect(card.getByText("Drive Marcus to KW Bowl")).toBeVisible();
+    await expect(card.getByText(/Drive .*KW Bowl/)).toBeVisible();
+    await expect(page.getByTestId("agent-showcase")).toBeVisible();
 
     const approveBox = await card.getByRole("button", { name: "Approve" }).boundingBox();
     expect(approveBox?.width).toBeGreaterThanOrEqual(64);

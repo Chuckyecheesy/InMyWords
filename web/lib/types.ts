@@ -117,6 +117,12 @@ export type MutationResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
 
+export type AgentNote = {
+  id: string;
+  name: string;
+  note: string;
+};
+
 export type ActionPlan = {
   plan_id: number;
   goal: string;
@@ -124,4 +130,5 @@ export type ActionPlan = {
   staff_tasks: { task: string; due: string | null }[];
   total_cost: number;
   status: "proposed";
+  agents: AgentNote[];
 };

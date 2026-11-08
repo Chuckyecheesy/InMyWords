@@ -651,6 +651,31 @@ a {
   font-size: var(--text-body);
 }
 
+.agent-showcase h2 {
+  font-size: var(--text-h2);
+  margin-bottom: var(--space-2);
+}
+
+.agent-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 760px;
+}
+
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: var(--tap-min);
+  padding: var(--space-2);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  text-align: center;
+}
+
 .choice-options {
   display: grid;
   grid-template-columns: repeat(
