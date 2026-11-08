@@ -54,7 +54,7 @@ SERVICES=(inmywords-mcp-profile inmywords-mcp-memory inmywords-mcp-actions inmyw
 
 # Secrets copied from the local .env to the VM. Add a name here when a new integration lands.
 ENV_KEYS=(DATABASE_URL GEMINI_API_KEY GEMINI_MODEL GEMINI_EMBED_MODEL
-  ELEVENLABS_API_KEY ELEVENLABS_STORY_AGENT_ID ELEVENLABS_COACH_AGENT_ID ELEVENLABS_TTS_MODEL
+  ELEVENLABS_ID ELEVENLABS_STORY_AGENT_ID ELEVENLABS_COACH_AGENT_ID ELEVENLABS_TTS_MODEL
   ELEVENLABS_FALLBACK_VOICE_ID ELEVENLABS_DEFAULT_VOICE_ID CLOUDINARY_CLOUD_NAME CLOUDINARY_API_KEY CLOUDINARY_API_SECRET
   CLOUDINARY_UPLOAD_PRESET NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME EMAIL_SENDER_ADDRESS EMAIL_SENDER_PASSWORD
   GOOGLE_SERVICE_ACCOUNT_JSON GOOGLE_CALENDAR_STAFF_EMAILS)
@@ -122,7 +122,7 @@ if [ "$SKIP_ENV" = 0 ]; then push_env; fi
 ssh_root 'test -f /etc/inmywords.env || install -m 0640 -o root -g app /dev/null /etc/inmywords.env'
 
 step "Installing Python deps and building the web app"
-ssh_root "set -e
+ssh_root "set -eo pipefail
 cd $REMOTE
 [ -x /opt/inmywords-venv/bin/python ] || python3 -m venv /opt/inmywords-venv
 /opt/inmywords-venv/bin/pip install -q --upgrade pip
@@ -130,7 +130,15 @@ cd $REMOTE
 cd web
 npm ci --no-audit --no-fund --loglevel=error
 set -a; . /etc/inmywords.env; set +a
-API_BASE_URL=http://127.0.0.1:8000 npm run build 2>&1 | tail -n 15
+# next build wipes .next first, so keep the running build until the new one succeeds.
+rm -rf /var/tmp/inmywords-next.prev; [ -d .next ] && cp -a .next /var/tmp/inmywords-next.prev
+if ! API_BASE_URL=http://127.0.0.1:8000 npm run build > /var/tmp/inmywords-build.log 2>&1; then
+  grep -E 'error|Error' /var/tmp/inmywords-build.log | head -n 20
+  rm -rf .next; [ -d /var/tmp/inmywords-next.prev ] && mv /var/tmp/inmywords-next.prev .next
+  echo 'next build FAILED: deploy aborted; the previous web build is still in place.' >&2
+  exit 1
+fi
+tail -n 15 /var/tmp/inmywords-build.log
 find $REMOTE -name '.env*' -print -delete
 chown -R root:root $REMOTE && chmod -R u=rwX,go=rX $REMOTE
 mkdir -p $REMOTE/web/.next/cache && chown -R app:app $REMOTE/web/.next/cache
@@ -211,6 +219,13 @@ rm -f "$t"'
 ssh_root "systemctl daemon-reload && systemctl enable ${SERVICES[*]} >/dev/null 2>&1"
 restart_all
 wait_healthy
+
+step "Warming the audio cache on the VM (voice previews, tile labels, demo lines)"
+# Runs as the service user with the service's env; needs ELEVENLABS_ID on the VM. Non-fatal.
+ssh_root "systemd-run --quiet --wait --pipe --collect --uid=app --gid=app \
+  -p EnvironmentFile=/etc/inmywords.env -p Environment=AUDIO_CACHE_DIR=/var/lib/inmywords/audio-cache \
+  -p WorkingDirectory=$REMOTE/api /opt/inmywords-venv/bin/python -m scripts.pregenerate" \
+  || echo "WARNING: cache warm-up failed (no ElevenLabs key on the VM?); audio is generated on first use instead." >&2
 
 step "Installing Caddy (official apt repository)"
 ssh_root 'set -e

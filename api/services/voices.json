@@ -1,0 +1,48 @@
+{
+  "marcus": {
+    "default": "kH3DRVrsOPrpd0ciIeWk",
+    "options": [
+      {
+        "voice_id": "kH3DRVrsOPrpd0ciIeWk",
+        "label": "Voice 1",
+        "preview_text": "Hi, I'm Marcus. I like bowling on Saturdays.",
+        "preview_file": "fe0ab4265ec063db5f159301f98e6007.mp3"
+      },
+      {
+        "voice_id": "8PwRt92JyKWDUj6ZJxvm",
+        "label": "Voice 2",
+        "preview_text": "Hi, I'm Marcus. I like bowling on Saturdays.",
+        "preview_file": "ec081d13acde415cbf76518f822f0795.mp3"
+      },
+      {
+        "voice_id": "yyHeuC7EYH3g6qpSE57i",
+        "label": "Voice 3",
+        "preview_text": "Hi, I'm Marcus. I like bowling on Saturdays.",
+        "preview_file": "ec3adc64d130210910b3a32c166b48ef.mp3"
+      }
+    ]
+  },
+  "dana": {
+    "default": "HTTgQl5PH22smEaufnZl",
+    "options": [
+      {
+        "voice_id": "HTTgQl5PH22smEaufnZl",
+        "label": "Voice 1",
+        "preview_text": "Hi, I'm Dana. I love my garden.",
+        "preview_file": "6e9361357ce7f3f284e1db3ab3b92ce9.mp3"
+      },
+      {
+        "voice_id": "LoIXTAC3DFe8uqL790Dj",
+        "label": "Voice 2",
+        "preview_text": "Hi, I'm Dana. I love my garden.",
+        "preview_file": "5049c48fff794c2bcbcbe27c6dc7cddf.mp3"
+      },
+      {
+        "voice_id": "6JAODbJtYhkLLOEijLmL",
+        "label": "Voice 3",
+        "preview_text": "Hi, I'm Dana. I love my garden.",
+        "preview_file": "9354484f0014140b1aab8c2d7b50b6f2.mp3"
+      }
+    ]
+  }
+}

@@ -58,8 +58,12 @@ async def build_handoff(staff_id: str, resident_id: str) -> dict:
 
 def _maybe_polish(items, name):
     """Optional Gemini pass for smoother wording. Facts and dates are the
-    input and must survive; any failure returns the plain bullets."""
+    input and must survive; any failure returns the plain bullets.
+    OFF by default: measured ~30s on live Gemini, and handoff must load
+    fast at shift start. Set HANDOFF_POLISH=1 to enable."""
     import os
+    if os.environ.get("HANDOFF_POLISH") != "1":
+        return items
     if not os.environ.get("GEMINI_API_KEY") or not items:
         return items
     try:

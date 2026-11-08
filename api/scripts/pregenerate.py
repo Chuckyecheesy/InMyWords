@@ -1,13 +1,14 @@
 """Warm the audio cache so demo lines play with zero wait (T1.3 / T1.8).
 
-Run from api/ (needs ELEVENLABS_API_KEY; run scripts.design_voices first so
+Run from api/ (needs ELEVENLABS_ID; run scripts.design_voices first so
 residents speak in their own designed voice):
 
     python -m scripts.pregenerate
 
-Generates, in each resident's default voice:
-  - every tile label from db/seed/<resident>.json (long-press speaks the label)
-  - the mock sentence suggestions (the demo's Speak For Me lines)
+Generates:
+  - each designed voice's preview line from services/voices.json (the voice picker)
+  - in each resident's default voice: every tile label from db/seed/<resident>.json
+    (long-press speaks the label) and the mock sentence suggestions (demo lines)
 Already-cached lines are skipped, so it is cheap to re-run.
 """
 
@@ -35,7 +36,11 @@ def lines_for(resident_id: str) -> list[str]:
 
 async def main() -> None:
     if not elevenlabs.configured():
-        sys.exit("ELEVENLABS_API_KEY is not set. Add it to the repo-root .env first.")
+        sys.exit("ELEVENLABS_ID is not set. Add it to the repo-root .env first.")
+    for resident_id, entry in elevenlabs.load_voices().items():
+        for option in entry.get("options", []):
+            await elevenlabs.synthesize(option["voice_id"], option["preview_text"])
+        print(f"{resident_id}: {len(entry.get('options', []))} voice previews ready")
     for resident_id in ("marcus", "dana"):
         voice_id = elevenlabs.resident_voice(resident_id)
         made = 0

@@ -13,7 +13,7 @@ export default async function HomePage() {
   const sample = people.some((person) => person.origin === "sample");
 
   return (
-    <AppShell title="Your story, told once, in your own voice." showBoard>
+    <AppShell title="Your story, told once, in your own voice.">
       {sample ? (
         <DataBanner>
           Sample data. The API did not answer, so these are the demo residents.

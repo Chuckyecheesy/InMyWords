@@ -1,0 +1,43 @@
+- generic [active] [ref=f5e1]:
+  - link "Skip to content" [ref=f5e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=f5e3]:
+    - link "In My Words" [ref=f5e4] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f5e5]:
+      - button "Larger text" [ref=f5e6] [cursor=pointer]
+      - button "High contrast" [ref=f5e7] [cursor=pointer]
+  - main [ref=f5e8]:
+    - link "Home" [ref=f5e9] [cursor=pointer]:
+      - /url: /
+    - paragraph [ref=f5e10]: Resident
+    - heading "Marcus" [level=1] [ref=f5e11]
+    - paragraph [ref=f5e12]: Single words and gestures. Picture tiles. Needs quiet to focus.
+    - navigation "Resident" [ref=f5e13]:
+      - link "Tiles" [ref=f5e14] [cursor=pointer]:
+        - /url: /resident/marcus
+      - link "Story" [ref=f5e15] [cursor=pointer]:
+        - /url: /resident/marcus/story
+      - link "Choice" [ref=f5e16] [cursor=pointer]:
+        - /url: /resident/marcus/choice
+      - link "Confirm" [ref=f5e17] [cursor=pointer]:
+        - /url: /resident/marcus/confirm
+      - link "Voice" [ref=f5e18] [cursor=pointer]:
+        - /url: /resident/marcus/voice
+    - generic [ref=f5e19]:
+      - heading "Your Story" [level=1] [ref=f5e20]
+      - article [ref=f5e21]:
+        - img "Chapter illustration" [ref=f5e23]
+        - generic [ref=f5e24]:
+          - heading "About me" [level=2] [ref=f5e25]
+          - paragraph [ref=f5e26]: ✓ Approved
+          - paragraph [ref=f5e27]: I'm Marcus. I'm 34. I love the Raptors and bowling on Saturdays. My coffee order is a double-double from Tim's. Loud rooms are hard for me — quiet helps.
+          - button "▶ Play Narration" [ref=f5e30] [cursor=pointer]
+      - article [ref=f5e31]:
+        - img "Chapter illustration" [ref=f5e33]
+        - generic [ref=f5e34]:
+          - heading "people who matter" [level=2] [ref=f5e35]
+          - paragraph [ref=f5e36]: ○ Draft
+          - paragraph [ref=f5e37]: My sister Lisa calls me every week. She takes me to Raptors games when she can. I want her to come bowling with me.
+          - paragraph [ref=f5e38]: Narration will be available after approval.
+  - alert [ref=f5e39]

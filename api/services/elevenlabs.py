@@ -14,7 +14,7 @@ main.py at /audio/<file>. A repeated sentence never hits ElevenLabs again,
 which keeps "approve → audio" instant and saves credits.
 
 Env (repo-root .env):
-    ELEVENLABS_API_KEY            required for live audio; without it /speak stays in mock mode
+    ELEVENLABS_ID            required for live audio; without it /speak stays in mock mode
     ELEVENLABS_TTS_MODEL          optional, default eleven_flash_v2_5 (low latency)
     ELEVENLABS_FALLBACK_VOICE_ID  optional (alias ELEVENLABS_DEFAULT_VOICE_ID), used before
                                   voices.json / profile has a voice
@@ -62,7 +62,7 @@ class ElevenLabsError(Exception):
 
 
 def api_key() -> str | None:
-    return os.environ.get("ELEVENLABS_API_KEY") or None
+    return os.environ.get("ELEVENLABS_ID") or None
 
 
 def configured() -> bool:
@@ -79,7 +79,7 @@ def _client() -> httpx.AsyncClient:
 def _headers() -> dict:
     key = api_key()
     if not key:
-        raise ElevenLabsError("ELEVENLABS_API_KEY is not set (add it to the repo-root .env)")
+        raise ElevenLabsError("ELEVENLABS_ID is not set (add it to the repo-root .env)")
     return {"xi-api-key": key}
 
 

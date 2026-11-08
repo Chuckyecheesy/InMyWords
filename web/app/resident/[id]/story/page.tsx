@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getResident, getStory } from "@/lib/api";
+import { storyImageUrl } from "@/lib/cloudinary";
 import { AudioPlayback } from "@/components/shared";
 
 export const metadata = { title: "Story" };
@@ -27,6 +29,11 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="story-page">
+      <p>
+        <Link className="big-button" href={`/resident/${id}/story/interview`}>
+          Answer with pictures
+        </Link>
+      </p>
       {chapters.length === 0 ? (
         <div className="story-empty">
           <h2>Your Story</h2>
@@ -35,19 +42,17 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
       ) : (
         <>
           <h2>Your Story</h2>
-          {chapters.map((chapter) => (
+          {chapters.map((chapter) => {
+            const photoId = chapter.photo_ids?.[0];
+            const photoUrl = photoId ? storyImageUrl(photoId) : null;
+            return (
             <article key={chapter.id} className="story-chapter">
-              {/* Chapter photo (if available) */}
-              {chapter.photo_ids && chapter.photo_ids.length > 0 && (
+              {photoUrl ? (
                 <picture>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className="story-chapter-photo"
-                    src={`https://res.cloudinary.com/inmywords/image/upload/c_fill,g_auto,w_800,h_400/${chapter.photo_ids[0]}.jpg`}
-                    alt="Chapter illustration"
-                  />
+                  <img className="story-chapter-photo" src={photoUrl} alt="" />
                 </picture>
-              )}
+              ) : null}
 
               <div className="story-chapter-content">
                 <h2 className="story-chapter-title">
@@ -79,7 +84,8 @@ export default async function StoryPage({ params }: { params: Promise<{ id: stri
                 )}
               </div>
             </article>
-          ))}
+            );
+          })}
         </>
       )}
     </div>

@@ -1,0 +1,39 @@
+- generic [active] [ref=f1e1]:
+  - link "Skip to content" [ref=f1e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=f1e3]:
+    - link "In My Words" [ref=f1e4] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f1e5]:
+      - link "Task board" [ref=f1e6] [cursor=pointer]:
+        - /url: /tasks
+      - button "Larger text" [ref=f1e7] [cursor=pointer]
+      - button "High contrast" [ref=f1e8] [cursor=pointer]
+  - main [ref=f1e9]:
+    - link "Home" [ref=f1e10] [cursor=pointer]:
+      - /url: /
+    - paragraph [ref=f1e11]: Staff
+    - heading "Who are you here for?" [level=1] [ref=f1e12]
+    - generic [ref=f1e13]:
+      - link "Marcus Single words and gestures. Picture tiles. Needs quiet to focus. I like bowling on Saturdays. In Marcus's words Start onboarding" [ref=f1e14] [cursor=pointer]:
+        - /url: /staff/marcus/onboarding
+        - heading "Marcus" [level=2] [ref=f1e15]
+        - paragraph [ref=f1e16]: Single words and gestures. Picture tiles. Needs quiet to focus.
+        - paragraph [ref=f1e17]: I like bowling on Saturdays.
+        - generic [ref=f1e18]: In Marcus's words
+        - generic [ref=f1e19]: Start onboarding
+      - link "Dana Picture tiles and some short phrases. Manages a weekly budget with support. I love gardening. In Dana's words Start onboarding" [ref=f1e20] [cursor=pointer]:
+        - /url: /staff/dana/onboarding
+        - heading "Dana" [level=2] [ref=f1e21]
+        - paragraph [ref=f1e22]: Picture tiles and some short phrases. Manages a weekly budget with support.
+        - paragraph [ref=f1e23]: I love gardening.
+        - generic [ref=f1e24]: In Dana's words
+        - generic [ref=f1e25]: Start onboarding
+    - navigation "Staff tools" [ref=f1e26]:
+      - link "Since last shift" [ref=f1e27] [cursor=pointer]:
+        - /url: /staff/handoff
+      - link "Activity log" [ref=f1e28] [cursor=pointer]:
+        - /url: /staff/activity
+    - link "Manager view" [ref=f1e29] [cursor=pointer]:
+      - /url: /manager
+  - alert [ref=f1e30]

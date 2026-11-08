@@ -1,0 +1,270 @@
+- generic [active] [ref=f3e1]:
+  - link "Skip to content" [ref=f3e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=f3e3]:
+    - link "In My Words" [ref=f3e4] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f3e5]:
+      - button "Larger text" [ref=f3e6] [cursor=pointer]
+      - button "High contrast" [ref=f3e7] [cursor=pointer]
+  - main [ref=f3e8]:
+    - link "Home" [ref=f3e9] [cursor=pointer]:
+      - /url: /
+    - heading "Task board" [level=1] [ref=f3e10]
+    - paragraph [ref=f3e11]: One card for every task. The four marked This hour are the setup work.
+    - generic [ref=f3e12]:
+      - region [ref=f3e13]:
+        - generic [ref=f3e14]:
+          - heading "James" [level=2] [ref=f3e15]
+          - paragraph [ref=f3e16]: Voice
+        - list [ref=f3e17]:
+          - listitem [ref=f3e18]:
+            - paragraph [ref=f3e19]: T1.1
+            - heading "ElevenLabs setup and resident voices" [level=3] [ref=f3e20]
+            - paragraph [ref=f3e21]: Hour 0–1
+            - paragraph [ref=f3e22]: This hour
+            - paragraph [ref=f3e23]:
+              - strong [ref=f3e24]: Done when.
+              - text: 6 voices exist, each with a preview clip.
+          - listitem [ref=f3e25]:
+            - paragraph [ref=f3e26]: T1.2
+            - heading "Speak service" [level=3] [ref=f3e27]
+            - paragraph [ref=f3e28]: Hours 1–4
+            - paragraph [ref=f3e29]:
+              - strong [ref=f3e30]: Done when.
+              - text: An approved sentence plays in under 2 seconds. A repeat plays instantly.
+          - listitem [ref=f3e31]:
+            - paragraph [ref=f3e32]: T1.3
+            - heading "Wire speech into Speak For Me" [level=3] [ref=f3e33]
+            - paragraph [ref=f3e34]: Hours 4–6
+            - paragraph [ref=f3e35]:
+              - strong [ref=f3e36]: Done when.
+              - text: "Milestone 1: tiles, suggestions, approve, spoken."
+          - listitem [ref=f3e37]:
+            - paragraph [ref=f3e38]: T1.4
+            - heading "Story interview agent" [level=3] [ref=f3e39]
+            - paragraph [ref=f3e40]: Hours 6–10
+            - paragraph [ref=f3e41]:
+              - strong [ref=f3e42]: Done when.
+              - text: One chapter is interviewed with taps only, and the draft is read back.
+          - listitem [ref=f3e43]:
+            - paragraph [ref=f3e44]: T1.5
+            - heading "Chapter narration" [level=3] [ref=f3e45]
+            - paragraph [ref=f3e46]: Hours 10–12
+            - paragraph [ref=f3e47]:
+              - strong [ref=f3e48]: Done when.
+              - text: "Milestone 2: the story page plays in the resident's voice."
+          - listitem [ref=f3e49]:
+            - paragraph [ref=f3e50]: T1.6
+            - heading "Coach voice mode" [level=3] [ref=f3e51]
+            - paragraph [ref=f3e52]: Hours 12–14
+            - paragraph [ref=f3e53]:
+              - strong [ref=f3e54]: Done when.
+              - text: Staff can ask out loud and hear a sourced answer.
+          - listitem [ref=f3e55]:
+            - paragraph [ref=f3e56]: T1.7
+            - heading "Spoken approvals and confirmations" [level=3] [ref=f3e57]
+            - paragraph [ref=f3e58]: Hours 14–16
+            - paragraph [ref=f3e59]:
+              - strong [ref=f3e60]: Done when.
+              - text: Every approval card and confirmation can be heard.
+          - listitem [ref=f3e61]:
+            - paragraph [ref=f3e62]: T1.8
+            - heading "Polish and demo audio" [level=3] [ref=f3e63]
+            - paragraph [ref=f3e64]: Hours 16–24
+            - paragraph [ref=f3e65]:
+              - strong [ref=f3e66]: Done when.
+              - text: The demo runs with no waiting on audio.
+      - region [ref=f3e67]:
+        - generic [ref=f3e68]:
+          - heading "Tiffany" [level=2] [ref=f3e69]
+          - paragraph [ref=f3e70]: Data and MCP
+        - list [ref=f3e71]:
+          - listitem [ref=f3e72]:
+            - paragraph [ref=f3e73]: T2.1
+            - heading "Repo, database, and mocks" [level=3] [ref=f3e74]
+            - paragraph [ref=f3e75]: Hour 0–1
+            - paragraph [ref=f3e76]: This hour
+            - paragraph [ref=f3e77]:
+              - strong [ref=f3e78]: Done when.
+              - text: Everyone can call every endpoint and get mock data.
+          - listitem [ref=f3e79]:
+            - paragraph [ref=f3e80]: T2.2
+            - heading "Seed data and binder import" [level=3] [ref=f3e81]
+            - paragraph [ref=f3e82]: Hours 1–3
+            - paragraph [ref=f3e83]:
+              - strong [ref=f3e84]: Done when.
+              - text: Reset runs in under a minute. Binder facts are labelled From records.
+          - listitem [ref=f3e85]:
+            - paragraph [ref=f3e86]: T2.3
+            - heading "Resident-profile MCP server" [level=3] [ref=f3e87]
+            - paragraph [ref=f3e88]: Hours 3–6
+            - paragraph [ref=f3e89]:
+              - strong [ref=f3e90]: Done when.
+              - text: All tools return the right data for Marcus and Dana.
+          - listitem [ref=f3e91]:
+            - paragraph [ref=f3e92]: T2.4
+            - heading "Real routes and EMH mock" [level=3] [ref=f3e93]
+            - paragraph [ref=f3e94]: Hours 6–12
+            - paragraph [ref=f3e95]:
+              - strong [ref=f3e96]: Done when.
+              - text: Milestone 2 data paths are real, not mocked.
+          - listitem [ref=f3e97]:
+            - paragraph [ref=f3e98]: T2.5
+            - heading "Memory MCP server" [level=3] [ref=f3e99]
+            - paragraph [ref=f3e100]: Hours 12–14
+            - paragraph [ref=f3e101]:
+              - strong [ref=f3e102]: Done when.
+              - text: Recall for drinks returns coffee and tea, each with a status.
+          - listitem [ref=f3e103]:
+            - paragraph [ref=f3e104]: T2.6
+            - heading "Actions MCP server" [level=3] [ref=f3e105]
+            - paragraph [ref=f3e106]: Hours 14–16
+            - paragraph [ref=f3e107]:
+              - strong [ref=f3e108]: Done when.
+              - text: Approving a plan books, calendars, emails, and creates a staff task.
+          - listitem [ref=f3e109]:
+            - paragraph [ref=f3e110]: T2.7
+            - heading "Handoff agent" [level=3] [ref=f3e111]
+            - paragraph [ref=f3e112]: Hour 16
+            - paragraph [ref=f3e113]:
+              - strong [ref=f3e114]: Done when.
+              - text: Jordan's handoff matches the seeded data.
+          - listitem [ref=f3e115]:
+            - paragraph [ref=f3e116]: T2.8
+            - heading "Freeze, deploy, document" [level=3] [ref=f3e117]
+            - paragraph [ref=f3e118]: Hours 16–24
+            - paragraph [ref=f3e119]:
+              - strong [ref=f3e120]: Done when.
+              - text: A fresh clone plus the README gets the app running.
+      - region [ref=f3e121]:
+        - generic [ref=f3e122]:
+          - heading "Ahmed" [level=2] [ref=f3e123]
+          - paragraph [ref=f3e124]: Resident experience
+        - list [ref=f3e125]:
+          - listitem [ref=f3e126]:
+            - paragraph [ref=f3e127]: T3.1
+            - heading "Gemini wrapper" [level=3] [ref=f3e128]
+            - paragraph [ref=f3e129]: Hour 0–1
+            - paragraph [ref=f3e130]:
+              - strong [ref=f3e131]: Done when.
+              - text: The wrapper returns valid JSON for a test schema.
+          - listitem [ref=f3e132]:
+            - paragraph [ref=f3e133]: T3.2
+            - heading "Voice agent" [level=3] [ref=f3e134]
+            - paragraph [ref=f3e135]: Hours 1–5
+            - paragraph [ref=f3e136]: This hour
+            - paragraph [ref=f3e137]:
+              - strong [ref=f3e138]: Done when.
+              - text: Suggestions are personal and faithful on 15 of 15 tests.
+          - listitem [ref=f3e139]:
+            - paragraph [ref=f3e140]: T3.3
+            - heading "Speak For Me screen" [level=3] [ref=f3e141]
+            - paragraph [ref=f3e142]: Hours 4–6
+            - paragraph [ref=f3e143]:
+              - strong [ref=f3e144]: Done when.
+              - text: Milestone 1 works on this screen, end to end.
+          - listitem [ref=f3e145]:
+            - paragraph [ref=f3e146]: T3.4
+            - heading "Photo choice grid and questions" [level=3] [ref=f3e147]
+            - paragraph [ref=f3e148]: Hours 6–7
+            - paragraph [ref=f3e149]:
+              - strong [ref=f3e150]: Done when.
+              - text: The Story agent can open the grid and receive the tapped label.
+          - listitem [ref=f3e151]:
+            - paragraph [ref=f3e152]: T3.5
+            - heading "Story writer and story pages" [level=3] [ref=f3e153]
+            - paragraph [ref=f3e154]: Hours 7–9
+            - paragraph [ref=f3e155]:
+              - strong [ref=f3e156]: Done when.
+              - text: A draft uses only interview answers and can be played back.
+          - listitem [ref=f3e157]:
+            - paragraph [ref=f3e158]: T3.6
+            - heading "Choice agent and choice screen" [level=3] [ref=f3e159]
+            - paragraph [ref=f3e160]: Hours 12–14
+            - paragraph [ref=f3e161]:
+              - strong [ref=f3e162]: Done when.
+              - text: Consequences are correct and neutral. The flow is clickable.
+          - listitem [ref=f3e163]:
+            - paragraph [ref=f3e164]: T3.7
+            - heading "Approval card, confirm, voice picker" [level=3] [ref=f3e165]
+            - paragraph [ref=f3e166]: Hours 14–16
+            - paragraph [ref=f3e167]:
+              - strong [ref=f3e168]: Done when.
+              - text: The full resident demo is clickable end to end.
+          - listitem [ref=f3e169]:
+            - paragraph [ref=f3e170]: T3.8
+            - heading "Accessibility pass and pitch" [level=3] [ref=f3e171]
+            - paragraph [ref=f3e172]: Hours 16–24
+            - paragraph [ref=f3e173]:
+              - strong [ref=f3e174]: Done when.
+              - text: Someone outside the team can use the resident screens. Deck, video, Devpost, and URL are done.
+      - region [ref=f3e175]:
+        - generic [ref=f3e176]:
+          - heading "William" [level=2] [ref=f3e177]
+          - paragraph [ref=f3e178]: Staff experience
+        - list [ref=f3e179]:
+          - listitem [ref=f3e180]:
+            - paragraph [ref=f3e181]: T4.1
+            - heading "App setup, design system, task board" [level=3] [ref=f3e182]
+            - paragraph [ref=f3e183]: Hour 0–1
+            - paragraph [ref=f3e184]:
+              - strong [ref=f3e185]: Done when.
+              - text: The app runs and shows mock data.
+          - listitem [ref=f3e186]:
+            - paragraph [ref=f3e187]: T4.2
+            - heading "Cloudinary pipeline and binder prompt" [level=3] [ref=f3e188]
+            - paragraph [ref=f3e189]: Hours 1–3
+            - paragraph [ref=f3e190]: This hour
+            - paragraph [ref=f3e191]:
+              - strong [ref=f3e192]: Done when.
+              - text: Messy phone photos come out as matching tiles. Binder facts land as From records.
+          - listitem [ref=f3e193]:
+            - paragraph [ref=f3e194]: T4.3
+            - heading "Shared components and staff shell" [level=3] [ref=f3e195]
+            - paragraph [ref=f3e196]: Hours 3–6
+            - paragraph [ref=f3e197]:
+              - strong [ref=f3e198]: Done when.
+              - text: Ahmed can build on the shared components. The staff shell navigates.
+          - listitem [ref=f3e199]:
+            - paragraph [ref=f3e200]: T4.4
+            - heading "Coach, chat, and onboarding" [level=3] [ref=f3e201]
+            - paragraph [ref=f3e202]: Hours 6–10
+            - paragraph [ref=f3e203]:
+              - strong [ref=f3e204]: Done when.
+              - text: 15 of 15 questions have the right source labels. A new staff member can finish Essentials.
+          - listitem [ref=f3e205]:
+            - paragraph [ref=f3e206]: T4.5
+            - heading "Handoff screen and observations" [level=3] [ref=f3e207]
+            - paragraph [ref=f3e208]: Hours 10–12
+            - paragraph [ref=f3e209]:
+              - strong [ref=f3e210]: Done when.
+              - text: Jordan's handoff renders. Observations save.
+          - listitem [ref=f3e211]:
+            - paragraph [ref=f3e212]: T4.6
+            - heading "Memory subagents" [level=3] [ref=f3e213]
+            - paragraph [ref=f3e214]: Hours 12–18
+            - paragraph [ref=f3e215]:
+              - strong [ref=f3e216]: Done when.
+              - text: The tea pattern shows up for Marcus to confirm, and the old coffee fact is flagged.
+          - listitem [ref=f3e217]:
+            - paragraph [ref=f3e218]: T4.7
+            - heading "Action agent and activity log" [level=3] [ref=f3e219]
+            - paragraph [ref=f3e220]: Hours 16–18
+            - paragraph [ref=f3e221]:
+              - strong [ref=f3e222]: Done when.
+              - text: 5 of 5 goals split into online actions and staff tasks. The demo flow is clickable.
+          - listitem [ref=f3e223]:
+            - paragraph [ref=f3e224]: T4.8
+            - heading "Judge answers and polish" [level=3] [ref=f3e225]
+            - paragraph [ref=f3e226]: Hours 18–24
+            - paragraph [ref=f3e227]:
+              - strong [ref=f3e228]: Done when.
+              - text: AI-safety answers are rehearsed. Staff screens stay stable through both rehearsals.
+    - generic [ref=f3e229]:
+      - heading "Tile recipe" [level=2] [ref=f3e230]
+      - paragraph [ref=f3e231]: "Every photo tile uses one Cloudinary chain: a square crop with automatic subject focus, the background removed, 40 pixels of padding, and the same rounded corners. High contrast adds stronger contrast and a white pad. Background removal needs Cloudinary's AI add-on."
+      - paragraph [ref=f3e232]: Calm
+      - code [ref=f3e233]: c_fill,g_auto,w_640,h_640/e_background_removal/c_pad,w_720,h_720,b_rgb:F7FBFA/r_48
+      - paragraph [ref=f3e234]: High contrast
+      - code [ref=f3e235]: c_fill,g_auto,w_640,h_640/e_background_removal/e_contrast:50,e_sharpen:80/c_pad,w_720,h_720,b_rgb:FFFFFF/r_48

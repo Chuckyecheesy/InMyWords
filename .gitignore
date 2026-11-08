@@ -24,6 +24,16 @@ venv/
 # Seed-mode shared runtime state (bookings etc. before the real DB exists)
 db/seed/.runtime.json
 
+# Playwright output
+web/test-results/
+web/playwright-report/
+web/blob-report/
+
+# Playwright output
+web/test-results/
+web/playwright-report/
+web/blob-report/
+
 # Generated audio cache (regenerate, don't commit)
 audio-cache/
 *.mp3

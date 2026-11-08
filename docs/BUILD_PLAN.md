@@ -32,7 +32,7 @@ Companion to the [Project Plan](PROJECT_PLAN.md). This doc is the step-by-step b
 
 ### 2.1 Environment variables
 
-See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the Google Calendar stretch.
+See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_ID` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the Google Calendar stretch.
 
 ## 3. Repo structure
 

@@ -10,7 +10,6 @@ export default function ManagerPage() {
       lede="Profile freshness, checklist patterns, and choice stats will show up here."
       backHref="/staff"
       backLabel="Staff"
-      showBoard
     >
       <p>This screen is held for the later manager view.</p>
     </AppShell>
