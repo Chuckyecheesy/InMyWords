@@ -71,18 +71,31 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
     let cancelled = false;
     const video = preview.current;
     void (async () => {
-      try {
-        await startGaze(residentId);
-        if (cancelled) return;
-        if (mode === "hand") await startGestures();
-        if (cancelled) return;
-        if (video) video.srcObject = gazeVideoElement()?.srcObject ?? null;
-        setReady(true);
-      } catch (cause) {
-        if (!cancelled) {
+      let cause: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await startGaze(residentId);
+          if (cancelled) return;
+          if (mode === "hand") await startGestures();
+          if (cancelled) return;
+          if (video) video.srcObject = gazeVideoElement()?.srcObject ?? null;
+          setReady(true);
+          setError(null);
+          return;
+        } catch (error) {
+          cause = error;
           stopGestures(); stopGaze();
-          setError(cause instanceof Error ? cause.message : "The camera could not start. Try again or tap your choices.");
+          const message = error instanceof Error ? error.message : "";
+          // A restart can 502 the tracker script once. Try again before giving up.
+          if (cancelled || !message.includes("could not load") || attempt === 2) break;
+          await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+          if (cancelled) return;
         }
+      }
+      if (!cancelled) {
+        setReady(false);
+        setEnabled(false);
+        setError(cause instanceof Error ? cause.message : "The camera could not start. Try again or tap your choices.");
       }
     })();
     return () => {
@@ -214,7 +227,7 @@ export function ServiceInput({ residentId, region, screen, disabled, onSelect, d
         {mode === "gaze" && !calibrated && <Link href={`/resident/${residentId}/calibrate`} className="text-link">Set up my eyes</Link>}
       </div>
     </div>}
-    {error && <p role="alert">{error} Turn the camera off and on to retry, or tap your choices.</p>}
+    {error && <p role="alert">{error} Tap Turn camera on to retry, or tap your choices.</p>}
     {ready && point && !disabled && <div className="service-pointer" aria-hidden="true" style={{ left: point.x, top: point.y }} />}
     {ready && <div className="service-input-dock" role="group" aria-label="Camera navigation">
       <button type="button" className="btn" data-service-target="input:up" aria-label="Scroll up" onClick={() => window.scrollBy({ top: -window.innerHeight * .6, behavior: "smooth" })}><ArrowUp size={28} aria-hidden="true" /></button>

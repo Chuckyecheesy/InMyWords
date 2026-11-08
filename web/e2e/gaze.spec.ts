@@ -177,9 +177,9 @@ test("permission failure shows retry and preserves touch", async ({ page }) => {
   await page.goto("/resident/marcus/speak");
   await page.getByRole("button", { name: "Turn camera on" }).click();
   await expect(page.getByText(/Camera permission denied/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Turn camera on" })).toBeVisible();
   await page.getByRole("button", { name: "Refreshments", exact: true }).click();
   await expect(page.locator(".composer-sentence")).toContainText("refreshments");
-  await page.getByRole("button", { name: "Turn camera off", exact: true }).click();
   await page.getByRole("button", { name: "Turn camera on" }).click();
   await expect(page.locator(".service-camera")).toBeVisible();
 });
