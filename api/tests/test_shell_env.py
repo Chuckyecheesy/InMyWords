@@ -8,6 +8,10 @@ from scripts.shell_env import shell_exports
 
 
 class ShellEnvTests(unittest.TestCase):
+    @unittest.skipIf(
+        os.name == "nt",
+        "needs a POSIX bash on a bare PATH — deploys run on the Linux VM and CI enforces this there",
+    )
     def test_values_are_literal_and_whitespace_is_accepted(self):
         with tempfile.TemporaryDirectory() as tmp:
             marker = Path(tmp) / "executed"

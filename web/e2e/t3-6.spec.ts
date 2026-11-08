@@ -44,7 +44,7 @@ test.describe("T3.6 supported choice", () => {
     await expect(page.getByText("$25 left this week.")).toBeVisible();
     await expect(page.getByText("$28 left this week.")).toBeVisible();
 
-    const bowlingButton = page.getByRole("button", { name: "Bowling" });
+    const bowlingButton = page.getByRole("button", { name: "Bowling", exact: true });
     const box = await bowlingButton.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(64);
     expect(box?.height).toBeGreaterThanOrEqual(64);
@@ -88,7 +88,7 @@ test.describe("T3.6 supported choice", () => {
     const speakResponse = page.waitForResponse(
       (response) => response.url().includes("/speak") && response.request().method() === "POST",
     );
-    const movie = page.getByRole("button", { name: "Movie" });
+    const movie = page.getByRole("button", { name: "Movie", exact: true });
     await movie.dispatchEvent("pointerdown", { button: 0, pointerType: "mouse" });
     await page.waitForTimeout(700);
     await movie.dispatchEvent("pointerup", { button: 0, pointerType: "mouse" });
