@@ -100,7 +100,7 @@ const chapters: Record<string, StoryChapter[]> = {
       id: "marcus-about",
       chapter_key: "about_me",
       title: "About me",
-      text: "I'm Marcus. I'm 34. I love the Raptors and bowling on Saturdays. My coffee order is a double-double from Tim's. Loud rooms are hard for me — quiet helps.",
+      text: "I'm Marcus. I'm 34. I love the Raptors and bowling on Saturdays. My coffee order is a double-double from Tim's. Loud rooms are hard for me. Quiet helps.",
       photo_ids: ["story/marcus_portrait", "story/marcus_bowling"],
       audio_url: null,
       status: "approved",
@@ -170,7 +170,7 @@ const profiles: Record<string, ResidentProfile> = {
   marcus: {
     home: "Maple House",
     summary: {
-      text: "I love the Raptors and bowling on Saturdays. Loud rooms are hard for me — quiet helps.",
+      text: "I love the Raptors and bowling on Saturdays. Loud rooms are hard for me. Quiet helps.",
       source: "resident",
       date: "2026-11-02",
     },

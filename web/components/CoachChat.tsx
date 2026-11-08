@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useClientValue } from "@/lib/client-store";
 import { ArrowUp, CircleHelp, Mic, MicOff, MessagesSquare, Volume2 } from "lucide-react";
 import { askCoach } from "@/lib/api";
+import { forSpeech } from "@/lib/format";
 import { sampleCoachAnswer, suggestedQuestions } from "@/lib/mock";
 import { deviceSpeechAvailable, speakWithDevice } from "@/lib/speech";
 import type { CoachAnswer } from "@/lib/types";
@@ -128,13 +129,19 @@ export function CoachChat({
     let answer: CoachAnswer;
     let origin: Message["origin"] = "api";
     if (result.ok && typeof result.data.answer === "string") {
-      answer = { answer: result.data.answer, sources: Array.isArray(result.data.sources) ? result.data.sources : [] };
+      answer = {
+        answer: forSpeech(result.data.answer),
+        sources: Array.isArray(result.data.sources) ? result.data.sources : [],
+      };
     } else {
       origin = "sample";
-      answer = sampleCoachAnswer(residentId, trimmed) ?? {
-        answer: `I don't know — it's best to ask ${residentName}.`,
-        sources: [],
-      };
+      const sample = sampleCoachAnswer(residentId, trimmed);
+      answer = sample
+        ? { ...sample, answer: forSpeech(sample.answer) }
+        : {
+            answer: `I don't know. It's best to ask ${residentName}.`,
+            sources: [],
+          };
     }
     setMessages((current) => current.map((message) => (message.id === id ? { ...message, answer, origin } : message)));
     setLoading(false);

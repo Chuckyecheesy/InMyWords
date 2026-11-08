@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { approveStory, speak } from "@/lib/api";
+import { forSpeech } from "@/lib/format";
 import { coverPhoto } from "@/lib/demo-photos";
 import type { StoryChapter } from "@/lib/types";
 import { ChapterArt } from "./ChapterArt";
@@ -119,17 +120,21 @@ export function StoryAlbum({
   async function narrate(target: StoryChapter) {
     setError(null);
     setNarration({ chapterId: target.id, src: "", state: "loading" });
-    let src = target.audio_url ?? audioCache.current.get(target.id) ?? null;
+    let src = audioCache.current.get(target.id) ?? null;
     if (!src) {
-      const result = await speak({ resident_id: residentId, text: target.text });
-      if (!result.ok) {
-        setNarration(null);
-        setPlayAll(false);
-        setError("The voice isn't working right now. You can still read the story.");
-        return;
+      const result = await speak({ resident_id: residentId, text: forSpeech(target.text) });
+      if (result.ok) {
+        src = result.data.audio_url;
+        audioCache.current.set(target.id, src);
+      } else {
+        src = target.audio_url;
       }
-      src = result.data.audio_url;
-      audioCache.current.set(target.id, src);
+    }
+    if (!src) {
+      setNarration(null);
+      setPlayAll(false);
+      setError("The voice isn't working right now. You can still read the story.");
+      return;
     }
     setProgress({ current: 0, duration: 0 });
     setNarration({ chapterId: target.id, src, state: "playing" });
@@ -177,7 +182,7 @@ export function StoryAlbum({
       const result = await approveStory({ chapter_id: chapterId });
       if (!result.ok) {
         setApproving(false);
-        setError("Couldn't save your OK just now. Your chapter is still a draft — try again.");
+        setError("Couldn't save your OK just now. Your chapter is still a draft. Try again.");
         return;
       }
       audioUrl = result.data.audio_url ?? null;
@@ -192,7 +197,7 @@ export function StoryAlbum({
     setNote(
       Number.isFinite(chapterId)
         ? `Approved. People can now hear this chapter in ${name}'s voice.`
-        : "Approved on this tablet. (Sample chapter — the API isn't connected.)",
+        : "Approved on this tablet. (Sample chapter. The API isn't connected.)",
     );
   }
 
@@ -202,13 +207,14 @@ export function StoryAlbum({
     setNote("Kept as a draft. Nothing is shared until you say yes.");
   }
 
-  const parts = useMemo(() => (chapter ? sentences(chapter.text) : []), [chapter]);
+  const reading = chapter ? forSpeech(chapter.text) : "";
+  const parts = useMemo(() => (reading ? sentences(reading) : []), [reading]);
   const isThisPlaying = chapter !== null && narration?.chapterId === chapter.id;
   const playing = isThisPlaying && narration?.state === "playing";
   const fraction = progress.duration > 0 ? progress.current / progress.duration : 0;
   let currentSentence = -1;
   if (isThisPlaying && narration?.state !== "loading" && chapter) {
-    const total = chapter.text.length;
+    const total = reading.length;
     let running = 0;
     currentSentence = parts.length - 1;
     for (let i = 0; i < parts.length; i += 1) {
@@ -282,7 +288,7 @@ export function StoryAlbum({
               </h1>
               <div>
                 {isDraft ? (
-                  <Badge tone="warning" label={`Draft — waiting for ${name}'s OK`} size="lg" />
+                  <Badge tone="warning" label={`Draft, waiting for ${name}'s OK`} size="lg" />
                 ) : (
                   <Badge tone="resident" label={`In ${name}'s words · approved`} size="lg" />
                 )}
@@ -472,7 +478,7 @@ export function StoryAlbum({
             <div className="chapter-card-body">
               <p className="chapter-num">Chapter {index + 1}</p>
               <h2>{item.title}</h2>
-              <p>{item.text}</p>
+              <p>{forSpeech(item.text)}</p>
               <div>
                 {item.status === "approved" ? (
                   <Badge tone="resident" label="Shared" />

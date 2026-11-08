@@ -18,6 +18,7 @@ import {
   Volume2,
 } from "lucide-react";
 import { speak } from "@/lib/api";
+import { forSpeech } from "@/lib/format";
 import { ONBOARDING_EVENT, ONBOARDING_STEPS, onboardingKey, parseOnboarding, writeOnboarding } from "@/lib/onboarding";
 import type { ResidentProfile, StoryChapter } from "@/lib/types";
 import { CoachChat } from "./CoachChat";
@@ -34,7 +35,7 @@ const STEPS = [
 
 function ChapterPlayer({ residentId, chapter }: { residentId: string; chapter: StoryChapter }) {
   const [state, setState] = useState<"idle" | "loading" | "playing" | "error">("idle");
-  const [src, setSrc] = useState<string | null>(chapter.audio_url);
+  const [src, setSrc] = useState<string | null>(null);
 
   async function play() {
     if (state === "playing") {
@@ -46,8 +47,13 @@ function ChapterPlayer({ residentId, chapter }: { residentId: string; chapter: S
       return;
     }
     setState("loading");
-    const result = await speak({ resident_id: residentId, text: chapter.text });
+    const result = await speak({ resident_id: residentId, text: forSpeech(chapter.text) });
     if (!result.ok) {
+      if (chapter.audio_url) {
+        setSrc(chapter.audio_url);
+        setState("playing");
+        return;
+      }
       setState("error");
       return;
     }
@@ -169,7 +175,7 @@ export function OnboardingFlow({
             </div>
             {profile.summary ? (
               <div className="profile-hero" style={{ marginBottom: 0, gridTemplateColumns: "1fr" }}>
-                <p className="profile-quote">&ldquo;{profile.summary.text}&rdquo;</p>
+                <p className="profile-quote">&ldquo;{forSpeech(profile.summary.text)}&rdquo;</p>
                 <div>
                   <SourceBadge source={profile.summary.source} name={name} date={profile.summary.date} />
                 </div>
@@ -285,7 +291,7 @@ export function OnboardingFlow({
                     </span>
                     <div className="feed-body">
                       <p style={{ fontWeight: 700 }}>{chapter.title}</p>
-                      <p>&ldquo;{chapter.text}&rdquo;</p>
+                      <p>&ldquo;{forSpeech(chapter.text)}&rdquo;</p>
                       <div className="feed-meta">
                         <Badge tone="resident" label={`In ${name}'s words`} />
                       </div>

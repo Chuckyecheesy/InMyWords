@@ -373,10 +373,10 @@ async def coach_ask(body: CoachAskBody):
         facts = result["facts"]
         if result["unknown"] or not facts:
             name = body.resident_id.capitalize()
-            return {"answer": f"I don't know — it's best to ask {name}.", "sources": []}
+            return {"answer": elevenlabs.normalize(f"I don't know. It's best to ask {name}."), "sources": []}
         name = body.resident_id.capitalize()
         return {
-            "answer": coach_answer(facts, name),
+            "answer": elevenlabs.normalize(coach_answer(facts, name)),
             "sources": [{"type": f["source"], "date": f["date"], "label": f["label"]} for f in facts[:3]],
         }
     if "favourite colour" in body.question.lower():
