@@ -81,7 +81,8 @@ test.describe("T3.7 approval, confirm, voice", () => {
     await card.getByRole("button", { name: "Approve" }).click();
     const response = await approved;
     expect(response.request().url()).toContain("resident_id=marcus");
-    await expect(page.getByTestId("approval-note")).toHaveText("Approved. The steps are running.");
+    await expect(page.getByTestId("approval-note")).toHaveText("The steps are done.");
+    await expect(page.getByTestId("step-results").locator("li").first()).toBeVisible();
   });
 
   test("Marcus confirms the tea pattern with a yes tile", async ({ page }) => {

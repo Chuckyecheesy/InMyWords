@@ -72,6 +72,7 @@ async function sendJson<T>(
   path: string,
   body?: unknown,
   method: "POST" | "PUT" | "GET" | "PATCH" = "POST",
+  signal?: AbortSignal,
 ): Promise<MutationResult<T>> {
   try {
     const response = await fetch(`${apiBaseUrl()}${path}`, {
@@ -79,6 +80,7 @@ async function sendJson<T>(
       headers: method === "GET" ? undefined : { "Content-Type": "application/json" },
       body: method === "GET" ? undefined : JSON.stringify(body),
       cache: "no-store",
+      signal,
     });
     if (!response.ok) {
       return { ok: false, error: `The API returned ${response.status}.` };
@@ -86,7 +88,10 @@ async function sendJson<T>(
     const raw = await response.text();
     const data = (raw ? JSON.parse(raw) : {}) as T;
     return { ok: true, data };
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      return { ok: false, error: "The steps took too long. Please try again." };
+    }
     return { ok: false, error: "The API is not reachable." };
   }
 }
@@ -472,20 +477,22 @@ function normalizePlan(value: unknown): ActionPlan | null {
   };
 }
 
-export async function planActions(input: { resident_id: string; goal: string }) {
-  const result = await sendJson<unknown>("/actions/plan", input);
+export async function planActions(input: { resident_id: string; goal: string }, signal?: AbortSignal) {
+  const result = await sendJson<unknown>("/actions/plan", input, "POST", signal);
   if (!result.ok) return result;
   const plan = normalizePlan(result.data);
   if (!plan) return { ok: false as const, error: "The plan did not include its steps." };
   return { ok: true as const, data: plan };
 }
 
-export function approveAction(planId: string, residentId: string) {
+export function approveAction(planId: string, residentId: string, signal?: AbortSignal) {
   const params = new URLSearchParams({ resident_id: residentId });
-  return sendJson<{ results?: { step: string; result: string }[]; status?: string }>(
-    `/actions/${encodeURIComponent(planId)}/approve?${params}`,
-    {},
-  );
+  return sendJson<{
+    results?: { step?: string; result?: string }[];
+    status?: string;
+    error?: string;
+    refused?: boolean;
+  }>(`/actions/${encodeURIComponent(planId)}/approve?${params}`, {}, "POST", signal);
 }
 
 export function cancelAction(planId: string, residentId: string) {

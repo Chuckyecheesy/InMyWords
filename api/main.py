@@ -14,6 +14,7 @@ Run the stack:
 import asyncio
 import json
 import os
+from functools import partial
 from pathlib import Path
 
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request, Response
@@ -695,12 +696,16 @@ async def create_choice(body: ChoicesBody, scope: dict = Depends(current_scope))
         name = profile["name"]
     budget = _choice_budget(resident_id, profile if isinstance(profile, dict) else None, live)
     use_llm = bool(os.environ.get("GEMINI_API_KEY", "").strip())
-    built = build_choice(
-        resident_id=resident_id,
-        question=body.question,
-        options=[option.model_dump() for option in body.options],
-        weekly_budget=budget,
-        generate="auto" if use_llm else None,
+    # Off the event loop: the model wait would otherwise freeze every other request.
+    built = await asyncio.to_thread(
+        partial(
+            build_choice,
+            resident_id=resident_id,
+            question=body.question,
+            options=[option.model_dump() for option in body.options],
+            weekly_budget=budget,
+            generate="auto" if use_llm else None,
+        )
     )
     logged, logged_live = await _mcp(
         mcp_client.log_choice(
