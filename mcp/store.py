@@ -275,7 +275,20 @@ class SeedStore:
                 tiles.append({"id": added["id"], "label": added["label"],
                               "category": added.get("category"),
                               "cloudinary_id": added["cloudinary_id"], "times_used": 0})
-        return tiles
+        archived = set(self._runtime.get("tiles_archived", []))
+        return [t for t in tiles if t["id"] not in archived]
+
+    def set_tile_archived(self, rid, tile_id, archived):
+        """Hide or restore a card. Archived cards are never deleted."""
+        self._reload_runtime()
+        ids = set(self._runtime.get("tiles_archived", []))
+        if archived:
+            ids.add(tile_id)
+        else:
+            ids.discard(tile_id)
+        self._runtime["tiles_archived"] = sorted(ids)
+        self._save_runtime()
+        return True
 
     def save_tile(self, rid, label, category, cloudinary_id):
         """Add a photo tile, or give an existing tile (same label) its new photo.
@@ -713,7 +726,7 @@ class PostgresStore:
             return None
         r["tiles"] = self._all(
             "SELECT id, label, category, cloudinary_id, times_used FROM tiles "
-            "WHERE resident_id = %s ORDER BY times_used DESC", (rid,))
+            "WHERE resident_id = %s AND NOT archived ORDER BY times_used DESC", (rid,))
         return r
 
     def save_tile(self, rid, label, category, cloudinary_id):
@@ -733,6 +746,13 @@ class PostgresStore:
             "RETURNING id, label, category, cloudinary_id, times_used",
             (rid, label, category, cloudinary_id))
         return tile, False
+
+    def set_tile_archived(self, rid, tile_id, archived):
+        """Hide or restore a card. Archived cards are never deleted."""
+        row = self._one(
+            "UPDATE tiles SET archived = %s WHERE id = %s AND resident_id = %s RETURNING id",
+            (archived, tile_id, rid))
+        return row is not None
 
     def get_story(self, rid):
         return self._all("SELECT * FROM story_chapters WHERE resident_id = %s ORDER BY id", (rid,))
