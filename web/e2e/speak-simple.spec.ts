@@ -10,7 +10,9 @@ test("simple speaking path keeps optional tools out of the way and asks before s
     speech.push(route.request().postDataJSON().text);
     await route.fulfill({ json: { audio_url: "/test-audio.mp3" } });
   });
-  await page.goto("/resident/marcus/speak");
+  // The full composer lives at /speak/words since the category speaker
+  // became the simple default on /speak.
+  await page.goto("/resident/marcus/speak/words");
   await expect(page.getByRole("heading", { name: "What do you want to say?" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Help me say it", exact: true })).toBeDisabled();
   await expect(page.getByRole("link", { name: "Type instead" })).toBeHidden();
@@ -30,6 +32,9 @@ test("simple speaking path keeps optional tools out of the way and asks before s
   await page.getByText("More options", { exact: true }).click();
   await expect(page.getByRole("button", { name: "Say my words", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "coffee", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // The modes disclosure lives on the simple /speak screen.
+  await page.goto("/resident/marcus/speak");
   await page.getByText("Other ways to communicate", { exact: true }).click();
   await expect(page.getByRole("link", { name: "Type instead" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "My own words" })).toBeVisible();
 });
