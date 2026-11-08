@@ -14,6 +14,7 @@ DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS input_events CASCADE;
 DROP TABLE IF EXISTS custom_gestures CASCADE;
 DROP TABLE IF EXISTS documents CASCADE;
+DROP TABLE IF EXISTS calendar_imports, visit_events, routines CASCADE;
 DROP TABLE IF EXISTS emh_events, emh_checklist, emh_notes, bookings, calendar_events,
   staff_tasks, action_results, action_plans, observations, memories, choices,
   sentences, story_answers, story_chapters, tiles, staff, residents, homes CASCADE;
@@ -154,6 +155,46 @@ CREATE TABLE calendar_events (
   resident_id TEXT REFERENCES residents(id),
   title       TEXT NOT NULL,
   starts_at   TIMESTAMPTZ NOT NULL
+);
+
+-- My Planner (PROJECT_PLAN §2.5). The resident's routine, expanded in plain
+-- code into one visit_events row per day. visit_events is the source of
+-- truth; google_event_id is set once the visit is on staff's Google Calendar.
+CREATE TABLE routines (
+  id          SERIAL PRIMARY KEY,
+  resident_id TEXT REFERENCES residents(id),
+  staff_id    TEXT REFERENCES staff(id),
+  start_time  TEXT NOT NULL,               -- '13:00', local
+  length_min  INT  NOT NULL CHECK (length_min > 0),
+  days        JSONB NOT NULL,              -- ["mon", ...]; all 7 by default
+  source      TEXT NOT NULL DEFAULT 'resident',
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE visit_events (
+  id              SERIAL PRIMARY KEY,
+  resident_id     TEXT REFERENCES residents(id),
+  routine_id      INT REFERENCES routines(id) ON DELETE CASCADE,
+  staff_id        TEXT REFERENCES staff(id),
+  starts_at       TIMESTAMPTZ NOT NULL,
+  ends_at         TIMESTAMPTZ NOT NULL CHECK (ends_at > starts_at),
+  source          TEXT NOT NULL DEFAULT 'resident'
+                  CHECK (source IN ('resident', 'staff', 'inferred')),
+  google_event_id TEXT,
+  approved        BOOLEAN NOT NULL DEFAULT false,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- Staff calendar import (stretch): a proposal from an uploaded .zip, kept
+-- until staff approve it. committed maps event id -> google_event_id.
+CREATE TABLE calendar_imports (
+  id         TEXT PRIMARY KEY,
+  staff_id   TEXT REFERENCES staff(id),
+  events     JSONB NOT NULL,
+  approved   BOOLEAN NOT NULL DEFAULT false,
+  approved_ids JSONB NOT NULL DEFAULT '[]'::jsonb,  -- event ids staff ticked
+  committed  JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE TABLE bookings (

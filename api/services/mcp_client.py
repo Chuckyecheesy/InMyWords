@@ -256,6 +256,47 @@ async def get_activity(resident):
 async def get_staff_tasks(resident=""):
     return await _call("actions", "get_staff_tasks", {"resident": resident})
 
+
+# ---- My Planner ----
+# The Planner subagent (agents/planner.py) calls tools by name; these are
+# the routes' direct calls. PLANNER_TOOLS says which server owns each tool.
+
+PLANNER_TOOLS = {
+    "save_routine": "profile", "get_planner": "profile", "preview_routine": "profile",
+    "approve_visits": "actions", "write_calendar_event": "actions",
+    "book_staff_visit": "actions", "get_booking": "actions",
+    "import_calendar": "actions", "propose_calendar_import": "actions",
+    "approve_calendar_import": "actions", "write_imported_event": "actions",
+    "commit_calendar_import": "actions",
+}
+
+
+async def call_tool(tool, args):
+    """Call a planner tool on whichever server owns it."""
+    return await _call(PLANNER_TOOLS[tool], tool, args)
+
+async def preview_routine(resident, staff, start_time, length_min, days=None, start_date=None):
+    return await _call("profile", "preview_routine", {
+        "resident": resident, "staff": staff, "start_time": start_time,
+        "length_min": length_min, "days": days, "start_date": start_date})
+
+async def save_routine(resident, staff, start_time, length_min, days=None, start_date=None):
+    return await _call("profile", "save_routine", {
+        "resident": resident, "staff": staff, "start_time": start_time,
+        "length_min": length_min, "days": days, "start_date": start_date})
+
+async def get_planner(resident):
+    return await _call("profile", "get_planner", {"resident": resident})
+
+async def import_calendar(resident, calendar_zip_b64, start_date="", days=63):
+    return await _call("actions", "import_calendar",
+                       {"resident": resident, "calendar_zip_b64": calendar_zip_b64,
+                        "start_date": start_date, "days": days})
+
+async def propose_calendar_import(staff, calendar_zip_b64):
+    return await _call("actions", "propose_calendar_import",
+                       {"staff": staff, "calendar_zip_b64": calendar_zip_b64})
+
 async def get_recent_changes(resident, since=""):
     return await _call("memory", "get_recent_changes", {"resident": resident, "since": since})
 

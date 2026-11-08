@@ -193,6 +193,16 @@ def source_label(source: str, name: str, date: str | None) -> str:
     return "Pattern noticed"  # inferred, never shown as fact
 
 
+def visit_view(v: dict, name: str) -> dict:
+    """One My Planner visit block, as the grid and the agents see it."""
+    return {
+        "id": v["id"], "routine_id": v.get("routine_id"), "staff": v["staff_id"],
+        "starts_at": v["starts_at"], "ends_at": v["ends_at"], "source": v["source"],
+        "label": source_label(v["source"], name, str(v.get("created_at") or "")[:10]),
+        "approved": bool(v["approved"]), "google_synced": bool(v.get("google_event_id")),
+    }
+
+
 class SeedStore:
     """JSON-backed fallback. Same shapes as PostgresStore."""
 
@@ -516,6 +526,9 @@ class SeedStore:
     def get_staff(self, staff_id):
         return self.staff.get(staff_id)
 
+    def list_staff(self):
+        return [dict(s) for s in self.staff.values()]
+
     def get_observations(self, rid, since=None):
         rows = [o for o in self.observations if o["resident_id"] == rid]
         if since:
@@ -725,6 +738,85 @@ class SeedStore:
         self._reload_runtime()
         tasks = self._runtime["staff_tasks"]
         return [t for t in tasks if rid is None or t["resident_id"] == rid]
+
+    # ---- My Planner: routines, visit events, staff calendar imports ----
+
+    _PLANNER_KEYS = ("routines", "visit_events", "calendar_imports")
+
+    def _fresh(self):
+        """Reload the runtime ONCE per call, then work on that dict. (Reloading
+        again mid-method swaps the dict and silently drops earlier appends.)"""
+        self._reload_runtime()
+        for key in self._PLANNER_KEYS:
+            self._runtime.setdefault(key, [])
+        return self._runtime
+
+    def _rt(self, key):
+        return self._fresh()[key]
+
+    def create_routine(self, rid, staff_id, start_time, length_min, days, source, blocks):
+        rt = self._fresh()
+        routines, visits = rt["routines"], rt["visit_events"]
+        routine = {"id": max((r["id"] for r in routines), default=0) + 1, "resident_id": rid,
+                   "staff_id": staff_id, "start_time": start_time, "length_min": length_min,
+                   "days": days, "source": source, "created_at": _now()}
+        routines.append(routine)
+        next_id = max((v["id"] for v in visits), default=0) + 1
+        made = []
+        for i, b in enumerate(blocks):
+            made.append({"id": next_id + i, "resident_id": rid, "routine_id": routine["id"],
+                         "staff_id": staff_id, "starts_at": b["starts_at"], "ends_at": b["ends_at"],
+                         "source": source, "google_event_id": None, "approved": False,
+                         "created_at": _now()})
+        visits.extend(made)
+        self._save_runtime()
+        return routine, [dict(v) for v in made]
+
+    def get_routine(self, routine_id):
+        return next((dict(r) for r in self._rt("routines") if r["id"] == routine_id), None)
+
+    def get_visits(self, rid=None, routine_id=None):
+        return [dict(v) for v in self._rt("visit_events")
+                if (rid is None or v["resident_id"] == rid)
+                and (routine_id is None or v["routine_id"] == routine_id)]
+
+    def get_visit(self, visit_id):
+        return next((dict(v) for v in self._rt("visit_events") if v["id"] == visit_id), None)
+
+    def approve_routine(self, routine_id):
+        for v in self._rt("visit_events"):
+            if v["routine_id"] == routine_id:
+                v["approved"] = True
+        self._save_runtime()
+        return self.get_visits(routine_id=routine_id)
+
+    def set_visit_google_id(self, visit_id, google_event_id):
+        for v in self._rt("visit_events"):
+            if v["id"] == visit_id:
+                v["google_event_id"] = google_event_id
+        self._save_runtime()
+
+    def save_calendar_import(self, import_id, staff_id, events):
+        record = {"id": import_id, "staff_id": staff_id, "events": events,
+                  "committed": {}, "created_at": _now()}
+        self._rt("calendar_imports").append(record)
+        self._save_runtime()
+        return dict(record)
+
+    def get_calendar_import(self, import_id):
+        return next((dict(r) for r in self._rt("calendar_imports") if r["id"] == import_id), None)
+
+    def approve_calendar_import(self, import_id, approved_ids):
+        for r in self._rt("calendar_imports"):
+            if r["id"] == import_id:
+                r["approved"], r["approved_ids"] = True, list(approved_ids)
+        self._save_runtime()
+
+    def mark_import_committed(self, import_id, event_id, google_event_id):
+        for r in self._rt("calendar_imports"):
+            if r["id"] == import_id:
+                r["committed"][event_id] = google_event_id
+        self._save_runtime()
 
     def get_activity(self, rid):
         self._reload_runtime()
@@ -1158,6 +1250,9 @@ class PostgresStore:
     def get_staff(self, staff_id):
         return self._one("SELECT * FROM staff WHERE id = %s", (staff_id,))
 
+    def list_staff(self):
+        return self._all("SELECT id, name, role FROM staff ORDER BY name")
+
     def get_observations(self, rid, since=None):
         if since:
             return self._all("SELECT * FROM observations WHERE resident_id = %s AND created_at >= %s "
@@ -1292,6 +1387,78 @@ class PostgresStore:
                WHERE ap.resident_id = %s
                ORDER BY date DESC""",
             (rid, rid, rid, rid))
+
+    # ---- My Planner: routines, visit events, staff calendar imports ----
+    # Same shapes as SeedStore: timestamps come back as Toronto ISO strings.
+
+    @staticmethod
+    def _visit(row):
+        if not row:
+            return None
+        from calendar_core import DEFAULT_TZ, iso
+        from zoneinfo import ZoneInfo
+        zone = ZoneInfo(DEFAULT_TZ)
+        row = dict(row)
+        for key in ("starts_at", "ends_at"):
+            if hasattr(row.get(key), "astimezone"):
+                row[key] = iso(row[key].astimezone(zone))
+        return row
+
+    def create_routine(self, rid, staff_id, start_time, length_min, days, source, blocks):
+        with self._conn() as conn:
+            routine = conn.execute(
+                "INSERT INTO routines (resident_id, staff_id, start_time, length_min, days, source) "
+                "VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
+                (rid, staff_id, start_time, length_min, json.dumps(days), source)).fetchone()
+            made = [conn.execute(
+                "INSERT INTO visit_events (resident_id, routine_id, staff_id, starts_at, ends_at, source) "
+                "VALUES (%s,%s,%s,%s,%s,%s) RETURNING *",
+                (rid, routine["id"], staff_id, b["starts_at"], b["ends_at"], source)).fetchone()
+                for b in blocks]
+        return dict(routine), [self._visit(v) for v in made]
+
+    def get_routine(self, routine_id):
+        return self._one("SELECT * FROM routines WHERE id = %s", (routine_id,))
+
+    def get_visits(self, rid=None, routine_id=None):
+        clauses, params = [], []
+        if rid is not None:
+            clauses.append("resident_id = %s")
+            params.append(rid)
+        if routine_id is not None:
+            clauses.append("routine_id = %s")
+            params.append(routine_id)
+        where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self._all(f"SELECT * FROM visit_events{where} ORDER BY starts_at", tuple(params))
+        return [self._visit(r) for r in rows]
+
+    def get_visit(self, visit_id):
+        return self._visit(self._one("SELECT * FROM visit_events WHERE id = %s", (visit_id,)))
+
+    def approve_routine(self, routine_id):
+        self._all("UPDATE visit_events SET approved = true WHERE routine_id = %s RETURNING id", (routine_id,))
+        return self.get_visits(routine_id=routine_id)
+
+    def set_visit_google_id(self, visit_id, google_event_id):
+        self._one("UPDATE visit_events SET google_event_id = %s WHERE id = %s RETURNING id",
+                  (google_event_id, visit_id))
+
+    def save_calendar_import(self, import_id, staff_id, events):
+        return self._one(
+            "INSERT INTO calendar_imports (id, staff_id, events) VALUES (%s,%s,%s) RETURNING *",
+            (import_id, staff_id, json.dumps(events)))
+
+    def get_calendar_import(self, import_id):
+        return self._one("SELECT * FROM calendar_imports WHERE id = %s", (import_id,))
+
+    def approve_calendar_import(self, import_id, approved_ids):
+        self._one("UPDATE calendar_imports SET approved = true, approved_ids = %s WHERE id = %s RETURNING id",
+                  (json.dumps(list(approved_ids)), import_id))
+
+    def mark_import_committed(self, import_id, event_id, google_event_id):
+        self._one(
+            "UPDATE calendar_imports SET committed = committed || jsonb_build_object(%s::text, %s::text) "
+            "WHERE id = %s RETURNING id", (event_id, google_event_id, import_id))
 
 
 _store = None
