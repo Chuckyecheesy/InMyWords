@@ -591,6 +591,34 @@ async def add_observation(body: ObservationBody, background: BackgroundTasks):
     return {"ok": True, "id": result["id"]} if live else {"ok": True}
 
 
+# ---------- Records library (ROADMAP Phase 3) ----------
+
+class RecordBody(BaseModel):
+    resident_id: str
+    title: str
+    body: str
+    category: str = "update"
+    author: str = ""
+    doc_date: str = ""
+
+
+@app.post("/records")
+async def add_record(body: RecordBody):
+    """Append a document or dated staff update to the resident's records."""
+    result, live = await _mcp(
+        mcp_client.add_record(body.resident_id, body.title, body.body,
+                              body.category, body.author, body.doc_date), None)
+    if live and result.get("error"):
+        raise HTTPException(422, result["error"])
+    return {"ok": True, "id": result.get("id") if live else 0}
+
+
+@app.get("/records/{resident_id}")
+async def records(resident_id: str):
+    result, live = await _mcp(mcp_client.get_records(resident_id), None)
+    return {"records": result["records"]} if live else {"records": []}
+
+
 # ---------- Gaze/gesture input (G5, GAZE_GESTURE_PLAN §7) ----------
 
 class InputEvent(BaseModel):

@@ -11,6 +11,7 @@ DROP VIEW IF EXISTS profile_items;
 DROP MATERIALIZED VIEW IF EXISTS input_daily CASCADE;
 DROP TABLE IF EXISTS input_events CASCADE;
 DROP TABLE IF EXISTS custom_gestures CASCADE;
+DROP TABLE IF EXISTS documents CASCADE;
 DROP TABLE IF EXISTS emh_events, emh_checklist, emh_notes, bookings, calendar_events,
   staff_tasks, action_results, action_plans, observations, memories, choices,
   sentences, story_answers, story_chapters, tiles, staff, residents, homes CASCADE;
@@ -209,6 +210,23 @@ CREATE TABLE custom_gestures (
   created_at  TIMESTAMPTZ DEFAULT now(),
   UNIQUE (resident_id, tile_label)
 );
+
+-- Records library (ROADMAP Phase 3): the resident's documents and dated
+-- staff updates. Append-only; updates never overwrite older records.
+-- The Coach retrieves from these with source = 'document' labels.
+CREATE TABLE documents (
+  id          SERIAL PRIMARY KEY,
+  resident_id TEXT REFERENCES residents(id),
+  title       TEXT NOT NULL,
+  category    TEXT NOT NULL DEFAULT 'update'
+              CHECK (category IN ('binder', 'care plan', 'update', 'medical', 'other')),
+  author      TEXT,
+  doc_date    DATE,
+  uploaded_at TIMESTAMPTZ DEFAULT now(),
+  body        TEXT NOT NULL
+);
+
+CREATE INDEX documents_resident_idx ON documents (resident_id, doc_date DESC);
 
 -- The profile IS the confirmed memory store (PROJECT_PLAN §3).
 CREATE VIEW profile_items AS

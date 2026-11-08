@@ -57,7 +57,7 @@ export default async function StaffDashboard() {
                 {attention.length > 0 ? `${attention.length} things to know about.` : "Nothing urgent."}
               </p>
             </div>
-            <Link href="/staff/handoff" className="btn">
+            <Link href="/staff/updates" className="btn">
               Since last shift
               <ArrowRight size={18} aria-hidden="true" />
             </Link>
@@ -101,7 +101,7 @@ export default async function StaffDashboard() {
           <section className="panel">
             <div className="panel-head">
               <h2>Recent updates</h2>
-              <Link href="/staff/handoff" className="text-link" style={{ fontSize: 14 }}>
+              <Link href="/staff/updates" className="text-link" style={{ fontSize: 14 }}>
                 See all
               </Link>
             </div>
