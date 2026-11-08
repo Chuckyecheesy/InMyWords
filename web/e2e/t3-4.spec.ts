@@ -9,13 +9,13 @@ import path from "node:path";
  */
 
 function elevenLabsConfigured(): boolean {
-  if (process.env.ELEVENLABS_API_KEY?.trim()) return true;
+  if (process.env.ELEVENLABS_ID?.trim()) return true;
   try {
     const text = readFileSync(path.resolve(__dirname, "../../.env"), "utf8");
     for (const line of text.split("\n")) {
       const trimmed = line.trim();
-      if (!trimmed.startsWith("ELEVENLABS_API_KEY=")) continue;
-      const value = trimmed.slice("ELEVENLABS_API_KEY=".length).trim().replace(/^['"]|['"]$/g, "");
+      if (!trimmed.startsWith("ELEVENLABS_ID=")) continue;
+      const value = trimmed.slice("ELEVENLABS_ID=".length).trim().replace(/^['"]|['"]$/g, "");
       return value.length > 0;
     }
   } catch {
@@ -134,7 +134,7 @@ test.describe("T3.4 picture interview", () => {
   });
 
   test("draft stays silent and approve speaks the answers", async ({ page }) => {
-    test.skip(!elevenLabsConfigured(), "ELEVENLABS_API_KEY is not set");
+    test.skip(!elevenLabsConfigured(), "ELEVENLABS_ID is not set");
     const api = "http://127.0.0.1:8000";
     const chapter = "exec_day";
     const answers = [

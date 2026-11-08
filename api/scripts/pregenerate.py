@@ -1,6 +1,6 @@
 """Warm the audio cache so demo lines play with zero wait (T1.3 / T1.8).
 
-Run from api/ (needs ELEVENLABS_API_KEY; run scripts.design_voices first so
+Run from api/ (needs ELEVENLABS_ID; run scripts.design_voices first so
 residents speak in their own designed voice):
 
     python -m scripts.pregenerate
@@ -36,7 +36,7 @@ def lines_for(resident_id: str) -> list[str]:
 
 async def main() -> None:
     if not elevenlabs.configured():
-        sys.exit("ELEVENLABS_API_KEY is not set. Add it to the repo-root .env first.")
+        sys.exit("ELEVENLABS_ID is not set. Add it to the repo-root .env first.")
     for resident_id, entry in elevenlabs.load_voices().items():
         for option in entry.get("options", []):
             await elevenlabs.synthesize(option["voice_id"], option["preview_text"])

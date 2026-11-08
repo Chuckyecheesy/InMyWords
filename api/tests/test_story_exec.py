@@ -65,7 +65,7 @@ class ExecutionTests(unittest.TestCase):
         self.assertNotIn("bowling", text.lower())
 
 
-@unittest.skipUnless(elevenlabs.configured(), "ELEVENLABS_API_KEY is not set")
+@unittest.skipUnless(elevenlabs.configured(), "ELEVENLABS_ID is not set")
 class LiveVoiceTests(unittest.TestCase):
     def test_marcus_and_dana_get_different_voices(self):
         marcus = elevenlabs.resident_voice("marcus")
