@@ -11,7 +11,7 @@ test.describe("T3.8 accessibility and pitch", () => {
     page.on("request", (request) => {
       if (request.method() === "POST") posts.push(request.url());
     });
-    await page.goto("/resident/marcus");
+    await page.goto("/resident/marcus/speak");
     await page.getByRole("button", { name: "coffee" }).click();
     const spoken = page.waitForResponse(
       (response) => response.url().includes("/speak") && response.request().method() === "POST",
@@ -28,9 +28,11 @@ test.describe("T3.8 accessibility and pitch", () => {
   });
 
   test("Undo puts the yes and no tiles back", async ({ page }) => {
+    // The answer is HELD (client-side) until Next — Undo drops it. This is
+    // also idempotent against a live database: nothing saves until Next.
     await page.goto("/resident/marcus/confirm");
     await page.getByRole("button", { name: "Yes" }).click();
-    await expect(page.getByText("In Marcus's words.")).toBeVisible();
+    await expect(page.getByText("You said Yes.")).toBeVisible();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByRole("button", { name: "Yes" })).toBeVisible();
     await expect(page.getByRole("button", { name: "No" })).toBeVisible();
