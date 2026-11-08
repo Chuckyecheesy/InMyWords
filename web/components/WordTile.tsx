@@ -1,10 +1,10 @@
 import Image from "next/image";
-import { demoPhotoUrl } from "@/lib/cloudinary";
+import { tileImageUrl } from "@/lib/cloudinary";
 import type { Tile } from "@/lib/types";
 
 export function WordTile({ tile }: { tile: Tile }) {
-  const calm = tile.cloudinary_id ? demoPhotoUrl(tile.cloudinary_id) : null;
-  const contrast = calm;
+  const calm = tile.cloudinary_id ? tileImageUrl(tile.cloudinary_id, "calm") : null;
+  const contrast = tile.cloudinary_id ? tileImageUrl(tile.cloudinary_id, "contrast") : null;
 
   return (
     <figure className="tile">

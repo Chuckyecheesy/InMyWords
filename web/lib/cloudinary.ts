@@ -8,6 +8,7 @@ import { TILE_PAD } from "./tokens";
  * 2. e_background_removal — drop the room behind the person or object
  * 3. c_pad,w_720,h_720 — 40px of the same padding on every side
  * 4. r_48 — the same rounded corners
+ * 5. f_auto/q_auto — format and quality chosen at delivery
  *
  * High contrast adds e_contrast:50 and e_sharpen:80, and pads on white.
  * Pad colours come from lib/tokens.ts so they match --card.
@@ -54,7 +55,7 @@ export function storyImageUrl(publicId: string): string | null {
     process.env.CLOUDINARY_CLOUD_NAME;
   const id = publicId.replace(/^\/+/, "");
   if (!cloud || !id) return null;
-  return `https://res.cloudinary.com/${cloud}/image/upload/c_fill,g_auto,w_800,h_400/${id}.jpg`;
+  return `https://res.cloudinary.com/${cloud}/image/upload/c_fill,g_auto,w_800,h_400/f_auto/q_auto/${id}`;
 }
 
 export function tileImageUrl(
@@ -66,5 +67,5 @@ export function tileImageUrl(
     process.env.CLOUDINARY_CLOUD_NAME;
   const id = publicId.replace(/^\/+/, "");
   if (!cloud || !id) return null;
-  return `https://res.cloudinary.com/${cloud}/image/upload/${TILE_RECIPE[mode]}/${id}`;
+  return `https://res.cloudinary.com/${cloud}/image/upload/${TILE_RECIPE[mode]}/f_auto/q_auto/${id}`;
 }

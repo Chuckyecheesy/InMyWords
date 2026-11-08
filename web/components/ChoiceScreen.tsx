@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { createChoice, decideChoice, planActions, speak, type ActionPlan } from "@/lib/api";
 import { choicePrompt, NOT_DECIDED_LABEL, NOT_DECIDED_VALUE } from "@/lib/choice-prompts";
-import { demoPhotoUrl } from "@/lib/cloudinary";
+import { tileImageUrl } from "@/lib/cloudinary";
 import { choiceStanding, consequence, money } from "@/lib/format";
 import type { ChoiceOption, ChoiceResult } from "@/lib/types";
 import { ApprovalCard } from "./ApprovalCard";
@@ -123,8 +123,8 @@ export function ChoiceScreen({
         {error ? <p className="note">{error}</p> : null}
         <div className="choice-options" role="group" aria-label="Choices">
           {(choice?.options ?? []).map((option) => {
-            const calm = option.photo ? demoPhotoUrl(option.photo) : null;
-            const contrast = calm;
+            const calm = option.photo ? tileImageUrl(option.photo, "calm") : null;
+            const contrast = option.photo ? tileImageUrl(option.photo, "contrast") : null;
             const selected = chosen === option.label || (status === "not_yet_decided" && option.label.toLowerCase() === NOT_DECIDED_LABEL);
             return (
               <button

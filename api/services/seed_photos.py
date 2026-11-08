@@ -73,6 +73,18 @@ def seed_public_ids() -> list[str]:
     return ordered
 
 
+def demo_photo_files(root: Path | None = None) -> list[tuple[str, Path]]:
+    """Saved demo JPEGs, as (public_id, path). These are what the Upload API sends."""
+    base = (root or ROOT) / "web" / "public" / "demo"
+    files: list[tuple[str, Path]] = []
+    if not base.is_dir():
+        return files
+    for path in sorted(base.rglob("*.jpg")):
+        public_id = path.relative_to(base).with_suffix("").as_posix()
+        files.append((public_id, path))
+    return files
+
+
 def _subject_key(public_id: str) -> str:
     leaf = public_id.rsplit("/", 1)[-1]
     for prefix in ("marcus_", "dana_"):
@@ -270,7 +282,7 @@ def warm_tile_urls(cloud_name: str, public_ids: list[str], *, rounds: int = 8) -
         for mode, public_id in pending:
             url = (
                 f"https://res.cloudinary.com/{cloud_name}/image/upload/"
-                f"{TILE_RECIPES[mode]}/{public_id}"
+                f"{TILE_RECIPES[mode]}/f_auto/q_auto/{public_id}"
             )
             try:
                 with urllib.request.urlopen(url, timeout=60) as response:

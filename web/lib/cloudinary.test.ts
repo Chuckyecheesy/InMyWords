@@ -8,10 +8,11 @@ test("a calm tile url uses the frozen recipe and strips a leading slash", () => 
   const url = tileImageUrl("/tiles/marcus_coffee", "calm");
   assert.equal(
     url,
-    `https://res.cloudinary.com/inmywords/image/upload/${TILE_RECIPE.calm}/tiles/marcus_coffee`,
+    `https://res.cloudinary.com/inmywords/image/upload/${TILE_RECIPE.calm}/f_auto/q_auto/tiles/marcus_coffee`,
   );
   assert.match(url!, /c_fill,g_auto,w_640,h_640\/e_background_removal/);
   assert.match(url!, /c_pad,w_720,h_720,b_rgb:F7FBFA\/r_48/);
+  assert.match(url!, /\/f_auto\/q_auto\/tiles\/marcus_coffee$/);
 });
 
 test("a high-contrast tile url sharpens and pads on white", () => {
@@ -67,7 +68,7 @@ test("a story image url uses the configured cloud, not a hardcoded one", () => {
   process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = "my-cloud";
   assert.equal(
     storyImageUrl("story/marcus_portrait"),
-    "https://res.cloudinary.com/my-cloud/image/upload/c_fill,g_auto,w_800,h_400/story/marcus_portrait.jpg",
+    "https://res.cloudinary.com/my-cloud/image/upload/c_fill,g_auto,w_800,h_400/f_auto/q_auto/story/marcus_portrait",
   );
   delete process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
   delete process.env.CLOUDINARY_CLOUD_NAME;

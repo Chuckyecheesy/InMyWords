@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.seed_photos import (  # noqa: E402
     PRESET_NAME,
+    demo_photo_files,
     generate_all_messy_photos,
     make_messy_photo,
     process_seed_photos,
@@ -34,6 +35,13 @@ class SeedPublicIdTests(unittest.TestCase):
             for chapter in data["story_chapters"]:
                 for photo_id in chapter["photo_ids"]:
                     self.assertIn(photo_id, ids)
+
+
+class DemoPhotoTests(unittest.TestCase):
+    def test_every_seed_id_has_a_demo_jpeg(self):
+        saved = {public_id for public_id, _path in demo_photo_files(ROOT)}
+        missing = [public_id for public_id in seed_public_ids() if public_id not in saved]
+        self.assertEqual(missing, [])
 
 
 class MessyPhotoTests(unittest.TestCase):

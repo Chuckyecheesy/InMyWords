@@ -146,6 +146,14 @@ mkdir -p $REMOTE/web/.next/cache && chown -R app:app $REMOTE/web/.next/cache
 mkdir -p /var/lib/inmywords && chown app:app /var/lib/inmywords
 ln -sfn /var/lib/inmywords/runtime.json $REMOTE/db/seed/.runtime.json"
 
+step "Uploading demo photos through the Cloudinary API"
+# Uses the cloud name, key, and secret already on the VM. Prints public ids only.
+ssh_root "set -eo pipefail
+set -a; . /etc/inmywords.env; set +a
+cd $REMOTE/api
+/opt/inmywords-venv/bin/python -m scripts.upload_demo_photos" \
+  || echo "WARNING: Cloudinary upload did not finish. Tiles use the last photos that reached the cloud." >&2
+
 step "Installing systemd units"
 unit() {  # name, description, workdir, exec, extra env lines
   cat <<UNIT
