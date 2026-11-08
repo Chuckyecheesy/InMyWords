@@ -66,7 +66,7 @@ Today every route is public and the API trusts whatever `resident_id` it's given
 
 ## Phase 4 — Core communication (M) — Ahmed
 
-- **Custom cards ("Add card")**: label → photo (upload via existing `PhotoUpload` or pick from library) → preview → confirm. Writes a `tiles` row (table already supports it). Edit/archive/undo; archived cards are hidden, not deleted.
+- **Custom cards ("Add card")**: start on Say my words, then label → photo (upload via existing `PhotoUpload` or pick from library) → preview → confirm. Writes a `tiles` row (table already supports it). My picture cards is hidden from navigation but remains available at its direct URL to hide cards and undo; archived cards are hidden, not deleted.
 - **Broader activities:** seed tiles and the Choice agent's option set beyond bowling (swimming, basketball, walk, movie, music, "Something else", "Not yet decided"). The Action agent already grounds per-activity; add a small activity→venue map for the mock booking site. Expressing interest (log_choice) and booking (plan + approval card) stay separate steps — they already are; make the UI distinction explicit.
 - **Guided builder (optional path):** What → Where (skippable) → When (skippable), assembling the tile strip. Free tile selection remains the default; the guide is a button, not a gate.
 - **Typing + suggestions:** large letter board; word suggestions appear after typed letters (start from the resident's own tile labels + confirmed-memory vocabulary before reaching for an LLM — fast, personal, offline-safe). Suggestions are always tap-to-accept, never auto-inserted, never auto-spoken; "none of these" always present.

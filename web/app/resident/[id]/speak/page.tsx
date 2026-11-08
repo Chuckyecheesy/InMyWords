@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ImagePlus, Keyboard, Sparkles } from "lucide-react";
+import { Keyboard, Sparkles } from "lucide-react";
 import { SpeakForMe } from "@/components/SpeakForMe";
 import { getResident } from "@/lib/api";
 
@@ -19,10 +19,6 @@ export default async function SpeakPage({ params }: { params: Promise<{ id: stri
         <Link href={`/resident/${id}/type`} className="btn" data-variant="soft" data-size="lg">
           <Keyboard size={20} aria-hidden="true" />
           Type instead
-        </Link>
-        <Link href={`/resident/${id}/cards`} className="btn" data-variant="soft" data-size="lg">
-          <ImagePlus size={20} aria-hidden="true" />
-          My cards
         </Link>
         <Link href={`/resident/${id}/guide`} className="btn" data-variant="soft" data-size="lg">
           <Sparkles size={20} aria-hidden="true" />
