@@ -1,0 +1,4 @@
+# Root requirements for deployment (Railway builds from repo root).
+# Locally you can still install the per-area files directly.
+-r api/requirements.txt
+-r mcp/requirements.txt
