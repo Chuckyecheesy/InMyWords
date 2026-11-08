@@ -22,7 +22,13 @@ import type {
 } from "./types";
 
 function apiBaseUrl(): string {
-  return (process.env.API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
+  const configured = (process.env.API_BASE_URL ?? "").replace(/\/$/, "");
+  const serverLocal =
+    !configured || configured.includes("127.0.0.1") || configured.includes("localhost");
+  // The API listens on the server. A browser that calls that address is talking
+  // to the resident's own machine, so client calls go through the /backend proxy.
+  if (serverLocal && typeof window !== "undefined") return "/backend";
+  return configured || "http://127.0.0.1:8000";
 }
 
 async function fetchJson(path: string): Promise<unknown | null> {

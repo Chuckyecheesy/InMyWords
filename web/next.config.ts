@@ -26,6 +26,10 @@ if (fs.existsSync(rootEnv)) {
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  async rewrites() {
+    const api = (process.env.API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+    return [{ source: "/backend/:path*", destination: `${api}/:path*` }];
+  },
   images: {
     remotePatterns: [
       {
