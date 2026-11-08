@@ -37,7 +37,7 @@ function provenanceLine(answer: CoachAnswer, name: string): string {
   const types = new Set(answer.sources.map((source) => source.type));
   if (types.has("resident")) return `Includes ${name}'s own words.`;
   if (types.has("inferred") || types.has("pattern")) return `Includes a pattern ${name} hasn't confirmed yet.`;
-  return `From staff notes and records — not ${name}'s own words.`;
+  return `From staff notes and records, not ${name}'s own words.`;
 }
 
 function Answer({ message, name }: { message: Message; name: string }) {
@@ -54,7 +54,7 @@ function Answer({ message, name }: { message: Message; name: string }) {
         {unknown ? (
           <p className="msg-unknown">
             <CircleHelp size={16} aria-hidden="true" />
-            Not on file. The Coach won&apos;t guess — ask {name}, or add a staff note once you know.
+            Not on file. The Coach won&apos;t guess. Ask {name}, or add a staff note once you know.
           </p>
         ) : (
           <div className="msg-sources">

@@ -118,6 +118,7 @@ function AnswerTile({
       className="choice-button"
       aria-label={label}
       data-choice={label}
+      data-longpress="own"
       onClick={() => {
         if (held.current) {
           held.current = false;

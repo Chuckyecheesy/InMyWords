@@ -67,6 +67,18 @@ class SpeakStorySplitTest(unittest.TestCase):
         self.assertEqual(approved.status_code, 422)
         self.assertEqual(self.spoken, ["Can I get a double-double?"])
 
+    def test_an_em_dash_is_spoken_as_a_new_sentence(self):
+        with patch.object(elevenlabs, "configured", return_value=True):
+            speak = self.client.post(
+                "/speak",
+                json={
+                    "resident_id": "marcus",
+                    "text": "Loud rooms are hard for me — quiet helps.",
+                },
+            )
+        self.assertEqual(speak.status_code, 200, speak.text)
+        self.assertEqual(self.spoken, ["Loud rooms are hard for me. Quiet helps."])
+
     def test_tiles_stay_the_inventory_and_coffee_does_not_become_tea(self):
         resident = self.client.get("/residents/marcus")
         self.assertEqual(resident.status_code, 200, resident.text)

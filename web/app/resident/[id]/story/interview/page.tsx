@@ -378,6 +378,7 @@ function ChapterButton({
       type="button"
       className="big-button"
       data-chapter={chapterKey}
+      data-longpress="own"
       onPointerDown={press.onPointerDown}
       onPointerUp={press.onPointerUp}
       onPointerLeave={press.onPointerLeave}

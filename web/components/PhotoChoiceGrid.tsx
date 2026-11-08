@@ -119,6 +119,7 @@ function ChoiceTile({
       aria-label={option.label}
       aria-pressed={selected}
       data-choice={option.label}
+      data-longpress="own"
       onPointerDown={onPointerDown}
       onPointerUp={clear}
       onPointerLeave={clear}
