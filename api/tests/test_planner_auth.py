@@ -55,6 +55,15 @@ class PlannerAuthTests(unittest.TestCase):
                 with self.subTest(path=path, status=status):
                     self.assertEqual(self.client.post(path, json=body).status_code, status)
 
+    def test_calendar_view_without_resident_requires_staff(self):
+        body = {"calendar_zip_b64": ""}
+        self.scope({"role": "resident", "rid": "dana"})
+        self.assertEqual(self.client.post("/planner/import", json=body).status_code, 403)
+        self.scope({"role": "staff", "sid": "sam"}, ["dana"])
+        with mock.patch.object(main.mcp_client, "import_calendar", new_callable=mock.AsyncMock,
+                               return_value={"visits": []}):
+            self.assertEqual(self.client.post("/planner/import", json=body).status_code, 200)
+
     def test_visit_response_checks_assignment_and_fails_closed(self):
         self.scope({"role": "staff", "sid": "sam"}, ["dana"])
         body = {"staff_id": "sam", "visit_ids": [1], "decision": "accept"}

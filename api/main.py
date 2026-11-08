@@ -862,7 +862,10 @@ async def planner_respond(body: PlannerRespondBody, scope: dict = Depends(curren
 @app.post("/planner/import")
 async def planner_import_view(body: CalendarZipBody, scope: dict = Depends(current_scope)):
     """Fallback: a staff .zip calendar export shown read-only on the grid."""
-    require_access(scope, body.resident_id)
+    if body.resident_id:
+        require_access(scope, body.resident_id)
+    else:
+        require_staff(scope)
     result, live = await _mcp(mcp_client.import_calendar(
         body.resident_id, body.calendar_zip_b64, body.start_date, body.days), None)
     return result if live else _PLANNER_DOWN
