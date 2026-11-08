@@ -1,240 +1,160 @@
-"""Action agent (T4.7).
+"""Action agent (BUILD_PLAN T4.7).
 
-A goal becomes an approval-card plan. Steps stay on the allowlist.
-Usual details (when, who to tell) come from the Retriever. A repeated
-outing is reported by the Routine finder. Cost is a code table, never
-a model's guess. Anything that needs a person becomes a staff task.
+Turns a goal ("bowling Saturday") into a PROPOSED plan: online steps drawn
+only from the allowlist, plus staff tasks for anything needing physical help.
 
-Nothing here touches the database. Callers pass memories and events
-they already loaded through the MCP servers.
+Rules (see CLAUDE.md):
+- Nothing runs here. Status is always 'proposed'; the resident approves on
+  the card, and the actions MCP server runs the steps.
+- Steps come only from ALLOWED_STEPS. Anything else is dropped.
+- Cost is plain code (catalog prices, then a sum). The LLM only phrases the
+  message text, and its output is discarded if it mentions money.
+- Usual details (time, Lisa) come from memories passed in by the caller;
+  this module never reads the database.
 """
 
 from __future__ import annotations
 
 import re
+from datetime import date, timedelta
+from typing import Callable
 
-from agents.memory.retriever import retrieve
-from agents.memory.routines import find_routines
+ALLOWED_STEPS = ("book_activity", "add_to_calendar", "send_message", "create_staff_task")
 
-# Next Saturday after the demo week. Bookings and the ride share this day.
-_DEMO_DAY = "2026-11-14"
-_DEMO_WEEKDAY = "Saturday"
-
-# Known activities the resident can book. Prices live here, not in the model.
-_CATALOG = {
-    "bowling": {
-        "activity": "Bowling — KW Bowl",
-        "place": "KW Bowl",
-        "cost": 15.0,
-        "detail": "Lane at KW Bowl, Saturday 2:00pm",
-    },
-    "movie": {
-        "activity": "Movie",
-        "place": "the movie",
-        "cost": 12.0,
-        "detail": "Movie, Saturday afternoon",
-    },
-    "herb garden": {
-        "activity": "Herb garden supplies",
-        "place": "the herb garden",
-        "cost": 22.0,
-        "detail": "Herb garden supplies",
-    },
-    "groceries": {
-        "activity": "Groceries",
-        "place": "the grocery store",
-        "cost": 40.0,
-        "detail": "Grocery shop",
-    },
-}
-
-_CONTACTS = ("lisa",)
-_CLOCK = re.compile(r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b", re.I)
+# Plain-code prices for bookable activities. Unknown activity = free.
+PRICES = {"bowling": 15.0, "movie": 12.0}
+VENUES = {"bowling": "KW Bowl", "movie": "Waterloo Cinema"}
+DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+DEFAULT_HOUR = 14  # 2pm unless a memory says otherwise
 
 
-def _phrase_routine(group: dict) -> str:
-    """Same sentence as agents.memory.wiring.plain_routine_text, without
-    pulling the MCP client into this module."""
-    when = group["weekday"] + ("s" if group.get("hour") is None else f"s around {group['hour']}:00")
-    return f"{group['content']} on {when}"
-
-
-def _catalog_key(goal: str) -> str | None:
-    text = goal.lower()
-    if "herb" in text:
-        return "herb garden"
-    for key in ("bowling", "movie", "groceries"):
-        if key in text:
+def _activity(goal: str) -> str | None:
+    g = goal.lower()
+    for key in ("bowling", "movie"):
+        if key in g:
             return key
     return None
 
 
-def _clock(text: str) -> tuple[int, int] | None:
-    match = _CLOCK.search(text)
-    if not match:
-        return None
-    hour = int(match.group(1))
-    minute = int(match.group(2) or 0)
-    if hour < 1 or hour > 12 or minute > 59:
-        return None
-    ampm = match.group(3).lower()
-    if hour == 12:
-        hour24 = 0 if ampm == "am" else 12
-    else:
-        hour24 = hour if ampm == "am" else hour + 12
-    return hour24, minute
+def _usual_hour(memories: list[dict]) -> int:
+    for m in memories:
+        found = re.search(r"\b(\d{1,2})\s*(am|pm)\b", m.get("content", ""), re.I)
+        if found:
+            hour = int(found.group(1)) % 12
+            return hour + (12 if found.group(2).lower() == "pm" else 0)
+    return DEFAULT_HOUR
 
 
-def _clock_label(hour24: int, minute: int) -> str:
-    suffix = "am" if hour24 < 12 else "pm"
-    hour12 = hour24 % 12 or 12
-    return f"{hour12}:{minute:02d}{suffix}"
+def _has_lisa(memories: list[dict]) -> bool:
+    return any("lisa" in m.get("content", "").lower() for m in memories)
 
 
-def _earlier(hour24: int, minute: int, minutes: int = 30) -> tuple[int, int]:
-    total = (hour24 * 60 + minute - minutes) % (24 * 60)
-    return divmod(total, 60)
+def _clock(hour: int) -> str:
+    return f"{hour % 12 or 12}:00{'am' if hour < 12 else 'pm'}"
 
 
-def _iso(hour24: int, minute: int) -> str:
-    return f"{_DEMO_DAY}T{hour24:02d}:{minute:02d}:00"
+def _when(goal: str, today: date) -> tuple[str, str]:
+    """(weekday name, ISO date). No weekday in the goal -> next Saturday."""
+    g = goal.lower()
+    name = next((d for d in DAYS if d in g), "saturday")
+    ahead = (DAYS.index(name) - today.weekday()) % 7 or 7
+    return name.capitalize(), (today + timedelta(days=ahead)).isoformat()
 
 
-def _keyword(goal: str) -> str:
-    key = _catalog_key(goal)
-    if key == "herb garden":
-        return "herb"
-    if key:
-        return key
-    words = [word for word in re.findall(r"[a-z0-9]+", goal.lower()) if word not in {"a", "the", "on", "this"}]
-    return words[0] if words else goal.lower()
+def _rule_steps(goal, memories, phrase, today):
+    activity = _activity(goal)
+    g = goal.lower()
+    hour = _usual_hour(memories)
+    day, iso = _when(goal, today)
+    at = f"{day} {_clock(hour)}"
+    start = f"{iso}T{hour:02d}:00:00"
+    leave = f"{iso}T{max(hour - 1, 0):02d}:30:00"
+    steps: list[dict] = []
+
+    if activity:
+        venue = VENUES[activity]
+        steps.append({"step": "book_activity", "kind": "online",
+                      "detail": f"{activity.capitalize()} at {venue}, {at}",
+                      "activity": f"{activity.capitalize()} — {venue}", "time": start})
+    if re.search(r"\b(call|text|email|tell)\b", g) and "lisa" in g or (
+            activity == "bowling" and _has_lisa(memories)):
+        steps.append({"step": "send_message", "kind": "online", "contact": "lisa",
+                      "detail": f"Email Lisa about: {goal}",
+                      "text": f"Marcus would like to talk about: {goal}. Would you like to join?"})
+    if "call" not in g:
+        steps.append({"step": "add_to_calendar", "kind": "online",
+                      "detail": f"{goal} — {at}", "title": goal, "time": start})
+        # Going anywhere needs a person to go with them.
+        what = f"Drive to {VENUES[activity]}" if activity else f"Support with: {goal}"
+        steps.append({"step": "create_staff_task", "kind": "staff", "detail": what,
+                      "task": what, "time": leave})
+
+    for s in steps:
+        if s["step"] == "send_message":
+            nice = phrase(s["text"]) if phrase else s["text"]
+            if isinstance(nice, str) and nice.strip() and "$" not in nice:
+                s["text"] = nice
+    return steps
 
 
-def _usable(memories: list[dict]) -> list[dict]:
-    confirmed = [m for m in memories if m.get("status") == "confirmed"]
-    return confirmed or [m for m in memories if m.get("status") != "dismissed"]
+def _sanitise(raw: list[dict], goal: str) -> list[dict]:
+    """Keep allowlisted steps only; set kind and cost from code, not the model."""
+    activity = _activity(goal)
+    out = []
+    for s in raw or []:
+        name = s.get("step")
+        if name not in ALLOWED_STEPS:
+            continue
+        clean = {k: v for k, v in s.items() if k != "cost"}
+        clean["kind"] = "staff" if name == "create_staff_task" else "online"
+        out.append(clean)
+    for s in out:
+        s["cost"] = PRICES.get(activity, 0.0) if s["step"] == "book_activity" else 0.0
+    return out
 
 
-def propose(
-    resident_id: str,
+def build_plan(
     goal: str,
-    *,
-    name: str,
-    memories: list[dict] | None,
-    events: list[dict] | None,
+    memories: list[dict],
+    phrase: Callable[[str], str] | None = None,
+    propose: Callable[[str, list[dict]], list[dict]] | None = None,
+    today: date | None = None,
 ) -> dict:
-    """Build the plan and the four notes the choice screen shows."""
-    connected = memories if memories is not None else []
-    kept = retrieve(resident_id, goal, recall=lambda **_: connected)
-    usable = _usable(kept)
-    key = _catalog_key(goal)
-    catalog = _CATALOG.get(key) if key else None
-    keyword = _keyword(goal)
+    today = today or date.today()
+    steps = None
+    if propose is not None:
+        try:
+            steps = _sanitise(propose(goal, memories), goal)
+        except Exception as exc:  # model down: fall back to the rules
+            print(f"[action] propose failed, using rules: {exc}")
+    if steps is None:
+        steps = _sanitise(_rule_steps(goal, memories, phrase, today), goal)
+        # _sanitise drops model-set costs; rule steps get catalog cost the same way.
 
-    when = _when(usable, catalog)
-    contact = _contact(usable)
-    steps = _steps(name, goal, catalog, when, contact)
-    total = round(sum(step["cost"] for step in steps), 2)
-    agents = [
-        {"id": "observer", "name": "Observer", "note": f"{name} chose {goal.strip()}."},
-        {"id": "retriever", "name": "Retriever", "note": _retriever_note(memories, usable)},
-        {"id": "routine", "name": "Routine finder", "note": _routine_note(events, keyword)},
-        {"id": "action", "name": "Action", "note": _action_note(steps, contact)},
-    ]
+    online = [s for s in steps if s["kind"] == "online"]
+    staff = [s for s in steps if s["kind"] == "staff"]
+    total = round(sum(s["cost"] for s in online), 2)  # plain code, never the LLM
     return {
         "goal": goal,
-        "steps": steps,
-        "online_steps": [
-            {"step": step["step"], "detail": step["detail"], "cost": step["cost"]}
-            for step in steps
-            if step["kind"] == "online"
-        ],
-        "staff_tasks": [
-            {"task": step["task"], "due": step["due"]}
-            for step in steps
-            if step["kind"] == "staff"
-        ],
+        "online_steps": online,
+        "staff_tasks": [{"task": s.get("task", s["detail"]), "due": s.get("time")} for s in staff],
         "total_cost": total,
-        "agents": agents,
+        "status": "proposed",
+        "steps": steps,
     }
 
 
-def _when(memories: list[dict], catalog: dict | None) -> tuple[int, int]:
-    for memory in memories:
-        found = _clock(str(memory.get("content", "")))
-        if found:
-            return found
-    if catalog and catalog.get("activity", "").startswith("Bowling"):
-        return 14, 0
-    return 14, 0
+def _phrase_routine(group: dict) -> str:
+    when = group["weekday"] + ("s" if group.get("hour") is None else f"s around {group['hour']}:00")
+    return f"{group['content']} on {when}"
 
 
-def _contact(memories: list[dict]) -> str | None:
-    for memory in memories:
-        text = str(memory.get("content", "")).lower()
-        for contact in _CONTACTS:
-            if contact in text:
-                return contact
-    return None
-
-
-def _steps(name: str, goal: str, catalog: dict | None, when: tuple[int, int], contact: str | None) -> list[dict]:
-    hour, minute = when
-    ride_hour, ride_minute = _earlier(hour, minute)
-    when_label = f"{_DEMO_WEEKDAY} {_clock_label(hour, minute)}"
-    ride_label = f"{_DEMO_WEEKDAY} {_clock_label(ride_hour, ride_minute)}"
-    steps: list[dict] = []
-    if catalog:
-        detail = catalog["detail"]
-        if catalog["activity"].startswith("Bowling"):
-            detail = f"Lane at KW Bowl, {when_label}"
-        steps.append({
-            "step": "book_activity",
-            "kind": "online",
-            "detail": detail,
-            "activity": catalog["activity"],
-            "time": _iso(hour, minute),
-            "cost": float(catalog["cost"]),
-        })
-    title = catalog["activity"] if catalog else goal.strip()
-    steps.append({
-        "step": "add_to_calendar",
-        "kind": "online",
-        "detail": f"{title} — {when_label}",
-        "title": title,
-        "time": _iso(hour, minute),
-        "cost": 0,
-    })
-    # Bowling always tells Lisa: she is the catalog guest when memory names her,
-    # and the demo contact when the retriever has nothing else to go on.
-    guest = contact or ("lisa" if catalog and catalog["activity"].startswith("Bowling") else None)
-    if guest:
-        pretty = guest.capitalize()
-        steps.append({
-            "step": "send_message",
-            "kind": "online",
-            "contact": guest,
-            "detail": f"Email {pretty}: {title}, {when_label}, want to come?",
-            "text": f"{name} is going — {title}, {when_label} — and would love you to come.",
-            "cost": 0,
-        })
-    place = catalog["place"] if catalog else goal.strip()
-    if catalog and catalog["activity"].startswith("Bowling"):
-        task = f"Drive {name} to KW Bowl"
-    elif catalog:
-        task = f"Go with {name} to {place}"
-    else:
-        task = f"Support {name} with: {goal.strip()}"
-    steps.append({
-        "step": "create_staff_task",
-        "kind": "staff",
-        "detail": task,
-        "task": task,
-        "time": _iso(ride_hour, ride_minute),
-        "due": ride_label,
-        "cost": 0,
-    })
-    return steps
+def _keyword(goal: str) -> str:
+    activity = _activity(goal)
+    if activity:
+        return activity
+    words = [word for word in re.findall(r"[a-z0-9]+", goal.lower()) if word not in {"a", "the", "on", "this"}]
+    return words[0] if words else goal.lower()
 
 
 def _retriever_note(raw: list[dict] | None, usable: list[dict]) -> str:
@@ -253,6 +173,8 @@ def _retriever_note(raw: list[dict] | None, usable: list[dict]) -> str:
 
 
 def _routine_note(events: list[dict] | None, keyword: str) -> str:
+    from agents.memory.routines import find_routines
+
     if events is None:
         return "The routine finder could not read the outing record."
     rows = []
@@ -273,41 +195,71 @@ def _routine_note(events: list[dict] | None, keyword: str) -> str:
     return f"{top['content']}. Seen {top['count']} times."
 
 
-def _action_note(steps: list[dict], contact: str | None) -> str:
+def _action_note(steps: list[dict]) -> str:
     pieces = []
     if any(step["step"] == "book_activity" for step in steps):
         pieces.append("Book it")
     if any(step["step"] == "add_to_calendar" for step in steps):
         pieces.append("add it to the calendar")
-    if contact or any(step["step"] == "send_message" for step in steps):
-        who = (contact or "lisa").capitalize()
+    message = next((step for step in steps if step["step"] == "send_message"), None)
+    if message:
+        who = str(message.get("contact") or "them").capitalize()
         pieces.append(f"email {who}")
     if any(step["step"] == "create_staff_task" for step in steps):
-        driving = any(str(step.get("task", "")).startswith("Drive ") for step in steps)
+        driving = any(str(step.get("task", "")).startswith("Drive") for step in steps)
         pieces.append("ask staff for the ride" if driving else "ask staff to help")
     if not pieces:
         return "Nothing to do until you approve a plan."
-    sentence = pieces[0]
-    if len(pieces) == 2:
+    if len(pieces) == 1:
+        sentence = pieces[0]
+    elif len(pieces) == 2:
         sentence = f"{pieces[0]} and {pieces[1]}"
-    elif len(pieces) > 2:
+    else:
         sentence = ", ".join(pieces[:-1]) + f", and {pieces[-1]}"
     return sentence[0].upper() + sentence[1:] + "."
 
 
+def _usable(memories: list[dict] | None) -> list[dict]:
+    from agents.memory.retriever import retrieve
+
+    if memories is None:
+        return []
+    kept = retrieve("resident", "choice", recall=lambda **_: memories)
+    return [m for m in kept if m.get("status") not in ("pending", "rejected", "dismissed")]
+
+
+def agent_notes(name: str, goal: str, memories: list[dict] | None, events: list[dict] | None, plan: dict) -> list[dict]:
+    """What the choice screen shows beside the approval card."""
+    usable = _usable(memories)
+    return [
+        {"id": "observer", "name": "Observer", "note": f"{name} chose {goal.strip()}."},
+        {"id": "retriever", "name": "Retriever", "note": _retriever_note(memories, usable)},
+        {"id": "routine", "name": "Routine finder", "note": _routine_note(events, _keyword(goal))},
+        {"id": "action", "name": "Action", "note": _action_note(plan.get("steps") or [])},
+    ]
+
+
+def plan_with_notes(goal: str, *, name: str, memories: list[dict] | None, events: list[dict] | None, **plan_kwargs) -> dict:
+    usable = _usable(memories)
+    plan = build_plan(goal, usable, **plan_kwargs)
+    plan["agents"] = agent_notes(name, goal, memories, events, plan)
+    return plan
+
+
 async def propose_plan(resident_id: str, goal: str, *, name: str) -> dict:
-    """Load memories and outings through MCP, then propose. A down server
-    is reported on that agent's note; the plan still uses the catalog."""
+    """Recall through MCP, build the plan, and attach the four agent notes.
+    A down server is named on that note. The plan still uses the catalog."""
     from services import mcp_client
 
     memories: list[dict] | None
     events: list[dict] | None
     try:
-        query = goal
-        if _catalog_key(goal) == "bowling":
-            query = f"{goal} Saturday sister Lisa"
-        recalled = await mcp_client.recall(resident_id, query)
-        memories = list(recalled.get("memories") or [])
+        seen: dict = {}
+        for query in (goal, "usual time", "family sister contact"):
+            for memory in (await mcp_client.recall(resident_id, query)).get("memories", []):
+                if memory.get("status") not in ("pending", "rejected", "dismissed"):
+                    seen[memory.get("id", memory.get("content"))] = memory
+        memories = list(seen.values())
     except Exception as exc:
         print(f"[action] retriever skipped ({type(exc).__name__}): {exc}")
         memories = None
@@ -317,4 +269,4 @@ async def propose_plan(resident_id: str, goal: str, *, name: str) -> dict:
     except Exception as exc:
         print(f"[action] routine finder skipped ({type(exc).__name__}): {exc}")
         events = None
-    return propose(resident_id, goal, name=name, memories=memories, events=events)
+    return plan_with_notes(goal, name=name, memories=memories, events=events)

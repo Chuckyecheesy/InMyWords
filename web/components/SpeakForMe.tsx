@@ -1,10 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { logSentence, speak, suggestSentences } from "@/lib/api";
 import { categoryLabel } from "@/lib/format";
+import { onCustomGesture } from "@/lib/input/gestures";
+import { useInputLayer } from "@/lib/input/use-input";
 import { nextSelection, spokenSentence } from "@/lib/sentence";
 import type { Resident, Tile } from "@/lib/types";
+import { CameraConsent } from "./CameraConsent";
+import { GazeTileGrid } from "./GazeTileGrid";
+import { GestureHint } from "./GestureHint";
 import { AudioPlayback, BigButton, TileButton, useLongPress } from "./shared";
 
 const CATEGORY_ORDER = [
@@ -42,15 +48,41 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
   const [spokenText, setSpokenText] = useState<string | null>(null);
   const [limitNote, setLimitNote] = useState<string | null>(null);
 
+  const input = useInputLayer(resident.id);
+
   const selectedLabels = selected.map((tile) => tile.label);
   const sentence = spokenSentence(selectedLabels, timeNow);
 
-  function toggleTile(tile: Tile) {
+  function toggleTile(tile: Tile, via: "touch" | "gaze" | "custom" = "touch", holdMs = 0) {
+    const wasSelected = selected.some((item) => item.id === tile.id);
     const result = nextSelection(selected, tile);
     setSelected(result.tiles);
     setLimitNote(result.note);
     setSuggestions([]);
+    if (via === "custom") {
+      // G8: a taught gesture selected its tile — still just a selection;
+      // nothing is spoken without the normal approval flow.
+      input.log("gesture", "custom", tile.label, wasSelected ? "cancelled" : "confirmed", {
+        gesture: `custom:${tile.label}`,
+        confidence: 0.85,
+      });
+      return;
+    }
+    input.log(via, "select", tile.label, wasSelected ? "cancelled" : "confirmed", {
+      holdMs,
+      confidence: via === "gaze" ? 0.8 : 1,
+    });
   }
+
+  // G8: taught personal gestures select their tile.
+  useEffect(() => {
+    if (!input.cameraOn) return;
+    return onCustomGesture((label) => {
+      const tile = resident.tiles.find((item) => item.label === label);
+      if (tile) toggleTile(tile, "custom");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input.cameraOn, resident.tiles, selected]);
 
   async function playAndMaybeLog(text: string, save: boolean) {
     setError(null);
@@ -91,11 +123,19 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
     setSuggestions(result.data.options ?? []);
   }
 
-  async function approve(text: string) {
+  async function approve(text: string, via: "touch" | "gesture" = "touch") {
+    input.log(via, "approve", "suggestion", "confirmed", {
+      gesture: via === "gesture" ? "Thumb_Up" : null,
+      confidence: via === "gesture" ? 0.85 : 1,
+    });
     await playAndMaybeLog(text, true);
   }
 
-  function reject(text: string) {
+  function reject(text: string, via: "touch" | "gesture" = "touch") {
+    input.log(via, "cancel", "suggestion", "cancelled", {
+      gesture: via === "gesture" ? "Open_Palm" : null,
+      confidence: via === "gesture" ? 0.85 : 1,
+    });
     setSuggestions((current) => current.filter((item) => item !== text));
   }
 
@@ -121,11 +161,36 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         {limitNote ? <p className="note">{limitNote}</p> : null}
       </section>
 
+      <CameraConsent
+        residentId={resident.id}
+        cameraOn={input.cameraOn}
+        onChange={input.setConsent}
+      />
+
+      {input.consent ? (
+        <div className="speak-actions">
+          <BigButton
+            tone="neutral"
+            aria-pressed={input.eyeMode}
+            onLongPress={speakLabel}
+            onClick={() => input.setEyeMode(!input.eyeMode)}
+          >
+            {input.eyeMode ? "Touch grid" : "Eye grid"}
+          </BigButton>
+          <Link href={`/resident/${resident.id}/calibrate`} className="tile tile-button slim">
+            <span className="tile-label">Set up my eyes</span>
+          </Link>
+          <Link href={`/resident/${resident.id}/teach`} className="tile tile-button slim">
+            <span className="tile-label">Teach a gesture</span>
+          </Link>
+        </div>
+      ) : null}
+
       <div className="speak-actions">
         <BigButton
           tone="neutral"
-          disabled={selectedLabels.length === 0 || thinking}
           onLongPress={speakLabel}
+          disabled={selectedLabels.length === 0 || thinking}
           onClick={() => {
             void askForHelp();
           }}
@@ -134,8 +199,8 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </BigButton>
         <BigButton
           tone="neutral"
-          disabled={selectedLabels.length === 0}
           onLongPress={speakLabel}
+          disabled={selectedLabels.length === 0}
           onClick={() => {
             void speakTilesOnly();
           }}
@@ -162,6 +227,17 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
       {suggestions.length > 0 ? (
         <section className="block" aria-label="Suggestions">
           <h2>Suggestions</h2>
+          <GestureHint
+            enabled={input.cameraOn}
+            onYes={() => {
+              const top = suggestions[0];
+              if (top) void approve(top, "gesture");
+            }}
+            onNo={() => {
+              const top = suggestions[0];
+              if (top) reject(top, "gesture");
+            }}
+          />
           <div className="stack">
             {suggestions.map((text) => (
               <article key={text} className="option">
@@ -201,24 +277,34 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
         </>
       ) : null}
 
-      {groupTiles(resident.tiles).map(([category, tiles]) => (
-        <section key={category} className="block">
-          <h2>{categoryLabel(category)}</h2>
-          <div className="tile-grid">
-            {tiles.map((tile) => (
-              <TileButton
-                key={tile.id}
-                tile={tile}
-                selected={selected.some((item) => item.id === tile.id)}
-                onSelect={toggleTile}
-                onLongPress={(label) => {
-                  void speakLabel(label);
-                }}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+      {input.consent && input.eyeMode ? (
+        <GazeTileGrid
+          tiles={resident.tiles}
+          dwellMs={input.profile.dwell_ms}
+          onSelect={(tile, holdMs) => toggleTile(tile, holdMs > 0 ? "gaze" : "touch", holdMs)}
+        />
+      ) : null}
+
+      {input.eyeMode
+        ? null
+        : groupTiles(resident.tiles).map(([category, tiles]) => (
+            <section key={category} className="block">
+              <h2>{categoryLabel(category)}</h2>
+              <div className="tile-grid">
+                {tiles.map((tile) => (
+                  <TileButton
+                    key={tile.id}
+                    tile={tile}
+                    selected={selected.some((item) => item.id === tile.id)}
+                    onSelect={(selectedTile) => toggleTile(selectedTile)}
+                    onLongPress={(label) => {
+                      void speakLabel(label);
+                    }}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
     </div>
   );
 }

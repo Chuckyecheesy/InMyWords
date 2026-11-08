@@ -4,10 +4,10 @@ import {
   useEffect,
   useId,
   useRef,
+  useSyncExternalStore,
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { tileImageUrl } from "@/lib/cloudinary";
 import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import type { Tile } from "@/lib/types";
 
@@ -62,6 +62,27 @@ export function useLongPress(onLongPress?: (label: string) => void, label = "") 
   };
 }
 
+function subscribeContrast(onChange: () => void) {
+  window.addEventListener("imw-theme", onChange);
+  const query = window.matchMedia("(prefers-contrast: more)");
+  query.addEventListener("change", onChange);
+  return () => {
+    window.removeEventListener("imw-theme", onChange);
+    query.removeEventListener("change", onChange);
+  };
+}
+
+function contrastIsOn() {
+  const theme = document.documentElement.dataset.theme;
+  if (theme === "contrast") return true;
+  if (theme === "calm") return false;
+  return window.matchMedia("(prefers-contrast: more)").matches;
+}
+
+function useContrastTheme() {
+  return useSyncExternalStore(subscribeContrast, contrastIsOn, () => false);
+}
+
 export function TileButton({
   tile,
   selected = false,
@@ -74,8 +95,8 @@ export function TileButton({
   onLongPress?: (label: string) => void;
 }) {
   const longPress = useLongPress(onLongPress, tile.label);
-  const calm = tile.cloudinary_id ? tileImageUrl(tile.cloudinary_id, "calm") : null;
-  const contrast = tile.cloudinary_id ? tileImageUrl(tile.cloudinary_id, "contrast") : null;
+  const contrast = useContrastTheme();
+  const hasPhoto = Boolean(tile.cloudinary_id);
 
   return (
     <button
@@ -93,18 +114,19 @@ export function TileButton({
       }}
     >
       <div className="tile-face">
-        {calm && contrast ? (
-          <>
-            <DeliveredPhoto publicId={tile.cloudinary_id!} mode="calm" className="tile-img tile-img-calm" />
-            <DeliveredPhoto publicId={tile.cloudinary_id!} mode="contrast" className="tile-img tile-img-contrast" />
-          </>
+        {hasPhoto ? (
+          <DeliveredPhoto
+            publicId={tile.cloudinary_id!}
+            mode={contrast ? "contrast" : "calm"}
+            className="tile-img"
+          />
         ) : (
           <span className="tile-letter" aria-hidden="true">
             {tile.label}
           </span>
         )}
       </div>
-      {calm ? <span className="tile-label">{tile.label}</span> : null}
+      {hasPhoto ? <span className="tile-label">{tile.label}</span> : null}
     </button>
   );
 }

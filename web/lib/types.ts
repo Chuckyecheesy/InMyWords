@@ -45,6 +45,9 @@ export type PendingMemory = {
   content: string;
   source: SourceType;
   source_date: string | null;
+  times_seen: number | null;
+  /** Set when the Consolidator put a confirmed fact back in the queue. */
+  update_reason: string | null;
 };
 
 export type HandoffItem = {
@@ -64,6 +67,8 @@ export type ActivityItem = {
 export type SourcedFact = {
   type: SourceType;
   date: string | null;
+  label?: string;
+  update_reason?: string | null;
 };
 
 export type CoachAnswer = {
@@ -111,3 +116,19 @@ export type Result<T> = {
 export type MutationResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+export type AgentNote = {
+  id: string;
+  name: string;
+  note: string;
+};
+
+export type ActionPlan = {
+  plan_id: number;
+  goal: string;
+  online_steps: { step: string; detail: string; cost: number }[];
+  staff_tasks: { task: string; due: string | null }[];
+  total_cost: number;
+  status: "proposed";
+  agents: AgentNote[];
+};

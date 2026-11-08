@@ -3,18 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/fetch-vision-assets.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/fetch-vision-assets.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --import ./test/resolve-ts.mjs --test lib/cloudinary.test.ts && node --import tsx --test --test-concurrency=1 test/t1-4.test.ts test/t3-4.test.tsx test/t4-3.test.tsx test/t4-5-staff.test.tsx test/t4-5.test.tsx test/t4-6.test.tsx",
+    "test": "node --experimental-strip-types --import ./test/resolve-ts.mjs --test lib/cloudinary.test.ts && node --import tsx --test --test-concurrency=1 test/custom-gestures.test.ts test/gaze-input.test.ts test/t1-4.test.ts test/t3-4.test.tsx test/t4-3.test.tsx test/t4-5-staff.test.tsx test/t4-5.test.tsx test/t4-6.test.tsx test/t4-6-frontend.test.tsx test/t4-7.test.tsx test/t4-7-a11y.test.tsx test/t4-7-undo.test.tsx",
     "e2e": "playwright test"
   },
   "dependencies": {
     "@elevenlabs/client": "1.30.0",
+    "@mediapipe/tasks-vision": "^1.2.2",
     "next": "16.4.5",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "webgazer": "^3.5.3"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^21.0.4",

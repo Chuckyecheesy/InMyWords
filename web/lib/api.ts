@@ -8,6 +8,8 @@ import {
   sampleStory,
 } from "./mock";
 import type {
+  ActionPlan as ActionPlanShape,
+  AgentNote,
   ActivityItem,
   ChoiceResult,
   CoachAnswer,
@@ -20,6 +22,8 @@ import type {
   StoryChapter,
   Tile,
 } from "./types";
+export type { AgentNote };
+export type ActionPlan = ActionPlanShape;
 
 function apiBaseUrl(): string {
   const configured = (process.env.API_BASE_URL ?? "").replace(/\/$/, "");
@@ -164,6 +168,8 @@ function normalizeMemory(value: unknown, index: number): PendingMemory | null {
     content,
     source,
     source_date: text(row.source_date) ?? text(row.date),
+    times_seen: typeof row.times_seen === "number" ? row.times_seen : null,
+    update_reason: text(row.update_reason),
   };
 }
 
@@ -342,33 +348,6 @@ export function decideChoice(choiceId: string, chosen: string) {
   );
 }
 
-export type ActionStep = {
-  step: string;
-  detail: string;
-  cost: number;
-};
-
-export type StaffTaskStep = {
-  task: string;
-  due: string | null;
-};
-
-export type AgentNote = {
-  id: string;
-  name: string;
-  note: string;
-};
-
-export type ActionPlan = {
-  plan_id: number;
-  goal: string;
-  online_steps: ActionStep[];
-  staff_tasks: StaffTaskStep[];
-  total_cost: number;
-  status: string;
-  agents: AgentNote[];
-};
-
 function normalizePlan(value: unknown): ActionPlan | null {
   const row = record(value);
   if (!row) return null;
@@ -394,7 +373,7 @@ function normalizePlan(value: unknown): ActionPlan | null {
     plan_id: planId,
     goal,
     total_cost: total,
-    status: text(row.status) ?? "proposed",
+    status: "proposed",
     agents,
     online_steps: steps.flatMap((item) => {
       const step = record(item);
@@ -500,12 +479,27 @@ export type SavedPhoto = {
   resident_id: string;
   cloudinary_id: string;
   label: string | null;
+  /** From the photo subagents (agents/photos). */
+  status?: "saved" | "needs_review" | "saved_offline";
+  /** saved: the tile as stored (a same-label tile gets the new photo). */
+  tile?: { id: number | string; label: string; category: string | null; cloudinary_id: string };
+  replaced?: boolean;
+  /** false when the photo check couldn't run; the staff label was used. */
+  checked?: boolean;
+  /** What the checker saw in the photo. */
+  shows?: string | null;
+  /** needs_review: why staff should look before saving. */
+  reasons?: string[];
+  category?: string;
+  reason?: string;
 };
 
 export async function savePhoto(input: {
   resident_id: string;
   public_id: string;
   label: string;
+  /** Staff chose "Save anyway" after a needs_review answer. */
+  confirmed?: boolean;
 }): Promise<MutationResult<SavedPhoto>> {
   try {
     const response = await fetch(`${apiBaseUrl()}/media/photos`, {
@@ -527,4 +521,59 @@ export async function savePhoto(input: {
   } catch {
     return { ok: false, error: "The API is not reachable." };
   }
+}
+
+// ---------- Gaze/gesture input (docs/GAZE_GESTURE_PLAN.md §7) ----------
+
+import type { InputEvent, InputProfile } from "./input/types";
+import { DEFAULT_PROFILE } from "./input/profile";
+
+/** Batched OUTCOME events from the input controller — never video. */
+export function postInputEvents(events: InputEvent[]) {
+  return sendJson<{ saved: number }>("/input-events", { events });
+}
+
+/** How this resident communicates best, from input history (G6/G7). */
+export async function getInputProfile(residentId: string): Promise<InputProfile> {
+  const raw = await fetchJson(`/input-profile/${residentId}`);
+  const row = record(raw);
+  if (!row) return { ...DEFAULT_PROFILE, resident_id: residentId };
+  return {
+    resident_id: residentId,
+    preferred_select:
+      row.preferred_select === "gaze" || row.preferred_select === "gesture"
+        ? row.preferred_select
+        : "touch",
+    preferred_yes: text(row.preferred_yes) ?? "touch",
+    dwell_ms: typeof row.dwell_ms === "number" ? row.dwell_ms : 1000,
+    rates: (record(row.rates) ?? {}) as InputProfile["rates"],
+    notes: Array.isArray(row.notes) ? row.notes.filter((n): n is string => typeof n === "string") : [],
+    events_counted: typeof row.events_counted === "number" ? row.events_counted : 0,
+    confidence:
+      row.confidence === "high" || row.confidence === "medium" ? row.confidence : "low",
+  };
+}
+
+// ---------- G8: personal gestures ----------
+
+import type { TaughtGesture } from "./input/custom-gestures";
+
+export function saveCustomGesture(input: {
+  resident_id: string;
+  tile: string;
+  samples: number[][];
+}) {
+  return sendJson<{ ok: boolean; tile: string }>("/custom-gestures", input);
+}
+
+export async function getCustomGestures(residentId: string): Promise<TaughtGesture[]> {
+  const raw = await fetchJson(`/custom-gestures/${residentId}`);
+  const rows = list(raw, "gestures");
+  if (!rows) return [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    const label = item ? text(item.tile_label) : null;
+    if (!item || !label || !Array.isArray(item.samples)) return [];
+    return [{ tile_label: label, samples: item.samples as number[][] }];
+  });
 }

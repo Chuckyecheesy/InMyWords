@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Highlight, Resident } from "@/lib/types";
 import { BigButton } from "./shared";
+import { HowICommunicateCard } from "./HowICommunicateCard";
 import { SourceChip } from "./SourceChip";
 
 export type OnboardingStep = "essentials" | "story" | "routines" | "complete";
@@ -134,6 +135,7 @@ export default function OnboardingFlow({
       {/* Essentials Section */}
       {currentStep === "essentials" && (
         <section className="onboarding-section" key="essentials">
+          <HowICommunicateCard residentId={resident.id} name={resident.name} />
           <h2>Key Facts About {resident.name}</h2>
           <div className="essentials-list">
             {essentials.length > 0 ? (

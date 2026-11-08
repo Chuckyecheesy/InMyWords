@@ -25,6 +25,7 @@ from agents.action import propose_plan
 from agents.choice import SEED_BUDGETS, build_choice
 from agents.coach_wording import coach_answer
 from agents.memory.wiring import observe_event, scan_routines
+from agents.photos.wiring import add_photo_tile
 from agents.story import LocalBooks, McpBooks, StoryError, local_books, narrate, record_answer, draft as draft_chapter
 from agents.story import gemini_phrase
 from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
@@ -130,27 +131,49 @@ class PhotoBody(BaseModel):
     resident_id: str
     public_id: str
     label: str | None = None
+    confirmed: bool = False  # staff chose "save anyway" after a needs_review
 
 
 # ---------- residents ----------
+
+def resident_from_profile(resident_id: str, profile):
+    """Turn a profile-tool result into the public resident body.
+
+    Returns ("missing", message) when the resident does not exist, (body, None)
+    when the payload is usable, and (None, None) when it is not — the route
+    then serves the demo resident instead of answering 500.
+    """
+    if not isinstance(profile, dict):
+        return None, None
+    error = profile.get("error")
+    if error:
+        return "missing", str(error)
+    name = profile.get("name")
+    tiles = profile.get("tiles")
+    if not isinstance(name, str) or not name.strip() or not isinstance(tiles, list):
+        return None, None
+    return {
+        "id": resident_id,
+        "name": name,
+        "voice_id": profile.get("voice_id"),
+        "communication_style": profile.get("communication_style") or "",
+        "tiles": tiles,
+        # extra context beyond the frozen contract — additive, safe
+        "preferences": profile.get("preferences") or [],
+        "routines": profile.get("routines") or [],
+        "pending_patterns": profile.get("pending_patterns") or [],
+    }, None
+
 
 @app.get("/residents/{resident_id}")
 async def get_resident(resident_id: str):
     profile, live = await _mcp(mcp_client.get_profile(resident_id), None)
     if live:
-        if profile.get("error"):
-            raise HTTPException(404, profile["error"])
-        return {
-            "id": resident_id,
-            "name": profile["name"],
-            "voice_id": profile["voice_id"],
-            "communication_style": profile["communication_style"],
-            "tiles": profile["tiles"],
-            # extra context beyond the frozen contract — additive, safe
-            "preferences": profile["preferences"],
-            "routines": profile["routines"],
-            "pending_patterns": profile["pending_patterns"],
-        }
+        body, missing = resident_from_profile(resident_id, profile)
+        if body == "missing":
+            raise HTTPException(404, missing or f"No resident '{resident_id}'")
+        if body:
+            return body
     resident = mocks.RESIDENTS.get(resident_id)
     if not resident:
         raise HTTPException(404, f"No resident '{resident_id}'")
@@ -192,8 +215,12 @@ async def suggest(body: SuggestBody, request: Request):
     resident_id = "".join(ch for ch in body.resident_id if ch.isalnum() or ch in "_-")[:40]
     recalled, live = await _mcp(
         mcp_client.recall(resident_id, " ".join(tiles)), None)
-    memories = recalled.get("memories", []) if live and isinstance(recalled, dict) else []
-    if not memories:
+    # Seed file only when the memory server FAILED. An empty result is a real
+    # answer (nothing relevant to these tiles) and must not swap in stale seed
+    # data for the live database.
+    if live and isinstance(recalled, dict):
+        memories = recalled.get("memories", [])
+    else:
         memories = load_seed_memories(resident_id)
     profile, profile_live = await _mcp(mcp_client.get_profile(resident_id), None)
     if profile_live and isinstance(profile, dict) and profile.get("name"):
@@ -473,7 +500,7 @@ async def plan_actions(body: ActionPlanBody):
         name = str(profile["name"]).split()[0]
     proposal = await propose_plan(body.resident_id, body.goal, name=name)
     result, live = await _mcp(
-        mcp_client.store_plan(body.resident_id, body.goal, proposal["steps"]),
+        mcp_client.save_plan(body.resident_id, body.goal, proposal["steps"]),
         None,
     )
     if not live or not isinstance(result, dict) or result.get("error"):
@@ -590,6 +617,28 @@ async def input_events(body: InputEventsBody):
     return {"saved": result["saved"]} if live else {"saved": len(events)}
 
 
+class CustomGestureBody(BaseModel):
+    resident_id: str
+    tile: str
+    samples: list[list[float]]  # 5 × 63 normalized landmark floats
+
+
+@app.post("/custom-gestures")
+async def save_custom_gesture(body: CustomGestureBody):
+    """G8: save a taught personal gesture (landmarks only, never video)."""
+    result, live = await _mcp(
+        mcp_client.save_custom_gesture(body.resident_id, body.tile, body.samples), None)
+    if live and result.get("error"):
+        raise HTTPException(422, result["error"])
+    return {"ok": True, "tile": body.tile}
+
+
+@app.get("/custom-gestures/{resident_id}")
+async def custom_gestures(resident_id: str):
+    result, live = await _mcp(mcp_client.get_custom_gestures(resident_id), None)
+    return {"gestures": result["gestures"]} if live else {"gestures": []}
+
+
 @app.get("/input-profile/{resident_id}")
 async def input_profile(resident_id: str):
     """How this resident communicates best (adaptive settings + the
@@ -618,7 +667,10 @@ def media_upload():
 
 
 @app.post("/media/photos")
-def save_photo(body: PhotoBody):
+async def save_photo(body: PhotoBody):
+    """Staff photo -> picture tile, via the photo subagents (agents/photos).
+    status: saved | needs_review (nothing saved until staff confirm) | error.
+    Old fields (resident_id, cloudinary_id, label) stay for existing callers."""
     try:
         record = photo_record(
             resident_id=body.resident_id,
@@ -627,7 +679,15 @@ def save_photo(body: PhotoBody):
         )
     except PublicIdError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return save_photo_record(record, _photos)
+    result, live = await _mcp(
+        add_photo_tile(record["resident_id"], record["cloudinary_id"], record["label"] or "",
+                       confirmed=body.confirmed), None)
+    if not live:  # MCP down: keep the photo id so the upload isn't lost
+        return {**save_photo_record(record, _photos), "status": "saved_offline",
+                "reason": "Saved the photo, but it isn't a tile yet (profile server is down)."}
+    if result["status"] == "error":
+        raise HTTPException(400, result["reason"])
+    return {**record, **result}
 
 
 _VERSION_FILE = Path(__file__).resolve().parents[1] / "VERSION"  # written by ops/deploy.sh

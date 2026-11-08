@@ -13,11 +13,10 @@ Guardrails baked in:
   personal info — the allowlist below is the whole action surface.
 
 plan_actions remains a deterministic placeholder for callers that
-only have a goal. store_plan saves the plan the Action agent already
-built (Retriever + Routine finder). Cost is recomputed in code either way.
+only have a goal. save_plan stores the plan the Action agent already
+built. Cost is recomputed in code either way.
 """
 
-import json
 import os
 import smtplib
 from email.message import EmailMessage
@@ -110,31 +109,21 @@ def _save_plan(resident: str, goal: str, steps: list, agent: str) -> dict:
 
 
 @mcp.tool
-def store_plan(resident: str, goal: str, steps_json: str) -> dict:
-    """Save a plan the Action agent already proposed. Steps must be on
-    the allowlist. Cost is summed here, not trusted from the caller."""
-    try:
-        raw = json.loads(steps_json)
-    except json.JSONDecodeError:
-        return {"error": "steps_json is not JSON"}
-    if not isinstance(raw, list) or not raw:
-        return {"error": "steps must be a non-empty list"}
-    steps = []
-    for item in raw:
-        if not isinstance(item, dict):
-            return {"error": "each step must be an object"}
-        name = item.get("step")
-        if name not in ALLOWED_STEPS:
-            return {"error": f"'{name}' is not on the allowlist"}
-        kind = "staff" if name == "create_staff_task" else "online"
-        try:
-            cost = float(item.get("cost") or 0)
-        except (TypeError, ValueError):
-            return {"error": "cost must be a number"}
-        if cost < 0:
-            return {"error": "cost cannot be negative"}
-        steps.append({**item, "kind": kind, "cost": cost})
-    return _save_plan(resident, goal, steps, agent="action")
+def save_plan(resident: str, goal: str, steps: list[dict]) -> dict:
+    """Persist a plan built by the Action agent (T4.7). The server re-checks
+    the allowlist and recomputes the total, so the agent cannot sneak in a
+    tool or a cost. Status is always 'proposed'."""
+    store = get_store()
+    clean = [s for s in steps if s.get("step") in ALLOWED_STEPS]
+    total = sum(float(s.get("cost", 0)) for s in clean if s.get("kind") != "staff")
+    plan = store.create_plan(resident, goal, clean, total)
+    return {
+        "plan_id": plan["id"], "goal": goal,
+        "online_steps": [s for s in clean if s.get("kind") != "staff"],
+        "staff_tasks": [{"task": s.get("task", s.get("detail")), "due": s.get("time")}
+                        for s in clean if s.get("kind") == "staff"],
+        "total_cost": total, "status": "proposed", "agent": "action",
+    }
 
 
 @mcp.tool

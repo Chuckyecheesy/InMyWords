@@ -41,7 +41,6 @@ export function unsignedUploadFields(input: {
   return { cloud_name, upload_preset };
 }
 
-/** Wide chapter photo for story pages. Same cloud as tiles, from config. */
 /** A photo saved under web/public/demo, one file per public id. */
 export function demoPhotoUrl(publicId: string): string | null {
   const id = publicId.replace(/^\/+/, "");
@@ -49,6 +48,28 @@ export function demoPhotoUrl(publicId: string): string | null {
   return `/demo/${id}.jpg`;
 }
 
+/**
+ * URLs to try, saved file first.
+ *
+ * Opening Marcus used to ask Cloudinary for every tile (and a second hidden
+ * copy) before falling back to the file on this server. Those misses, plus
+ * the prefetched resident pages, were enough to make the app answer 502 and
+ * the click land on "This page couldn't load".
+ */
+export function photoSources(
+  publicId: string,
+  mode: "calm" | "contrast" | "story",
+): string[] {
+  const remote = mode === "story" ? storyImageUrl(publicId) : tileImageUrl(publicId, mode);
+  const local = demoPhotoUrl(publicId);
+  const sources: string[] = [];
+  for (const url of [local, remote]) {
+    if (url && !sources.includes(url)) sources.push(url);
+  }
+  return sources;
+}
+
+/** Wide chapter photo. Same cloud as tiles, from config. */
 export function storyImageUrl(publicId: string): string | null {
   const cloud = cloudName();
   const id = publicId.replace(/^\/+/, "");

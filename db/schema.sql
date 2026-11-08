@@ -10,6 +10,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 DROP VIEW IF EXISTS profile_items;
 DROP MATERIALIZED VIEW IF EXISTS input_daily CASCADE;
 DROP TABLE IF EXISTS input_events CASCADE;
+DROP TABLE IF EXISTS custom_gestures CASCADE;
 DROP TABLE IF EXISTS emh_events, emh_checklist, emh_notes, bookings, calendar_events,
   staff_tasks, action_results, action_plans, observations, memories, choices,
   sentences, story_answers, story_chapters, tiles, staff, residents, homes CASCADE;
@@ -196,6 +197,18 @@ CREATE TABLE input_events (
 );
 
 CREATE INDEX input_events_resident_ts_idx ON input_events (resident_id, ts);
+
+-- G8: taught personal gestures. samples = 5 normalized 63-float arrays
+-- (wrist at origin, scaled by hand size). One row per resident + tile;
+-- re-teaching replaces it. Landmarks only — never video.
+CREATE TABLE custom_gestures (
+  id          SERIAL PRIMARY KEY,
+  resident_id TEXT REFERENCES residents(id),
+  tile_label  TEXT NOT NULL,
+  samples     JSONB NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (resident_id, tile_label)
+);
 
 -- The profile IS the confirmed memory store (PROJECT_PLAN §3).
 CREATE VIEW profile_items AS

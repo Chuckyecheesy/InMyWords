@@ -105,6 +105,14 @@ if profile and profile.get("events_counted"):
     else:
         print("  ok   profile matches the worked example (gaze, Thumb_Up, ~1045ms, evening note)")
 
+print("custom gestures (G8)")
+sample = [round(0.01 * i, 4) for i in range(63)]
+hit("POST", "/custom-gestures",
+    {"resident_id": "marcus", "tile": "go outside", "samples": [sample] * 5}, ("ok",))
+taught = hit("GET", "/custom-gestures/marcus", expect_keys=("gestures",))
+if taught and not any(g.get("tile_label") == "go outside" for g in taught.get("gestures", [])):
+    failures.append("custom-gestures roundtrip: saved gesture not returned")
+
 print("staff")
 hit("GET", "/handoff?staff_id=jordan&resident_id=marcus", expect_keys=("items",))
 hit("GET", "/activity/marcus", expect_keys=("items",))
