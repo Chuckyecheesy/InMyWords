@@ -541,3 +541,27 @@ export async function getInputProfile(residentId: string): Promise<InputProfile>
       row.confidence === "high" || row.confidence === "medium" ? row.confidence : "low",
   };
 }
+
+// ---------- G8: personal gestures ----------
+
+import type { TaughtGesture } from "./input/custom-gestures";
+
+export function saveCustomGesture(input: {
+  resident_id: string;
+  tile: string;
+  samples: number[][];
+}) {
+  return sendJson<{ ok: boolean; tile: string }>("/custom-gestures", input);
+}
+
+export async function getCustomGestures(residentId: string): Promise<TaughtGesture[]> {
+  const raw = await fetchJson(`/custom-gestures/${residentId}`);
+  const rows = list(raw, "gestures");
+  if (!rows) return [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    const label = item ? text(item.tile_label) : null;
+    if (!item || !label || !Array.isArray(item.samples)) return [];
+    return [{ tile_label: label, samples: item.samples as number[][] }];
+  });
+}

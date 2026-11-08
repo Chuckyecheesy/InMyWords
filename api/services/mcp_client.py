@@ -189,6 +189,13 @@ async def log_input_events(events):
 async def get_input_profile(resident):
     return await _call("memory", "get_input_profile", {"resident": resident})
 
+async def save_custom_gesture(resident, tile, samples):
+    return await _call("memory", "save_custom_gesture",
+                       {"resident": resident, "tile": tile, "samples": samples})
+
+async def get_custom_gestures(resident):
+    return await _call("memory", "get_custom_gestures", {"resident": resident})
+
 
 # ---- actions server ----
 

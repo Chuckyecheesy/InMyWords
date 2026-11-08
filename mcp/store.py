@@ -463,6 +463,19 @@ class SeedStore:
         self._input_events = (json.loads(path.read_text(encoding="utf-8"))["input_events"]
                               if path.exists() else [])
 
+    def save_custom_gesture(self, rid, tile_label, samples):
+        self._reload_runtime()
+        rows = self._runtime.setdefault("custom_gestures", [])
+        rows[:] = [g for g in rows if not (g["resident_id"] == rid and g["tile_label"] == tile_label)]
+        rows.append({"resident_id": rid, "tile_label": tile_label, "samples": samples})
+        self._save_runtime()
+        return True
+
+    def get_custom_gestures(self, rid):
+        self._reload_runtime()
+        return [{"tile_label": g["tile_label"], "samples": g["samples"]}
+                for g in self._runtime.get("custom_gestures", []) if g["resident_id"] == rid]
+
     # ---- actions layer (T2.6) ----
 
     def create_plan(self, rid, goal, steps, total_cost):
@@ -856,6 +869,21 @@ class PostgresStore:
                      e.get("target"), e.get("hold_ms"), e.get("gesture"),
                      e.get("confidence"), e["outcome"]))
         return len(events)
+
+    def save_custom_gesture(self, rid, tile_label, samples):
+        with self._conn() as conn:
+            conn.execute(
+                """INSERT INTO custom_gestures (resident_id, tile_label, samples)
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (resident_id, tile_label)
+                   DO UPDATE SET samples = EXCLUDED.samples, created_at = now()""",
+                (rid, tile_label, json.dumps(samples)))
+        return True
+
+    def get_custom_gestures(self, rid):
+        return [{"tile_label": r["tile_label"], "samples": r["samples"]}
+                for r in self._all(
+                    "SELECT tile_label, samples FROM custom_gestures WHERE resident_id = %s", (rid,))]
 
     def get_input_profile(self, rid):
         # Raw 14-day window; the input_daily continuous aggregate serves the

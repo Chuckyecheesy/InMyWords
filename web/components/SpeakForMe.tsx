@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { logSentence, speak, suggestSentences } from "@/lib/api";
 import { categoryLabel } from "@/lib/format";
+import { onCustomGesture } from "@/lib/input/gestures";
 import { useInputLayer } from "@/lib/input/use-input";
 import { nextSelection, spokenSentence } from "@/lib/sentence";
 import type { Resident, Tile } from "@/lib/types";
@@ -52,17 +53,36 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
   const selectedLabels = selected.map((tile) => tile.label);
   const sentence = spokenSentence(selectedLabels, timeNow);
 
-  function toggleTile(tile: Tile, via: "touch" | "gaze" = "touch", holdMs = 0) {
+  function toggleTile(tile: Tile, via: "touch" | "gaze" | "custom" = "touch", holdMs = 0) {
     const wasSelected = selected.some((item) => item.id === tile.id);
     const result = nextSelection(selected, tile);
     setSelected(result.tiles);
     setLimitNote(result.note);
     setSuggestions([]);
+    if (via === "custom") {
+      // G8: a taught gesture selected its tile — still just a selection;
+      // nothing is spoken without the normal approval flow.
+      input.log("gesture", "custom", tile.label, wasSelected ? "cancelled" : "confirmed", {
+        gesture: `custom:${tile.label}`,
+        confidence: 0.85,
+      });
+      return;
+    }
     input.log(via, "select", tile.label, wasSelected ? "cancelled" : "confirmed", {
       holdMs,
       confidence: via === "gaze" ? 0.8 : 1,
     });
   }
+
+  // G8: taught personal gestures select their tile.
+  useEffect(() => {
+    if (!input.cameraOn) return;
+    return onCustomGesture((label) => {
+      const tile = resident.tiles.find((item) => item.label === label);
+      if (tile) toggleTile(tile, "custom");
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input.cameraOn, resident.tiles, selected]);
 
   async function playAndMaybeLog(text: string, save: boolean) {
     setError(null);
@@ -158,6 +178,9 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
           </BigButton>
           <Link href={`/resident/${resident.id}/calibrate`} className="tile tile-button slim">
             <span className="tile-label">Set up my eyes</span>
+          </Link>
+          <Link href={`/resident/${resident.id}/teach`} className="tile tile-button slim">
+            <span className="tile-label">Teach a gesture</span>
           </Link>
         </div>
       ) : null}

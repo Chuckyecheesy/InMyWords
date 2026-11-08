@@ -164,5 +164,25 @@ def get_input_profile(resident: str) -> dict:
     return dict(store.get_input_profile(resident), store_mode=store.mode)
 
 
+@mcp.tool
+def save_custom_gesture(resident: str, tile: str, samples: list[list[float]]) -> dict:
+    """G8: store a taught personal gesture — 5 normalized landmark samples
+    (63 floats each) for one tile. Re-teaching the same tile replaces it.
+    Landmarks only, never video."""
+    if not samples or any(len(s) != 63 for s in samples):
+        return {"error": "samples must be non-empty 63-float landmark arrays"}
+    store = get_store()
+    store.save_custom_gesture(resident, tile, samples)
+    return {"ok": True, "tile": tile, "samples": len(samples), "store_mode": store.mode}
+
+
+@mcp.tool
+def get_custom_gestures(resident: str) -> dict:
+    """G8: the resident's taught gestures for the recognition loop."""
+    store = get_store()
+    return {"resident": resident, "gestures": store.get_custom_gestures(resident),
+            "store_mode": store.mode}
+
+
 if __name__ == "__main__":
     mcp.run(transport="http", host="127.0.0.1", port=8102)

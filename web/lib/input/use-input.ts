@@ -7,10 +7,10 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getInputProfile, postInputEvents } from "@/lib/api";
+import { getCustomGestures, getInputProfile, postInputEvents } from "@/lib/api";
 import { hasCameraConsent, setCameraConsent } from "./consent";
 import { startGaze, stopGaze } from "./gaze";
-import { startGestures, stopGestures } from "./gestures";
+import { setCustomGestures, startGestures, stopGestures } from "./gestures";
 import { DEFAULT_PROFILE, startOnTouchGrid } from "./profile";
 import { EventQueue } from "./queue";
 import type { InputAction, InputOutcome, InputProfile, InputType } from "./types";
@@ -59,6 +59,9 @@ export function useInputLayer(residentId: string) {
         if (cancelled) return;
         setCameraOn(true);
         await startGestures(); // reads WebGazer's video element
+        // G8: load any taught personal gestures into the recognition loop.
+        const taught = await getCustomGestures(residentId);
+        if (!cancelled) setCustomGestures(taught);
       } catch (error) {
         console.warn("[input] camera start failed", error);
       }

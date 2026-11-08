@@ -8,6 +8,7 @@
 "use client";
 
 import { GestureDetector } from "./controller";
+import { CustomGestureMatcher, type Landmark, type TaughtGesture } from "./custom-gestures";
 import { gazeVideoElement } from "./gaze";
 
 export type FiredGesture = { name: string; score: number };
@@ -16,10 +17,19 @@ const MODEL_PATH = "/models/gesture_recognizer.task";
 const WASM_LOCAL = "/models/wasm";
 const WASM_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
 
-let recognizer: { recognizeForVideo(video: HTMLVideoElement, ts: number): { gestures: { categoryName: string; score: number }[][] }; close(): void } | null = null;
+type RecognizerResult = {
+  gestures: { categoryName: string; score: number }[][];
+  landmarks?: Landmark[][];
+};
+
+let recognizer: { recognizeForVideo(video: HTMLVideoElement, ts: number): RecognizerResult; close(): void } | null = null;
 let rafId: number | null = null;
 let detector = new GestureDetector();
 let listeners = new Set<(fired: FiredGesture) => void>();
+let customListeners = new Set<(tileLabel: string) => void>();
+let customMatcher = new CustomGestureMatcher([]);
+let customDetector = new GestureDetector();
+let lastLandmarks: Landmark[] | null = null;
 let frameCount = 0;
 let skipFrames = false;
 let lastFpsCheck = 0;
@@ -59,6 +69,25 @@ export function onGesture(cb: (fired: FiredGesture) => void): () => void {
   return () => listeners.delete(cb);
 }
 
+// ---- G8: personal gestures ----
+
+/** Load this resident's taught gestures into the recognition loop. */
+export function setCustomGestures(gestures: TaughtGesture[]): void {
+  customMatcher = new CustomGestureMatcher(gestures);
+  customDetector = new GestureDetector();
+}
+
+/** Fires with the taught tile label after the 500ms hold rule. */
+export function onCustomGesture(cb: (tileLabel: string) => void): () => void {
+  customListeners.add(cb);
+  return () => customListeners.delete(cb);
+}
+
+/** Latest frame's 21 hand landmarks — the teach screen captures these. */
+export function latestLandmarks(): Landmark[] | null {
+  return lastLandmarks;
+}
+
 function loop(): void {
   rafId = requestAnimationFrame(loop);
   if (!recognizer) return;
@@ -82,6 +111,7 @@ function loop(): void {
   try {
     const result = recognizer.recognizeForVideo(video, now);
     top = result.gestures?.[0]?.[0];
+    lastLandmarks = result.landmarks?.[0] ?? null;
   } catch {
     return; // one bad frame is not an event
   }
@@ -90,5 +120,15 @@ function loop(): void {
   const fired = detector.push(name, top?.score ?? 0, now);
   if (fired) {
     for (const cb of listeners) cb({ name: fired, score: top?.score ?? 0 });
+  }
+
+  // G8: taught gestures run through the same 500ms-hold rule; frames a
+  // built-in gesture owns are skipped inside matchFrame.
+  if (customMatcher.hasGestures() && customListeners.size > 0) {
+    const label = customMatcher.matchFrame(lastLandmarks, name, top?.score ?? 0);
+    const firedCustom = customDetector.push(label, label ? 1 : 0, now);
+    if (firedCustom) {
+      for (const cb of customListeners) cb(firedCustom);
+    }
   }
 }

@@ -567,6 +567,28 @@ async def input_events(body: InputEventsBody):
     return {"saved": result["saved"]} if live else {"saved": len(events)}
 
 
+class CustomGestureBody(BaseModel):
+    resident_id: str
+    tile: str
+    samples: list[list[float]]  # 5 × 63 normalized landmark floats
+
+
+@app.post("/custom-gestures")
+async def save_custom_gesture(body: CustomGestureBody):
+    """G8: save a taught personal gesture (landmarks only, never video)."""
+    result, live = await _mcp(
+        mcp_client.save_custom_gesture(body.resident_id, body.tile, body.samples), None)
+    if live and result.get("error"):
+        raise HTTPException(422, result["error"])
+    return {"ok": True, "tile": body.tile}
+
+
+@app.get("/custom-gestures/{resident_id}")
+async def custom_gestures(resident_id: str):
+    result, live = await _mcp(mcp_client.get_custom_gestures(resident_id), None)
+    return {"gestures": result["gestures"]} if live else {"gestures": []}
+
+
 @app.get("/input-profile/{resident_id}")
 async def input_profile(resident_id: str):
     """How this resident communicates best (adaptive settings + the
