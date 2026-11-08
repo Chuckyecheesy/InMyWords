@@ -242,7 +242,13 @@ You own the database, seed data, all four MCP servers, the backend routes, mock 
   - **Fallback if the MCP server doesn't work**: staff upload a one-time **.zip export of their Google Calendar** (Settings → Export in Google Calendar, or Google Takeout — the .zip holds `.ics` files per calendar); `import_calendar` unzips, parses the `.ics` events, and renders them on the planner grid. No live booking, identical UI.
   - Only resident-approved visits ever reach Google — never notes, reasons, or health info. Those stay in Tiger Data where Handoff needs them.
   - Recurrence is plain code: a 7-days-a-week routine expands to one visit_event per day; the LLM only phrases the proposal.
-- ✅ Done when: approving a routine books a recurring staff visit on the calendar (or renders imported visits), sends any real email and creates a staff task.
+- **Stretch — staff calendar import (separate from the fallback above; this one writes live)**: a staff self-service tool that migrates an existing calendar into Google Calendar via a parse-and-insert pipeline, not the MCP wrapper:
+  1. Unpack the uploaded `.zip` in a temp environment; detect `.ics` (or JSON/CSV) files.
+  2. Parse each event's title, start/end, timezone and recurrence; normalize every timestamp to local time in plain code (never the LLM).
+  3. `propose_calendar_import` returns the normalized list (with duplicate flags) for an approval card — staff review before anything is written.
+  4. Once approved, `commit_calendar_import` loops through and calls Google Calendar's `events.insert` for each one, writing live.
+  5. Checks for existing overlapping events first, so a re-import never double-books staff's real calendar.
+- ✅ Done when: approving a routine books a recurring staff visit on the calendar (or renders imported visits), sends any real email and creates a staff task. (Stretch tool is separately done when a staff-uploaded .zip produces an approval card and, once approved, live events on Google Calendar.)
 
 **T2.7 — Handoff agent (hour 16)**
 

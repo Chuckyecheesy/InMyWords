@@ -109,7 +109,14 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 
 **Source labels**: the routine the resident entered is the resident's own words. A slot the subagent proposes from a noticed pattern is "pattern noticed" / `inferred` until confirmed. Staff-created visit hours imported from their calendar are labelled "from staff calendar, <date>".
 
-**Build tiers**: Core — routine input + weekly grid + approval card + DB-backed visit events. Should — Planner subagent proposes slots from the typed routine; Google Calendar MCP booking. Stretch — subagent suggests visits from noticed routines; two-way sync. Cut order: stretch → MCP booking (fall back to a staff-uploaded .zip calendar export) → subagent proposal (fall back to the resident setting each slot by hand).
+**Staff calendar import** *(a separate capability — not the MCP-down fallback above)*. Staff can also migrate their own existing calendar into the live Google Calendar the planner reads and writes, by uploading a `.zip` export (Google Takeout). Unlike the fallback, this one **does** result in live events on Google Calendar:
+1. **Unpack & inspect**: securely unpack the uploaded `.zip` into a temp environment; scan for recognized calendar files (`.ics` most common, JSON/CSV if present).
+2. **Parse & normalize**: for `.ics` files, extract the title (`SUMMARY`), `DTSTART`/`DTEND`, timezone, description and recurrence (`RRULE`); normalize every timestamp to the home's local time zone (e.g. America/Toronto) — **plain code, not the LLM** (rule 6), to avoid off-by-hour shifts.
+3. **Review & approve**: staff see the normalized event list (count, date range, flagged duplicates) on an approval card; nothing is written until staff approve (rule 5's approval-gate applies here too, even though this is a staff-facing tool rather than the resident-facing AAC card).
+4. **Commit**: once approved, loop through the approved events and call the Google Calendar API's `events.insert` for each one, writing them into the live calendar.
+5. **Duplicate/conflict management**: before inserting, check existing events on that calendar for overlaps; skip or flag duplicates so a re-import never double-books staff's real schedule.
+
+**Build tiers**: Core — routine input + weekly grid + approval card + DB-backed visit events. Should — Planner subagent proposes slots from the typed routine; Google Calendar MCP booking. Stretch — subagent suggests visits from noticed routines; two-way sync; staff calendar import pipeline (above). Cut order: stretch → MCP booking (fall back to a staff-uploaded .zip calendar export, display only) → subagent proposal (fall back to the resident setting each slot by hand).
 
 ### Stretch
 - Manager view across homes (profile freshness, checklist patterns, choice stats).
@@ -146,6 +153,7 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 | Memory: Consolidator | Merges duplicates, counts sightings, notices changes | Flags changes for resident confirmation, never overwrites resident's words |
 | Memory: Routine finder | Spots time-based patterns from timestamps | Suggests routines, does not add them unconfirmed |
 | Memory: Retriever | Gives the right memories to other agents | Returns source and confirmation status with every memory |
+| Calendar Import (stretch) | Parses a staff-uploaded .zip calendar export and writes events into the live Google Calendar | Approval card before any write; timezone math in code; duplicate/conflict check before insert |
 | Manager (stretch) | Summary across homes | Patterns, not blame |
 
 ### MCP server: resident-profile
@@ -181,7 +189,9 @@ My Story is **removed** from the resident app and its home slot is taken by **My
 | send_message | resident, contact, text | Message sent (real email or SMS) |
 | add_to_calendar | resident, event, time | Calendar entry |
 | book_staff_visit | resident, staff, start, end, recurrence (default daily ×7) | Visit booked on staff's Google Calendar (via Google Calendar MCP; DB row is source of truth) |
-| import_calendar | resident or staff, calendar_zip (Google Takeout .zip of .ics files) | Staff visit hours parsed out and rendered on the planner grid (MCP-unavailable fallback) |
+| import_calendar | resident or staff, calendar_zip (Google Takeout .zip of .ics files) | Staff visit hours parsed out and rendered on the planner grid (MCP-unavailable fallback; display only, no live write) |
+| propose_calendar_import | staff, calendar_zip | Parsed, timezone-normalized events + duplicate flags, for an approval card (stretch) |
+| commit_calendar_import | staff, approved event ids | google_event_ids — each approved event written live via Google Calendar `events.insert` (stretch) |
 | book_activity | resident, activity, time | Booking confirmation (mock site) |
 | next_bus | from, to | Next departures (Grand River Transit data, optional) |
 | create_staff_task | resident, task, time | Task in staff Handoff |

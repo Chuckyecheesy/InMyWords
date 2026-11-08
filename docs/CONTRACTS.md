@@ -18,6 +18,8 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 | `POST /planner/plan` | resident_id, routine_id | proposed visit_events (start, end, person) for approval | T3 |
 | `POST /planner/book` | resident_id, visit_events, approved | booked ids, google_event_ids (via Google Calendar MCP; DB rows are source of truth) | T2 |
 | `GET /planner/{resident_id}` | — | weekly visit blocks (start, end, person, day, source) | T2 |
+| `POST /planner/import/propose` *(stretch)* | staff_id, calendar_zip | proposed events (title, start, end, tz-normalized) + duplicate flags, for an approval card | T2 |
+| `POST /planner/import/commit` *(stretch)* | staff_id, approved event ids | google_event_ids — each written live via Google Calendar `events.insert` | T2 |
 | `POST /coach/ask` | resident_id, question | answer, sources (type, date) | T4 |
 | `POST /choices` | resident_id, question, options | options with consequences | T3 |
 | `POST /choices/{id}/decide` | chosen \| not_yet_decided | ok | T2 |
@@ -37,7 +39,8 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 - **Speak**: in sentence + resident → out audio URL
 - **Ask about**: in resident + question → out answer, source (`resident | staff | emh | document | pattern`), date
 - **Save routine**: in resident + person + start + length + days → out routine ID + expanded visit blocks
-- **Book staff visit**: in resident + approved visit_events → out booked ids + google_event_ids (fallback if MCP down: staff upload a .zip calendar export instead)
+- **Book staff visit**: in resident + approved visit_events → out booked ids + google_event_ids (fallback if MCP down: staff upload a .zip calendar export, rendered read-only — no live write)
+- **Calendar import (stretch, separate from the fallback above)**: in staff + calendar_zip → propose returns tz-normalized events + duplicate flags for an approval card; commit (after approval) writes each one live via Google Calendar `events.insert`
 - **Choice**: in resident + options (label, photo, cost) → out choice ID and status
 - **Handoff**: in staff + resident → out list of items with type and date
 - **Recall**: in resident + query + type → out memories with source and confirmed status
