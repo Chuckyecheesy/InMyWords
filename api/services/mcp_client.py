@@ -183,6 +183,12 @@ async def confirm_memory(resident, memory_id, confirmed):
     return await _call("memory", "confirm_memory",
                        {"resident": resident, "memory": memory_id, "confirmed": confirmed})
 
+async def log_input_events(events):
+    return await _call("memory", "log_input_events", {"events": events})
+
+async def get_input_profile(resident):
+    return await _call("memory", "get_input_profile", {"resident": resident})
+
 
 # ---- actions server ----
 

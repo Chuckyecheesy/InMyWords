@@ -539,6 +539,46 @@ async def add_observation(body: ObservationBody, background: BackgroundTasks):
     return {"ok": True, "id": result["id"]} if live else {"ok": True}
 
 
+# ---------- Gaze/gesture input (G5, GAZE_GESTURE_PLAN §7) ----------
+
+class InputEvent(BaseModel):
+    ts: str
+    resident_id: str
+    session_id: str | None = None
+    input_type: str   # touch | gaze | gesture
+    action: str       # select | approve | cancel | custom
+    target: str | None = None
+    hold_ms: int | None = None
+    gesture: str | None = None
+    confidence: float | None = None
+    outcome: str      # confirmed | cancelled | timeout
+
+
+class InputEventsBody(BaseModel):
+    events: list[InputEvent]
+
+
+@app.post("/input-events")
+async def input_events(body: InputEventsBody):
+    """Batched OUTCOME events from the browser input controller — never
+    video, never raw gaze samples (frontend flushes every 2 s / 20 events)."""
+    events = [e.model_dump() for e in body.events]
+    result, live = await _mcp(mcp_client.log_input_events(events), None)
+    return {"saved": result["saved"]} if live else {"saved": len(events)}
+
+
+@app.get("/input-profile/{resident_id}")
+async def input_profile(resident_id: str):
+    """How this resident communicates best (adaptive settings + the
+    'How I Communicate' Coach card). Labelled 'from input history'."""
+    result, live = await _mcp(mcp_client.get_input_profile(resident_id), None)
+    if live:
+        result.pop("store_mode", None)
+        return result
+    return {"resident_id": resident_id, "preferred_select": "touch", "preferred_yes": "touch",
+            "dwell_ms": 1000, "rates": {}, "notes": [], "events_counted": 0, "confidence": "low"}
+
+
 # ---------- Photos (T4.2) ----------
 # Not in the hour-1 contract table. Tell T2 before relying on these shapes.
 # The id is held in memory until the tile row is saved through T2's API.

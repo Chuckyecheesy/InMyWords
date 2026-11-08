@@ -71,6 +71,72 @@ def vector_literal(vec):
     return "[" + ",".join(f"{v:.8f}" for v in vec) + "]"
 
 
+def _window(hour: int) -> str:
+    if hour < 12:
+        return "morning"
+    if hour < 17:
+        return "afternoon"
+    return "evening"
+
+
+def build_input_profile(events, resident_id):
+    """Input-profile rules (GAZE_GESTURE_PLAN §4.6) over a list of event
+    dicts from the last 14 days. Plain arithmetic — no LLM. Shared by both
+    store backends so seed mode and Postgres agree exactly."""
+    from statistics import median
+
+    def rate(rows):
+        return (sum(1 for r in rows if r["outcome"] == "confirmed") / len(rows)) if rows else 0.0
+
+    by_type = {}
+    for e in events:
+        by_type.setdefault(e["input_type"], []).append(e)
+
+    rates = {t: round(rate(rows), 2) for t, rows in by_type.items()}
+
+    selects = [e for e in events if e["action"] == "select"]
+    select_types = {}
+    for e in selects:
+        select_types.setdefault(e["input_type"], []).append(e)
+    preferred_select = "touch"
+    best = -1.0
+    for t, rows in select_types.items():
+        if len(rows) >= 10 and rate(rows) > best:
+            best, preferred_select = rate(rows), t
+
+    approves = [e for e in events if e["action"] == "approve"]
+    approve_counts = {}
+    for e in approves:
+        key = e["gesture"] if (e["input_type"] == "gesture" and e.get("gesture")) else e["input_type"]
+        approve_counts[key] = approve_counts.get(key, 0) + 1
+    preferred_yes = max(approve_counts, key=approve_counts.get) if approve_counts else "touch"
+
+    gaze_holds = [e["hold_ms"] for e in selects
+                  if e["input_type"] == "gaze" and e["outcome"] == "confirmed" and e.get("hold_ms")]
+    dwell_ms = int(min(1500, max(600, median(gaze_holds) * 1.1))) if gaze_holds else 1000
+
+    notes = []
+    for t, rows in select_types.items():
+        overall = rate(rows)
+        for window in ("morning", "afternoon", "evening"):
+            in_window = [r for r in rows if _window(int(str(r["ts"])[11:13])) == window]
+            if len(in_window) >= 8 and (overall - rate(in_window)) >= 0.20:
+                notes.append(f"In the {window}, offer touch instead.")
+
+    n = len(events)
+    confidence = "high" if n > 50 else ("medium" if n >= 10 else "low")
+    return {
+        "resident_id": resident_id,
+        "preferred_select": preferred_select,
+        "preferred_yes": preferred_yes,
+        "dwell_ms": dwell_ms,
+        "rates": rates,
+        "notes": notes,
+        "events_counted": n,
+        "confidence": confidence,
+    }
+
+
 def source_label(source: str, name: str, date: str | None) -> str:
     """The product's source-label rule, in one place (CLAUDE.md guardrail #2)."""
     if date is not None and not isinstance(date, str):
@@ -353,6 +419,25 @@ class SeedStore:
             m["status"] = "dismissed"
         m["last_seen"] = _now()
         return m
+
+    # ---- gaze/gesture input layer (G5) ----
+
+    def log_input_events(self, events):
+        if not hasattr(self, "_input_events"):
+            self._load_input_events()
+        self._input_events.extend(events)
+        return len(events)
+
+    def get_input_profile(self, rid):
+        if not hasattr(self, "_input_events"):
+            self._load_input_events()
+        recent = [e for e in self._input_events if e["resident_id"] == rid]
+        return build_input_profile(recent, rid)
+
+    def _load_input_events(self):
+        path = SEED_DIR / "input_events.json"
+        self._input_events = (json.loads(path.read_text(encoding="utf-8"))["input_events"]
+                              if path.exists() else [])
 
     # ---- actions layer (T2.6) ----
 
@@ -721,6 +806,32 @@ class PostgresStore:
         if since:
             return self._all(sql + " AND last_seen >= %s ORDER BY last_seen DESC", (rid, since))
         return self._all(sql + " ORDER BY last_seen DESC", (rid,))
+
+    # ---- gaze/gesture input layer (G5) ----
+
+    def log_input_events(self, events):
+        with self._conn() as conn:
+            for e in events:
+                conn.execute(
+                    """INSERT INTO input_events (ts, resident_id, session_id, input_type, action,
+                                                 target, hold_ms, gesture, confidence, outcome)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    (e["ts"], e["resident_id"], e.get("session_id"), e["input_type"], e["action"],
+                     e.get("target"), e.get("hold_ms"), e.get("gesture"),
+                     e.get("confidence"), e["outcome"]))
+        return len(events)
+
+    def get_input_profile(self, rid):
+        # Raw 14-day window; the input_daily continuous aggregate serves the
+        # same counts pre-bucketed (prize story + dashboards). Raw keeps the
+        # profile correct even on plain Postgres or an unrefreshed aggregate.
+        rows = self._all(
+            "SELECT ts, resident_id, input_type, action, hold_ms, gesture, outcome "
+            "FROM input_events WHERE resident_id = %s AND ts >= now() - interval '14 days'",
+            (rid,))
+        for r in rows:
+            r["ts"] = str(r["ts"])
+        return build_input_profile(rows, rid)
 
     # ---- actions layer (T2.6) ----
 

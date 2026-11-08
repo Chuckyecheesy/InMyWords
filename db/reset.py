@@ -108,6 +108,15 @@ def main():
                 (event["resident_id"], event["event"], event["created_at"]),
             )
 
+        inputs = read_json("input_events.json")["input_events"]
+        for e in inputs:
+            cur.execute(
+                """INSERT INTO input_events (ts, resident_id, session_id, input_type, action,
+                                             target, hold_ms, gesture, confidence, outcome)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (e["ts"], e["resident_id"], e["session_id"], e["input_type"], e["action"],
+                 e["target"], e["hold_ms"], e["gesture"], e["confidence"], e["outcome"]))
+
         for m in mems["memories"]:
             cur.execute(
                 """INSERT INTO memories (resident_id, type, content, source, source_date,
@@ -122,6 +131,9 @@ def main():
         backfill_embeddings(cur)
         conn.commit()
 
+        cur.execute("SELECT count(*) FROM input_events")
+        n_inputs = cur.fetchone()[0]
+
         cur.execute("SELECT count(*) FROM memories")
         n_mem = cur.fetchone()[0]
         cur.execute("SELECT count(*) FROM memories WHERE status = 'pending'")
@@ -129,7 +141,52 @@ def main():
         cur.execute("SELECT count(*) FROM memories WHERE embedding IS NOT NULL")
         n_vec = cur.fetchone()[0]
         print(f"Done. {n_mem} memories seeded ({n_pending} pending confirmation — the tea pattern); "
-              f"{n_vec} embedded.")
+              f"{n_vec} embedded; {n_inputs} input events.")
+
+    timescale_setup(url)
+
+
+def timescale_setup(url):
+    """Hypertable + continuous aggregate + refresh policy for input_events
+    (GAZE_GESTURE_PLAN §6). These can't run inside a transaction, so they
+    get their own autocommit connection. Degrades gracefully on plain
+    Postgres — the profile query falls back to the raw table."""
+    statements = [
+        ("hypertable",
+         "SELECT create_hypertable('input_events', 'ts', if_not_exists => TRUE, migrate_data => TRUE)"),
+        ("daily aggregate",
+         """CREATE MATERIALIZED VIEW input_daily
+            WITH (timescaledb.continuous) AS
+            SELECT time_bucket('1 day', ts) AS day,
+                   resident_id, input_type, action,
+                   count(*) AS total,
+                   count(*) FILTER (WHERE outcome = 'confirmed') AS confirmed,
+                   count(*) FILTER (WHERE extract(hour FROM ts) < 12) AS morning,
+                   count(*) FILTER (WHERE extract(hour FROM ts) >= 12
+                                      AND extract(hour FROM ts) < 17) AS afternoon,
+                   count(*) FILTER (WHERE extract(hour FROM ts) >= 17) AS evening,
+                   count(*) FILTER (WHERE outcome = 'confirmed'
+                                      AND extract(hour FROM ts) >= 17) AS evening_confirmed
+            FROM input_events
+            GROUP BY day, resident_id, input_type, action
+            WITH NO DATA"""),
+        ("refresh policy",
+         """SELECT add_continuous_aggregate_policy('input_daily',
+                start_offset => INTERVAL '3 days', end_offset => INTERVAL '1 hour',
+                schedule_interval => INTERVAL '5 minutes', if_not_exists => TRUE)"""),
+        ("manual refresh after seeding",
+         "CALL refresh_continuous_aggregate('input_daily', NULL, NULL)"),
+    ]
+    conn = psycopg.connect(url, autocommit=True)
+    try:
+        for name, sql in statements:
+            try:
+                conn.execute(sql)
+                print(f"Timescale: {name} OK")
+            except Exception as exc:
+                print(f"Timescale: {name} skipped ({type(exc).__name__}: {str(exc)[:90]})")
+    finally:
+        conn.close()
 
 
 def backfill_embeddings(cur):
