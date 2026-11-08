@@ -148,6 +148,16 @@ if ! API_BASE_URL=http://127.0.0.1:8000 npm run build > /var/tmp/inmywords-build
   echo 'next build FAILED: deploy aborted; the previous web build is still in place.' >&2
   exit 1
 fi
+# Existing tabs can still request chunks from the previous build. Keep those
+# immutable, hashed assets alongside the new build to avoid broken pages.
+if [ -d /var/tmp/inmywords-next.prev/static ]; then
+  if ! rsync -a --ignore-existing /var/tmp/inmywords-next.prev/static/ .next/static/; then
+    rm -rf .next; [ -d /var/tmp/inmywords-next.prev ] && mv /var/tmp/inmywords-next.prev .next
+    echo 'Could not preserve previous Next.js assets; restored the previous build.' >&2
+    exit 1
+  fi
+fi
+rm -rf /var/tmp/inmywords-next.prev
 tail -n 15 /var/tmp/inmywords-build.log
 find $REMOTE -name '.env*' -print -delete
 chown -R root:root $REMOTE && chmod -R u=rwX,go=rX $REMOTE

@@ -86,6 +86,10 @@ ops/deploy.sh --plain-http  # if Let's Encrypt issuance fails
 ssh -i ~/.ssh/inmywords_vultr_ed25519 root@$(cat ops/host) journalctl -u inmywords-api -f
 ```
 
+Deploys retain the previous build's hashed `.next/static` files alongside the
+new build so already-open browser tabs can finish loading their assets after a
+deploy.
+
 ## Destroy after the event
 
 ```bash
