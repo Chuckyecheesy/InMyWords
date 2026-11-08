@@ -7,8 +7,11 @@ Rules (see CLAUDE.md):
 - Nothing runs here. Status is always 'proposed'; the resident approves on
   the card, and the actions MCP server runs the steps.
 - Steps come only from ALLOWED_STEPS. Anything else is dropped.
-- Cost is plain code (catalog prices, then a sum). The LLM only phrases the
-  message text, and its output is discarded if it mentions money.
+- Gemini proposes the steps (gemini_propose); code grounds every field
+  (ground_steps): catalog activities, known contacts, real future times,
+  and any text that mentions money is discarded. With no key or a model
+  failure, the plain rules (_rule_steps) build the plan instead.
+- Cost is plain code (catalog prices, then a sum), never the model.
 - Usual details (time, Lisa) come from memories passed in by the caller;
   this module never reads the database.
 """
@@ -16,7 +19,7 @@ Rules (see CLAUDE.md):
 from __future__ import annotations
 
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Callable
 
 ALLOWED_STEPS = ("book_activity", "add_to_calendar", "send_message", "create_staff_task")
@@ -122,9 +125,11 @@ def build_plan(
 ) -> dict:
     today = today or date.today()
     steps = None
+    planner = "rules"
     if propose is not None:
         try:
             steps = _sanitise(propose(goal, memories), goal)
+            planner = "gemini"
         except Exception as exc:  # model down: fall back to the rules
             print(f"[action] propose failed, using rules: {exc}")
     if steps is None:
@@ -141,7 +146,136 @@ def build_plan(
         "total_cost": total,
         "status": "proposed",
         "steps": steps,
+        "planner": planner,
     }
+
+
+# ---------- Gemini step proposer ----------
+# Gemini picks the steps, day/time and wording. Code then grounds every field:
+# allowlisted tools only, catalog activities only, known contacts only, a real
+# future time, no money talk. Costs are never taken from the model.
+
+KNOWN_CONTACTS = ("lisa",)
+_HORIZON_DAYS = 60
+
+
+def _memory_lines(memories: list[dict]) -> str:
+    lines = []
+    for m in memories[:8]:
+        content = " ".join(str(m.get("content", "")).split())
+        if content:
+            label = m.get("label") or m.get("source") or "memory"
+            lines.append(f"- [{label}] {content}")
+    return "\n".join(lines) or "- (none)"
+
+
+def proposal_prompt(goal: str, memories: list[dict], name: str, today: date) -> str:
+    day, iso = _when(goal, today)
+    hour = _usual_hour(memories)
+    catalog = "\n".join(f"- {key}: {venue}" for key, venue in VENUES.items())
+    return (
+        f"You plan the steps for a goal {name} chose. {name} will approve or cancel the plan; nothing runs now.\n"
+        f"Today is {today.isoformat()} ({DAYS[today.weekday()].capitalize()}).\n"
+        f"Goal: {goal}\n\n"
+        f"What we know (use usual times and contacts from here):\n{_memory_lines(memories)}\n\n"
+        f"Tools (use only these):\n"
+        f"- book_activity: only for a catalog activity. Set activity to its key and time.\n"
+        f"- add_to_calendar: set title and time.\n"
+        f"- send_message: email a known contact. contact must be one of: {', '.join(KNOWN_CONTACTS)}. "
+        f"Write text in plain words from {name}'s side, inviting or telling them.\n"
+        f"- create_staff_task: anything needing a person physically (driving, going with {name}, helping). "
+        f"Set task and time (usually 30 minutes before).\n\n"
+        f"Catalog activities:\n{catalog}\n\n"
+        f"Rules: times are ISO 'YYYY-MM-DDTHH:MM:SS' in the future. If unsure of the day use {day} {iso}; "
+        f"if unsure of the time use {hour:02d}:00. Going anywhere needs a staff task. "
+        f"Only message a contact if the goal or the memories make it natural. "
+        f"Never mention money, prices or payment. Do not invent places, people or tools. "
+        f"Use empty strings for fields a step does not use."
+    )
+
+
+def _clean_text(value) -> str:
+    text = " ".join(str(value or "").split())
+    return "" if "$" in text else text
+
+
+def _parse_time(value, today: date) -> str | None:
+    try:
+        when = datetime.fromisoformat(str(value).strip())
+    except ValueError:
+        return None
+    if not today <= when.date() <= today + timedelta(days=_HORIZON_DAYS):
+        return None
+    return when.replace(tzinfo=None, microsecond=0).isoformat()
+
+
+def ground_steps(raw: list[dict], goal: str, memories: list[dict], today: date) -> list[dict]:
+    """Turn model steps into executable steps, or drop them. Raises when
+    nothing usable is left so build_plan falls back to the rules."""
+    day, iso = _when(goal, today)
+    hour = _usual_hour(memories)
+    default_start = f"{iso}T{hour:02d}:00:00"
+    default_leave = f"{iso}T{max(hour - 1, 0):02d}:30:00"
+    out: list[dict] = []
+    for s in raw or []:
+        name = s.get("step")
+        detail = _clean_text(s.get("detail"))
+        time = _parse_time(s.get("time"), today)
+        if name == "book_activity":
+            key = str(s.get("activity", "")).strip().lower()
+            if key not in VENUES:
+                continue  # no invented venues or free bookings
+            at = time or default_start
+            out.append({"step": name, "kind": "online", "activity": f"{key.capitalize()} — {VENUES[key]}",
+                        "time": at, "detail": detail or f"{key.capitalize()} at {VENUES[key]}"})
+        elif name == "add_to_calendar":
+            title = _clean_text(s.get("title")) or goal
+            out.append({"step": name, "kind": "online", "title": title,
+                        "time": time or default_start, "detail": detail or f"{title} — {day}"})
+        elif name == "send_message":
+            contact = str(s.get("contact", "")).strip().lower()
+            text = _clean_text(s.get("text"))
+            if contact not in KNOWN_CONTACTS or not text:
+                continue
+            out.append({"step": name, "kind": "online", "contact": contact, "text": text,
+                        "detail": detail or f"Email {contact.capitalize()} about: {goal}"})
+        elif name == "create_staff_task":
+            task = _clean_text(s.get("task")) or detail
+            if not task:
+                continue
+            out.append({"step": name, "kind": "staff", "task": task,
+                        "time": time or default_leave, "detail": detail or task})
+    booking = next((s for s in out if s["step"] == "book_activity"), None)
+    if booking and not any(s["step"] == "create_staff_task" for s in out):
+        venue = booking["activity"].split(" — ", 1)[-1]
+        out.append({"step": "create_staff_task", "kind": "staff", "task": f"Drive to {venue}",
+                    "time": default_leave, "detail": f"Drive to {venue}"})
+    if not out:
+        raise ValueError("model proposed no usable steps")
+    return out
+
+
+def gemini_propose(goal: str, memories: list[dict], name: str, today: date,
+                   generate: Callable | None = None) -> list[dict]:
+    if generate is None:
+        from services.gemini import SCHEMAS, generate_for
+
+        def generate(prompt):
+            return generate_for("action", prompt, SCHEMAS["action"]["steps"], timeout_ms=10000)
+    result = generate(proposal_prompt(goal, memories, name, today))
+    return ground_steps((result or {}).get("steps"), goal, memories, today)
+
+
+def gemini_enabled() -> bool:
+    import os
+    if os.environ.get("ACTION_GEMINI") == "0":
+        return False
+    try:
+        from services import gemini
+        gemini._load_env()
+    except Exception:
+        return False
+    return bool(os.environ.get("GEMINI_API_KEY", "").strip())
 
 
 def _phrase_routine(group: dict) -> str:
@@ -269,4 +403,15 @@ async def propose_plan(resident_id: str, goal: str, *, name: str) -> dict:
     except Exception as exc:
         print(f"[action] routine finder skipped ({type(exc).__name__}): {exc}")
         events = None
-    return plan_with_notes(goal, name=name, memories=memories, events=events)
+
+    propose = None
+    if gemini_enabled():
+        import asyncio
+        today = date.today()
+        try:
+            # Off the event loop; grounding happens inside, the rules cover any failure.
+            steps = await asyncio.to_thread(gemini_propose, goal, _usable(memories), name, today)
+            propose = lambda _goal, _memories: steps  # noqa: E731
+        except Exception as exc:
+            print(f"[action] Gemini proposer failed, using rules ({type(exc).__name__}): {exc}")
+    return plan_with_notes(goal, name=name, memories=memories, events=events, propose=propose)
