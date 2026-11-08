@@ -84,7 +84,7 @@ test("camera off: touch works and tracking is not loaded", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Turn camera on" })).toBeVisible();
   await expect(page.locator(".service-category")).toHaveCount(3);
   await page.getByRole("button", { name: "Refreshments", exact: true }).click();
-  await expect(page.locator(".composer-sentence")).toHaveText("I would like some refreshments.");
+  await expect(page.locator(".composer-sentence")).toHaveValue("I would like some refreshments.");
   expect(models).toEqual([]);
 });
 
@@ -136,9 +136,9 @@ test("calibration, three-category gaze selection, storage, loss and camera off",
 
   await state(page, { aim: "Refreshments" });
   await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible({ timeout: 8000 });
-  await expect(page.locator(".composer-sentence")).toHaveText("Your sentence will appear here.");
+  await expect(page.locator(".composer-sentence")).toHaveValue("");
   await state(page, { aim: "Confirm" });
-  await expect(page.locator(".composer-sentence")).toHaveText("I would like some refreshments.", { timeout: 12000 });
+  await expect(page.locator(".composer-sentence")).toHaveValue("I would like some refreshments.", { timeout: 12000 });
   await expect(page.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Refreshments", exact: true })).toHaveAttribute("aria-pressed", "true");
   await state(page, { aim: "" });
@@ -179,7 +179,7 @@ test("permission failure shows retry and preserves touch", async ({ page }) => {
   await expect(page.getByText(/Camera permission denied/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Turn camera on" })).toBeVisible();
   await page.getByRole("button", { name: "Refreshments", exact: true }).click();
-  await expect(page.locator(".composer-sentence")).toContainText("refreshments");
+  await expect(page.locator(".composer-sentence")).toHaveValue(/refreshments/);
   await page.getByRole("button", { name: "Turn camera on" }).click();
   await expect(page.locator(".service-camera")).toBeVisible();
 });
