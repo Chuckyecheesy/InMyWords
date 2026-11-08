@@ -1,0 +1,84 @@
+name: Test and deploy to Vultr
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Offline tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Backend tests (no API keys needed)
+        run: |
+          pip install -q -r api/requirements.txt fastmcp
+          cd api && python -m unittest discover -s tests -v
+      - name: Web tests and build
+        working-directory: web
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+          npm run build
+      - name: Check deploy script
+        run: bash -n ops/deploy.sh
+
+  deploy:
+    name: Production deploy
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+    concurrency:
+      group: inmywords-production
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      # VULTR_DEPLOY_SSH_KEY is a dedicated GitHub deploy key whose public half is a line in
+      # root's authorized_keys on the VM (comment: inmywords-github-actions-deploy).
+      # Remove that line on the VM, or delete the secret, to revoke it.
+      - name: Load the deploy key
+        id: key
+        env:
+          VULTR_DEPLOY_SSH_KEY: ${{ secrets.VULTR_DEPLOY_SSH_KEY }}
+        run: |
+          if [ -z "$VULTR_DEPLOY_SSH_KEY" ] || [ ! -s ops/host ] || [ ! -s ops/known_hosts ]; then
+            echo '::warning title=Deploy skipped::VULTR_DEPLOY_SSH_KEY secret, ops/host or ops/known_hosts is missing. Tests passed; the VM was not changed.'
+            echo '### Deploy skipped: the deploy key secret, `ops/host` or `ops/known_hosts` is missing. The VM was not changed.' >> "$GITHUB_STEP_SUMMARY"
+            echo configured=false >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          umask 077
+          printf '%s\n' "$VULTR_DEPLOY_SSH_KEY" > "$RUNNER_TEMP/deploy_key"
+          echo configured=true >> "$GITHUB_OUTPUT"
+      - name: Deploy with ops/deploy.sh (keeps the VM's secrets)
+        if: steps.key.outputs.configured == 'true'
+        env:
+          DEPLOY_SSH_KEY: ${{ runner.temp }}/deploy_key
+        run: bash ops/deploy.sh --skip-env
+      - name: Check the API reports this commit
+        if: steps.key.outputs.configured == 'true'
+        run: |
+          host="$(tr -d '[:space:]' < ops/host)"
+          api="https://api.${host//./-}.sslip.io/"
+          health="$(curl -fsS --max-time 15 "$api")"
+          echo "$health"
+          [[ "$health" == *"\"git_sha\":\"$GITHUB_SHA\""* ]] || { echo "::error::$api does not report $GITHUB_SHA"; exit 1; }
+          echo "### Deployed \`$GITHUB_SHA\` → https://${host//./-}.sslip.io" >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove the key from the runner
+        if: always() && steps.key.outputs.configured == 'true'
+        run: rm -f "$RUNNER_TEMP/deploy_key"
