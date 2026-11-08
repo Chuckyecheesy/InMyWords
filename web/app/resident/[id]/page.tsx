@@ -33,11 +33,13 @@ export default async function ResidentHomePage({
   return (
     <div className="home">
       <header className="home-hero">
-        <p className="eyebrow">{TODAY.format(new Date())}</p>
-        <h1>
-          {greeting()}, {name}
-        </h1>
-        <p className="lead">What would you like to do today?</p>
+        <div className="home-heading">
+          <h1>{greeting()}, {name}</h1>
+          <p className="lead">What would you like to do today?</p>
+        </div>
+        <time className="home-date" dateTime={new Date().toISOString()}>
+          {TODAY.format(new Date())}
+        </time>
       </header>
 
       <nav className="feature-grid" aria-label="What would you like to do?">
@@ -47,10 +49,10 @@ export default async function ResidentHomePage({
             <div className="feature-body">
               <h2>{feature.title}</h2>
               <p>{feature.text}</p>
+              <span className="feature-go" aria-hidden="true">
+                <ArrowRight size={26} />
+              </span>
             </div>
-            <span className="feature-go" aria-hidden="true">
-              <ArrowRight size={26} />
-            </span>
           </Link>
         ))}
       </nav>

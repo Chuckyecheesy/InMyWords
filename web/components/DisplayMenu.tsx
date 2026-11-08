@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { Contrast, SlidersHorizontal, Type } from "lucide-react";
 
 type Setting = { attr: "theme" | "text"; on: string; off: string; storage: string; event: string };
@@ -52,11 +52,16 @@ export function DisplayMenu({ size = "md" }: { size?: "md" | "lg" }) {
   const [contrast, toggleContrast] = useSetting(CONTRAST);
   const [large, toggleLarge] = useSetting(LARGE);
   const ref = useRef<HTMLDivElement | null>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const panelId = useId();
 
   useEffect(() => {
     if (!open) return;
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") {
+        setOpen(false);
+        trigger.current?.focus();
+      }
     }
     function onDown(event: PointerEvent) {
       if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
@@ -72,19 +77,21 @@ export function DisplayMenu({ size = "md" }: { size?: "md" | "lg" }) {
   return (
     <div className="display-menu" ref={ref}>
       <button
+        ref={trigger}
         type="button"
         className="btn"
         data-variant="secondary"
         data-size={size === "lg" ? "lg" : undefined}
         aria-expanded={open}
-        aria-controls="display-panel"
+        aria-label="Display settings"
+        aria-controls={panelId}
         onClick={() => setOpen((value) => !value)}
       >
         <SlidersHorizontal size={20} aria-hidden="true" />
         <span className="btn-label">Display</span>
       </button>
       {open ? (
-        <div className="display-panel" id="display-panel" role="group" aria-label="Display settings">
+        <div className="display-panel" id={panelId} role="group" aria-label="Display settings">
           <button type="button" className="btn contrast-toggle" data-size="lg" aria-pressed={large} onClick={toggleLarge}>
             <Type size={22} aria-hidden="true" />
             Larger text

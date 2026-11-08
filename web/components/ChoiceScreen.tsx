@@ -45,6 +45,7 @@ export function ChoiceScreen({
   const [choice, setChoice] = useState<ChoiceResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(prompt));
+  const [reload, setReload] = useState(0);
   const [busy, setBusy] = useState(false);
   const [chosen, setChosen] = useState<string | null>(null);
   const [status, setStatus] = useState<"chosen" | "not_yet_decided" | null>(null);
@@ -86,7 +87,7 @@ export function ChoiceScreen({
     return () => {
       cancel = true;
     };
-  }, [prompt, residentId]);
+  }, [prompt, residentId, reload]);
 
   async function hear(label: string) {
     const spoken = await speak({ resident_id: residentId, text: label });
@@ -146,7 +147,6 @@ export function ChoiceScreen({
     <div className="choice-board">
       <header className="choice-q">
         <div className="stack-sm">
-          <p className="eyebrow">My Choices</p>
           <h1>{choice?.question ?? prompt.question}</h1>
           {choice?.weekly_budget != null ? (
             <p className="lead">
@@ -158,13 +158,36 @@ export function ChoiceScreen({
       </header>
 
       {loading ? (
-        <p className="suggestions-head" role="status">
-          <ThinkingDots /> Thinking…
-        </p>
+        <div className="choice-loading" role="status">
+          <p className="suggestions-head"><ThinkingDots /> Loading your options…</p>
+          <div className="option-grid" aria-hidden="true">
+            {[0, 1].map((item) => (
+              <div className="option-skeleton" key={item}>
+                <span className="option-skeleton-photo" />
+                <span className="option-skeleton-line" />
+                <span className="option-skeleton-line" />
+              </div>
+            ))}
+          </div>
+        </div>
       ) : null}
       {error ? (
         <div className="callout" data-tone="error" role="alert">
-          <div className="callout-body">{error}</div>
+          <div className="callout-body">
+            <p>{choice ? error : "Your options couldn’t load. Please try again."}</p>
+            {!choice && !loading ? (
+              <button type="button" className="btn" data-variant="secondary" data-size="lg"
+                data-longpress="own"
+                onPointerDown={(event) => hold(event, "Try again")}
+                onClick={() => {
+                  if (pressed.current) { pressed.current = false; return; }
+                  setError(null); setLoading(true); setReload((value) => value + 1);
+                }}>
+                <RotateCcw size={22} aria-hidden="true" />
+                Try again
+              </button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
