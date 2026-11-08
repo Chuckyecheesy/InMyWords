@@ -58,9 +58,9 @@ test("only three categories, a complete sentence, and exactly that sentence spok
     const box = await button.boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(220);
   }
-  await page.keyboard.press("Control+J");
+  await page.keyboard.press("Alt+S");
   await expect(page.getByRole("button", { name: "Turn camera off", exact: true })).toBeVisible();
-  await page.keyboard.press("Control+J");
+  await page.keyboard.press("Alt+S");
   await expect(page.getByRole("button", { name: "Turn camera on", exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/speaker-tablet.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
