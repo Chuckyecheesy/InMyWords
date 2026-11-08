@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { demoPhotoUrl, storyImageUrl, tileImageUrl } from "@/lib/cloudinary";
 
 /**
@@ -19,6 +19,15 @@ export function DeliveredPhoto({
   const remote = mode === "story" ? storyImageUrl(publicId) : tileImageUrl(publicId, mode);
   const local = demoPhotoUrl(publicId);
   const [src, setSrc] = useState(remote || local);
+  useEffect(() => {
+    if (!remote || !local) return;
+    const probe = new Image();
+    probe.onload = () => {
+      if (probe.naturalWidth > 0) setSrc(remote);
+    };
+    probe.onerror = () => setSrc(local);
+    probe.src = remote;
+  }, [remote, local]);
   if (!src) return null;
   return (
     // eslint-disable-next-line @next/next/no-img-element
