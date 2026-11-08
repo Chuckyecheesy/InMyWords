@@ -6169,6 +6169,7 @@ html[data-touch="onefinger"] .pin-key {
 .service-input-feedback p { margin-block: 6px; }
 .service-camera { width: 160px; height: 110px; border-radius: 12px; object-fit: cover; transform: scaleX(-1); background: var(--ink); }
 .service-pointer { position: fixed; z-index: 10000; width: 28px; height: 28px; border: 4px solid #fff; border-radius: 50%; background: var(--accent-strong); outline: 2px solid var(--ink); transform: translate(-50%, -50%); pointer-events: none; }
+.service-pointer.is-locked { width: 44px; height: 44px; border-width: 5px; }
 .service-page [data-holding] { outline: 4px solid var(--accent-strong); outline-offset: 3px; position: relative; }
 .service-page [data-holding]::after { content: ""; position: absolute; left: 0; bottom: 0; height: 18px; width: var(--hold-progress, 0%); background: var(--accent-strong); pointer-events: none; }
 .service-page [data-variant="primary"][data-holding]::after { background: #fff; }
