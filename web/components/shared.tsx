@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { tileImageUrl } from "@/lib/cloudinary";
+import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import type { Tile } from "@/lib/types";
 
 const LONG_PRESS_MS = 600;
@@ -94,10 +95,8 @@ export function TileButton({
       <div className="tile-face">
         {calm && contrast ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="tile-img tile-img-calm" src={calm} alt="" />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="tile-img tile-img-contrast" src={contrast} alt="" />
+            <DeliveredPhoto publicId={tile.cloudinary_id!} mode="calm" className="tile-img tile-img-calm" />
+            <DeliveredPhoto publicId={tile.cloudinary_id!} mode="contrast" className="tile-img tile-img-contrast" />
           </>
         ) : (
           <span className="tile-letter" aria-hidden="true">

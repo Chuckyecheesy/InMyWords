@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { approveAction, cancelAction, speak } from "@/lib/api";
 import { stepPhoto } from "@/lib/action-photos";
+import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import { tileImageUrl } from "@/lib/cloudinary";
 import { money } from "@/lib/format";
 import type { ActionPlan } from "@/lib/api";
@@ -132,8 +133,8 @@ function StepPicture({
     <article className="choice-button" data-step={step}>
       {calm && contrast ? (
         <picture>
-          <img className="choice-img choice-img-calm" src={calm} alt="" />
-          <img className="choice-img choice-img-contrast" src={contrast} alt="" />
+          <DeliveredPhoto publicId={photo} mode="calm" className="choice-img choice-img-calm" />
+          <DeliveredPhoto publicId={photo} mode="contrast" className="choice-img choice-img-contrast" />
         </picture>
       ) : (
         <span className="choice-letter" aria-hidden="true">

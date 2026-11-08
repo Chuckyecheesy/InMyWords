@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { createChoice, decideChoice, planActions, speak, type ActionPlan } from "@/lib/api";
 import { choicePrompt, NOT_DECIDED_LABEL, NOT_DECIDED_VALUE } from "@/lib/choice-prompts";
+import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import { tileImageUrl } from "@/lib/cloudinary";
 import { choiceStanding, consequence, money } from "@/lib/format";
 import type { ChoiceOption, ChoiceResult } from "@/lib/types";
@@ -146,8 +147,8 @@ export function ChoiceScreen({
               >
                 {calm && contrast ? (
                   <picture>
-                    <img className="choice-img choice-img-calm" src={calm} alt="" />
-                    <img className="choice-img choice-img-contrast" src={contrast} alt="" />
+                    <DeliveredPhoto publicId={option.photo ?? ""} mode="calm" className="choice-img choice-img-calm" />
+                    <DeliveredPhoto publicId={option.photo ?? ""} mode="contrast" className="choice-img choice-img-contrast" />
                   </picture>
                 ) : (
                   <span className="choice-letter" aria-hidden="true">

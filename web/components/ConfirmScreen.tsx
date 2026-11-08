@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { confirmMemory, speak } from "@/lib/api";
+import { DeliveredPhoto } from "@/components/DeliveredPhoto";
 import { tileImageUrl } from "@/lib/cloudinary";
 import { sourceChip } from "@/lib/format";
 import type { PendingMemory } from "@/lib/types";
@@ -145,8 +146,8 @@ function AnswerTile({
     >
       {calm && contrast ? (
         <picture>
-          <img className="choice-img choice-img-calm" src={calm} alt="" />
-          <img className="choice-img choice-img-contrast" src={contrast} alt="" />
+          <DeliveredPhoto publicId={photo} mode="calm" className="choice-img choice-img-calm" />
+          <DeliveredPhoto publicId={photo} mode="contrast" className="choice-img choice-img-contrast" />
         </picture>
       ) : null}
       <span className="choice-label">{label}</span>
