@@ -4,7 +4,7 @@ Ported from the Two Worlds setup in `agentic-social-research/ops/`, adapted for 
 
 ## What runs where
 
-One Vultr Cloud Compute VM: `vc2-1c-2gb`, Toronto (`yto`), Ubuntu 24.04, with a 2 GB swapfile for `next build`. Every service runs as the `app` user on `127.0.0.1`. The code lives in `/srv/inmywords`, owned by root and read-only to the services.
+One Vultr Cloud Compute VM: `vc2-2c-4gb` (2 vCPU, 4 GB; resized from `vc2-1c-2gb` on 2026-11-08 because 1 vCPU stalled under load and deploys), Toronto (`yto`), Ubuntu 24.04, with a 2 GB swapfile for `next build`. Every service runs as the `app` user on `127.0.0.1`. The code lives in `/srv/inmywords`, owned by root and read-only to the services.
 
 | systemd unit | Port | What |
 |---|---|---|
@@ -19,6 +19,18 @@ One Vultr Cloud Compute VM: `vc2-1c-2gb`, Toronto (`yto`), Ubuntu 24.04, with a 
 
 To add a service, add it to `SERVICES`, the unit list and the `names` list in `deploy.sh`. In seed mode, `db/seed/.runtime.json` (action plans and bookings) is a symlink to `/var/lib/inmywords/runtime.json`, because the code directory is read-only. To use a real domain (for example Ahmed's GoDaddy one), point `@`, `api` and `booking` A records at the VM and deploy with `DEPLOY_DOMAIN=yourdomain.xyz`.
 
+### GoDaddy domain
+
+In the GoDaddy DNS panel for the project domain, set three A records to the VM address in `ops/host`:
+
+| Host | Type | Value |
+|---|---|---|
+| `@` | A | the VM address |
+| `api` | A | the VM address |
+| `booking` | A | the VM address |
+
+Then deploy with `DEPLOY_DOMAIN=yourdomain.xyz`. Caddy requests the certificates for the apex, `api.`, and `booking.` names. The domain login is not in this repo, so this step is done in the GoDaddy account.
+
 **Secrets**: `/etc/inmywords.env` (root:app 0640) is written from the allowlisted keys (`ENV_KEYS` in `deploy.sh`) of your local `.env`. The values are streamed over SSH stdin and never land in argv, logs or the synced tree. With no keys set, everything runs in mock/seed mode. `DATABASE_URL` switches the MCP servers from seed JSON to Tiger Data.
 
 ## First-time setup
@@ -27,7 +39,7 @@ To add a service, add it to `SERVICES`, the unit list and the `names` list in `d
 # 1. Vultr console → Account → API: enable the API, add this machine's IP to Access Control.
 #    Put VULTR_API_KEY=<key> in the repo-root .env (gitignored).
 node ops/vultr.js check
-node ops/vultr.js create --yes          # ≈ $10/month, billed hourly while it exists
+node ops/vultr.js create --yes          # vc2-1c-2gb ≈ $10/month; resize later with `node ops/vultr.js resize <id> vc2-2c-4gb --yes` (≈ $20/month)
 node ops/vultr.js instances             # wait for status active; note the IP
 
 # 2. Record the host and pin its SSH host key (CI refuses unknown host keys)

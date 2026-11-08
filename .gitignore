@@ -24,6 +24,16 @@ venv/
 # Seed-mode shared runtime state (bookings etc. before the real DB exists)
 db/seed/.runtime.json
 
+# Playwright output
+web/test-results/
+web/playwright-report/
+web/blob-report/
+
+# Playwright output
+web/test-results/
+web/playwright-report/
+web/blob-report/
+
 # Generated audio cache (regenerate, don't commit)
 audio-cache/
 *.mp3
@@ -39,3 +49,9 @@ Thumbs.db
 .vscode/
 
 # Build plan source docs are kept as .docx intentionally — see docs/ for markdown versions
+
+# Seed-mode RAG vector cache (regenerated from db/seed by content hash)
+db/seed/.embeddings.json
+
+# MediaPipe model + WASM — fetched by web/scripts/fetch-vision-assets.mjs
+web/public/models/

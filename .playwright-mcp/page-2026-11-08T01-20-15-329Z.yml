@@ -1,0 +1,59 @@
+- generic [active] [ref=f4e1]:
+  - link "Skip to content" [ref=f4e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=f4e3]:
+    - link "In My Words" [ref=f4e4] [cursor=pointer]:
+      - /url: /
+    - generic [ref=f4e5]:
+      - button "Larger text" [ref=f4e6] [cursor=pointer]
+      - button "High contrast" [ref=f4e7] [cursor=pointer]
+  - main [ref=f4e8]:
+    - link "All residents" [ref=f4e9] [cursor=pointer]:
+      - /url: /staff
+    - paragraph [ref=f4e10]: Staff
+    - heading "Marcus" [level=1] [ref=f4e11]
+    - paragraph [ref=f4e12]: Single words and gestures. Picture tiles. Needs quiet to focus.
+    - navigation "Staff" [ref=f4e13]:
+      - link "Onboarding" [ref=f4e14] [cursor=pointer]:
+        - /url: /staff/marcus/onboarding
+      - link "Photos" [ref=f4e15] [cursor=pointer]:
+        - /url: /staff/marcus/photos
+      - link "Coach" [ref=f4e16] [cursor=pointer]:
+        - /url: /staff/marcus/coach
+      - link "Since last shift" [ref=f4e17] [cursor=pointer]:
+        - /url: /staff/handoff?resident=marcus
+      - link "Activity" [ref=f4e18] [cursor=pointer]:
+        - /url: /staff/activity?resident=marcus
+    - generic [ref=f4e19]:
+      - navigation "Onboarding progress" [ref=f4e20]:
+        - generic [ref=f4e23]:
+          - generic [ref=f4e24]:
+            - generic [ref=f4e25]: "1"
+            - generic [ref=f4e26]: Essentials
+          - generic [ref=f4e27]:
+            - generic [ref=f4e28]: "2"
+            - generic [ref=f4e29]: Story
+          - generic [ref=f4e30]:
+            - generic [ref=f4e31]: "3"
+            - generic [ref=f4e32]: Routines
+          - generic [ref=f4e33]:
+            - generic [ref=f4e34]: "4"
+            - generic [ref=f4e35]: Ready to go
+      - 'heading "Onboarding: Marcus" [level=1] [ref=f4e37]'
+      - generic [ref=f4e38]:
+        - heading "Key Facts About Marcus" [level=2] [ref=f4e39]
+        - generic [ref=f4e40]:
+          - generic [ref=f4e41]:
+            - paragraph [ref=f4e42]: I like bowling on Saturdays.
+            - generic [ref=f4e43]: In their words
+          - generic [ref=f4e44]:
+            - paragraph [ref=f4e45]: Drinks coffee.
+            - generic [ref=f4e46]: From records, 2021
+        - paragraph [ref=f4e47]: Quick essentials for your first shift (~2 minutes)
+      - link [ref=f4e49] [cursor=pointer]:
+        - /url: /staff/marcus/coach
+        - button "💬 Ask the Coach anytime" [ref=f4e50]
+      - generic [ref=f4e51]:
+        - button "Go to previous section" [disabled] [ref=f4e52]: ← Back
+        - button "Go to next section" [ref=f4e53] [cursor=pointer]: "Next: Story →"
+  - alert [ref=f4e54]

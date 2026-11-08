@@ -34,15 +34,15 @@ test("loading notice gives calm, polite feedback without animation or a time lim
 });
 
 test("staff and resident routes have loading feedback; nested fallbacks do not duplicate the shell", () => {
-  for (const Loading of [StaffLoading, ResidentLoading]) {
+  for (const Loading of [ResidentLoading]) {
     const html = renderToStaticMarkup(<Loading />);
     assert.match(html, /role="status"/);
     assert.match(html, /<main/);
   }
-  for (const Loading of [StaffSectionLoading, ResidentSectionLoading]) {
+  for (const Loading of [StaffLoading, StaffSectionLoading, ResidentSectionLoading]) {
     const html = renderToStaticMarkup(<Loading />);
     assert.match(html, /role="status"/);
-    assert.doesNotMatch(html, /<main|<header/);
+    assert.doesNotMatch(html, /<main|class="(?:r-topbar|s-shell)"/);
   }
 });
 

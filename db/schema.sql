@@ -8,6 +8,9 @@
 CREATE EXTENSION IF NOT EXISTS vector;
 
 DROP VIEW IF EXISTS profile_items;
+DROP MATERIALIZED VIEW IF EXISTS input_daily CASCADE;
+DROP TABLE IF EXISTS input_events CASCADE;
+DROP TABLE IF EXISTS custom_gestures CASCADE;
 DROP TABLE IF EXISTS emh_events, emh_checklist, emh_notes, bookings, calendar_events,
   staff_tasks, action_results, action_plans, observations, memories, choices,
   sentences, story_answers, story_chapters, tiles, staff, residents, homes CASCADE;
@@ -173,6 +176,38 @@ CREATE TABLE emh_events (
   resident_id TEXT REFERENCES residents(id),
   event       TEXT NOT NULL,
   created_at  TIMESTAMPTZ DEFAULT now()
+);
+
+-- Gaze/gesture/touch outcome events (GAZE_GESTURE_PLAN §6). One row per
+-- OUTCOME (select/approve/cancel/timeout), never per frame — no video,
+-- no raw gaze samples, ever. Becomes a Timescale hypertable with a daily
+-- continuous aggregate in db/timescale_setup (run by reset.py — those
+-- statements can't run inside this transaction).
+CREATE TABLE input_events (
+  ts          TIMESTAMPTZ NOT NULL,
+  resident_id TEXT REFERENCES residents(id),
+  session_id  TEXT,
+  input_type  TEXT NOT NULL CHECK (input_type IN ('touch', 'gaze', 'gesture')),
+  action      TEXT NOT NULL CHECK (action IN ('select', 'approve', 'cancel', 'custom')),
+  target      TEXT,
+  hold_ms     INT,
+  gesture     TEXT,
+  confidence  REAL,
+  outcome     TEXT NOT NULL CHECK (outcome IN ('confirmed', 'cancelled', 'timeout'))
+);
+
+CREATE INDEX input_events_resident_ts_idx ON input_events (resident_id, ts);
+
+-- G8: taught personal gestures. samples = 5 normalized 63-float arrays
+-- (wrist at origin, scaled by hand size). One row per resident + tile;
+-- re-teaching replaces it. Landmarks only — never video.
+CREATE TABLE custom_gestures (
+  id          SERIAL PRIMARY KEY,
+  resident_id TEXT REFERENCES residents(id),
+  tile_label  TEXT NOT NULL,
+  samples     JSONB NOT NULL,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (resident_id, tile_label)
 );
 
 -- The profile IS the confirmed memory store (PROJECT_PLAN §3).

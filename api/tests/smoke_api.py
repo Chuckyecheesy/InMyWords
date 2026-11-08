@@ -26,7 +26,9 @@ def hit(method, path, body=None, expect_keys=()):
     req = urllib.request.Request(url, data=data, method=method,
                                  headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        # 60s: live Gemini endpoints (/suggest, /story/draft, /coach/ask) can
+        # take 10-20s each; demo-critical latency is tracked separately.
+        with urllib.request.urlopen(req, timeout=60) as resp:
             payload = json.loads(resp.read().decode())
         missing = [k for k in expect_keys if k not in payload]
         if missing:
@@ -43,7 +45,7 @@ def hit(method, path, body=None, expect_keys=()):
 
 print("residents + speak-for-me")
 hit("GET", "/residents/marcus", expect_keys=("name", "voice_id", "tiles", "communication_style"))
-hit("PUT", "/residents/marcus/voice", {"voice_id": "voice_marcus_1"}, ("ok",))
+hit("PUT", "/residents/marcus/voice", {"voice_id": "kH3DRVrsOPrpd0ciIeWk"}, ("ok",))  # real ElevenLabs voice (James's T1.1)
 hit("POST", "/suggest", {"resident_id": "marcus", "tiles": ["coffee", "now"], "time": "morning"},
     ("options",))
 hit("POST", "/speak", {"resident_id": "marcus", "text": "Can I get a double-double?"}, ("audio_url",))
@@ -80,6 +82,36 @@ if pending.get("memories"):
     hit("POST", f"/memories/{mem_id}/confirm", {"confirmed": True, "resident_id": "marcus"}, ("ok",))
 else:
     print("  note: confirm skipped (queue empty — fine after repeated runs)")
+
+print("gaze/gesture input (G5)")
+hit("POST", "/input-events",
+    {"events": [{"ts": "2026-11-08T10:15:02Z", "resident_id": "marcus", "session_id": "s-smoke",
+                 "input_type": "gaze", "action": "select", "target": "coffee", "hold_ms": 1080,
+                 "gesture": None, "confidence": 0.8, "outcome": "confirmed"}]},
+    ("saved",))
+profile = hit("GET", "/input-profile/marcus",
+              expect_keys=("preferred_select", "preferred_yes", "dwell_ms", "rates", "confidence"))
+if profile and profile.get("events_counted"):
+    checks = [
+        ("preferred_select", profile["preferred_select"] == "gaze"),
+        ("preferred_yes", profile["preferred_yes"] == "Thumb_Up"),
+        ("dwell_ms ~1045", 1000 <= profile["dwell_ms"] <= 1100),
+        ("evening note", any("evening" in n for n in profile["notes"])),
+        ("confidence high", profile["confidence"] == "high"),
+    ]
+    bad = [name for name, ok in checks if not ok]
+    if bad:
+        failures.append(f"input-profile worked example mismatch: {bad} -> {profile}")
+    else:
+        print("  ok   profile matches the worked example (gaze, Thumb_Up, ~1045ms, evening note)")
+
+print("custom gestures (G8)")
+sample = [round(0.01 * i, 4) for i in range(63)]
+hit("POST", "/custom-gestures",
+    {"resident_id": "marcus", "tile": "go outside", "samples": [sample] * 5}, ("ok",))
+taught = hit("GET", "/custom-gestures/marcus", expect_keys=("gestures",))
+if taught and not any(g.get("tile_label") == "go outside" for g in taught.get("gestures", [])):
+    failures.append("custom-gestures roundtrip: saved gesture not returned")
 
 print("staff")
 hit("GET", "/handoff?staff_id=jordan&resident_id=marcus", expect_keys=("items",))

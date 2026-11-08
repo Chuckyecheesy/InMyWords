@@ -3,7 +3,7 @@
     "id": "dana",
     "home_id": "birch_house",
     "first_name": "Dana",
-    "voice_id": null,
+    "voice_id": "HTTgQl5PH22smEaufnZl",
     "communication_style": "Picture tiles and some short phrases. Manages a weekly budget with support.",
     "weekly_budget": 60.0
   },
@@ -24,7 +24,7 @@
   "story_chapters": [
     {
       "chapter_key": "about_me",
-      "text": "I'm Dana. I grow things — tomatoes last summer, and I want a balcony herb garden next. My sister visits every Sunday and we drink tea.",
+      "text": "I'm Dana. I grow things. Tomatoes last summer, and I want a balcony herb garden next. My sister visits every Sunday and we drink tea.",
       "photo_ids": ["story/dana_garden"],
       "status": "draft"
     },

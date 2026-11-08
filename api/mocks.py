@@ -10,7 +10,7 @@ RESIDENTS = {
     "marcus": {
         "id": "marcus",
         "name": "Marcus",
-        "voice_id": "voice_marcus_1",
+        "voice_id": "kH3DRVrsOPrpd0ciIeWk",
         "communication_style": "Single words and gestures. Picture tiles. Needs quiet to focus.",
         "tiles": [
             {"id": 1, "label": "coffee", "category": "food & drink", "cloudinary_id": "tiles/marcus_coffee", "times_used": 48},
@@ -30,7 +30,7 @@ RESIDENTS = {
     "dana": {
         "id": "dana",
         "name": "Dana",
-        "voice_id": "voice_dana_1",
+        "voice_id": "HTTgQl5PH22smEaufnZl",
         "communication_style": "Picture tiles and some short phrases. Manages a weekly budget with support.",
         "tiles": [
             {"id": 21, "label": "garden", "category": "activities", "cloudinary_id": "tiles/dana_garden", "times_used": 35},
@@ -60,7 +60,7 @@ STORY = {
             {
                 "id": 1,
                 "chapter_key": "about_me",
-                "text": "I'm Marcus. I'm 34. I love the Raptors and bowling on Saturdays. My coffee order is a double-double from Tim's. Loud rooms are hard for me — quiet helps.",
+                "text": "I'm Marcus. I'm 34. I love the Raptors and bowling on Saturdays. My coffee order is a double-double from Tim's. Loud rooms are hard for me. Quiet helps.",
                 "photo_ids": ["story/marcus_portrait", "story/marcus_bowling"],
                 "audio_url": "https://example.com/audio/marcus_about_me.mp3",
                 "status": "approved",
@@ -80,7 +80,7 @@ STORY = {
             {
                 "id": 3,
                 "chapter_key": "about_me",
-                "text": "I'm Dana. I grow things — tomatoes last summer, and I want a balcony herb garden next. My sister visits every Sunday and we drink tea.",
+                "text": "I'm Dana. I grow things. Tomatoes last summer, and I want a balcony herb garden next. My sister visits every Sunday and we drink tea.",
                 "photo_ids": ["story/dana_garden"],
                 "audio_url": "https://example.com/audio/dana_about_me.mp3",
                 "status": "approved",
@@ -106,7 +106,7 @@ COACH_ANSWERS = {
         ],
     },
     "unknown": {
-        "answer": "I don't know — it's best to ask Marcus.",
+        "answer": "I don't know. It's best to ask Marcus.",
         "sources": [],
     },
 }
@@ -178,7 +178,7 @@ CHOICE_WITH_CONSEQUENCES = {
     "options": [
         {"label": "bowling", "photo": "tiles/marcus_bowling", "cost": 15.00, "consequence": "Costs $15. You'd have $25 left this week."},
         {"label": "movie", "photo": "tiles/marcus_movie", "cost": 12.00, "consequence": "Costs $12. You'd have $28 left this week."},
-        {"label": "not decided yet", "photo": "tiles/marcus_later", "cost": 0, "consequence": "That's okay — we can come back to this."},
+        {"label": "not decided yet", "photo": "tiles/marcus_later", "cost": 0, "consequence": "That's okay. We can come back to this."},
     ],
     "status": "not_yet_decided",
 }

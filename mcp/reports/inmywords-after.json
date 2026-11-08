@@ -1,0 +1,281 @@
+{
+  "ratio": 100.0,
+  "pages": [
+    {
+      "url": "http://127.0.0.1:3000/",
+      "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+      "ratio": 100.0,
+      "groups": {
+        "alternatives": {
+          "title": "Alternatives (visual)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "keyboard": {
+          "title": "Keyboard (physical)",
+          "passed": 9,
+          "applicable": 9,
+          "ratio": 100.0
+        },
+        "transcripts": {
+          "title": "Transcripts (auditory)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "understand": {
+          "title": "Understand and navigate",
+          "passed": 30,
+          "applicable": 30,
+          "ratio": 100.0
+        }
+      },
+      "checks_passed": 39,
+      "checks_applicable": 39,
+      "findings": [],
+      "truncated": {
+        "contrast_capped": false
+      },
+      "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+      "markdown": "# Accessibility report\n\n- URL: http://127.0.0.1:3000/\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Ratio: 100.0\n\n## Groups\n\n- Alternatives (visual): not applicable\n- Keyboard (physical): 100.0 (9/9)\n- Transcripts (auditory): not applicable\n- Understand and navigate: 100.0 (30/30)\n\n## Findings\n\nNo failures in the applicable checks.\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+    },
+    {
+      "url": "http://127.0.0.1:3000/resident/marcus",
+      "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+      "ratio": 100.0,
+      "groups": {
+        "alternatives": {
+          "title": "Alternatives (visual)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "keyboard": {
+          "title": "Keyboard (physical)",
+          "passed": 24,
+          "applicable": 24,
+          "ratio": 100.0
+        },
+        "transcripts": {
+          "title": "Transcripts (auditory)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "understand": {
+          "title": "Understand and navigate",
+          "passed": 54,
+          "applicable": 54,
+          "ratio": 100.0
+        }
+      },
+      "checks_passed": 78,
+      "checks_applicable": 78,
+      "findings": [],
+      "truncated": {
+        "contrast_capped": false
+      },
+      "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+      "markdown": "# Accessibility report\n\n- URL: http://127.0.0.1:3000/resident/marcus\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Ratio: 100.0\n\n## Groups\n\n- Alternatives (visual): not applicable\n- Keyboard (physical): 100.0 (24/24)\n- Transcripts (auditory): not applicable\n- Understand and navigate: 100.0 (54/54)\n\n## Findings\n\nNo failures in the applicable checks.\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+    },
+    {
+      "url": "http://127.0.0.1:3000/resident/marcus/voice",
+      "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+      "ratio": 100.0,
+      "groups": {
+        "alternatives": {
+          "title": "Alternatives (visual)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "keyboard": {
+          "title": "Keyboard (physical)",
+          "passed": 11,
+          "applicable": 11,
+          "ratio": 100.0
+        },
+        "transcripts": {
+          "title": "Transcripts (auditory)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "understand": {
+          "title": "Understand and navigate",
+          "passed": 31,
+          "applicable": 31,
+          "ratio": 100.0
+        }
+      },
+      "checks_passed": 42,
+      "checks_applicable": 42,
+      "findings": [],
+      "truncated": {
+        "contrast_capped": false
+      },
+      "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+      "markdown": "# Accessibility report\n\n- URL: http://127.0.0.1:3000/resident/marcus/voice\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Ratio: 100.0\n\n## Groups\n\n- Alternatives (visual): not applicable\n- Keyboard (physical): 100.0 (11/11)\n- Transcripts (auditory): not applicable\n- Understand and navigate: 100.0 (31/31)\n\n## Findings\n\nNo failures in the applicable checks.\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+    },
+    {
+      "url": "http://127.0.0.1:3000/resident/marcus/story",
+      "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+      "ratio": 100.0,
+      "groups": {
+        "alternatives": {
+          "title": "Alternatives (visual)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "keyboard": {
+          "title": "Keyboard (physical)",
+          "passed": 11,
+          "applicable": 11,
+          "ratio": 100.0
+        },
+        "transcripts": {
+          "title": "Transcripts (auditory)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "understand": {
+          "title": "Understand and navigate",
+          "passed": 37,
+          "applicable": 37,
+          "ratio": 100.0
+        }
+      },
+      "checks_passed": 48,
+      "checks_applicable": 48,
+      "findings": [],
+      "truncated": {
+        "contrast_capped": false
+      },
+      "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+      "markdown": "# Accessibility report\n\n- URL: http://127.0.0.1:3000/resident/marcus/story\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Ratio: 100.0\n\n## Groups\n\n- Alternatives (visual): not applicable\n- Keyboard (physical): 100.0 (11/11)\n- Transcripts (auditory): not applicable\n- Understand and navigate: 100.0 (37/37)\n\n## Findings\n\nNo failures in the applicable checks.\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+    },
+    {
+      "url": "http://127.0.0.1:3000/resident/marcus/choice",
+      "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+      "ratio": 100.0,
+      "groups": {
+        "alternatives": {
+          "title": "Alternatives (visual)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "keyboard": {
+          "title": "Keyboard (physical)",
+          "passed": 11,
+          "applicable": 11,
+          "ratio": 100.0
+        },
+        "transcripts": {
+          "title": "Transcripts (auditory)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "understand": {
+          "title": "Understand and navigate",
+          "passed": 35,
+          "applicable": 35,
+          "ratio": 100.0
+        }
+      },
+      "checks_passed": 46,
+      "checks_applicable": 46,
+      "findings": [],
+      "truncated": {
+        "contrast_capped": false
+      },
+      "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+      "markdown": "# Accessibility report\n\n- URL: http://127.0.0.1:3000/resident/marcus/choice\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Ratio: 100.0\n\n## Groups\n\n- Alternatives (visual): not applicable\n- Keyboard (physical): 100.0 (11/11)\n- Transcripts (auditory): not applicable\n- Understand and navigate: 100.0 (35/35)\n\n## Findings\n\nNo failures in the applicable checks.\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+    },
+    {
+      "url": "http://127.0.0.1:3000/staff",
+      "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+      "ratio": 100.0,
+      "groups": {
+        "alternatives": {
+          "title": "Alternatives (visual)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "keyboard": {
+          "title": "Keyboard (physical)",
+          "passed": 12,
+          "applicable": 12,
+          "ratio": 100.0
+        },
+        "transcripts": {
+          "title": "Transcripts (auditory)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "understand": {
+          "title": "Understand and navigate",
+          "passed": 37,
+          "applicable": 37,
+          "ratio": 100.0
+        }
+      },
+      "checks_passed": 49,
+      "checks_applicable": 49,
+      "findings": [],
+      "truncated": {
+        "contrast_capped": false
+      },
+      "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+      "markdown": "# Accessibility report\n\n- URL: http://127.0.0.1:3000/staff\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Ratio: 100.0\n\n## Groups\n\n- Alternatives (visual): not applicable\n- Keyboard (physical): 100.0 (12/12)\n- Transcripts (auditory): not applicable\n- Understand and navigate: 100.0 (37/37)\n\n## Findings\n\nNo failures in the applicable checks.\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+    },
+    {
+      "url": "http://127.0.0.1:3000/staff/marcus/coach",
+      "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+      "ratio": 100.0,
+      "groups": {
+        "alternatives": {
+          "title": "Alternatives (visual)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "keyboard": {
+          "title": "Keyboard (physical)",
+          "passed": 12,
+          "applicable": 12,
+          "ratio": 100.0
+        },
+        "transcripts": {
+          "title": "Transcripts (auditory)",
+          "passed": 0,
+          "applicable": 0,
+          "ratio": null
+        },
+        "understand": {
+          "title": "Understand and navigate",
+          "passed": 35,
+          "applicable": 35,
+          "ratio": 100.0
+        }
+      },
+      "checks_passed": 47,
+      "checks_applicable": 47,
+      "findings": [],
+      "truncated": {
+        "contrast_capped": false
+      },
+      "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+      "markdown": "# Accessibility report\n\n- URL: http://127.0.0.1:3000/staff/marcus/coach\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n- Ratio: 100.0\n\n## Groups\n\n- Alternatives (visual): not applicable\n- Keyboard (physical): 100.0 (12/12)\n- Transcripts (auditory): not applicable\n- Understand and navigate: 100.0 (35/35)\n\n## Findings\n\nNo failures in the applicable checks.\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+    }
+  ],
+  "guideline": "https://www.w3.org/WAI/fundamentals/accessibility-intro/",
+  "disclaimer": "This ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.",
+  "markdown": "# Accessibility site report\n\n- Ratio: 100.0\n- Guideline: https://www.w3.org/WAI/fundamentals/accessibility-intro/\n\n## Pages\n\n- http://127.0.0.1:3000/: 100.0\n- http://127.0.0.1:3000/resident/marcus: 100.0\n- http://127.0.0.1:3000/resident/marcus/voice: 100.0\n- http://127.0.0.1:3000/resident/marcus/story: 100.0\n- http://127.0.0.1:3000/resident/marcus/choice: 100.0\n- http://127.0.0.1:3000/staff: 100.0\n- http://127.0.0.1:3000/staff/marcus/coach: 100.0\n\n## Disclaimer\n\nThis ratio is an automated reading of the checks taught in the W3C introduction to web accessibility (alternative text, keyboard access, transcripts, and the related ability to perceive, understand, navigate, and interact, with WCAG 2.2 AA contrast numbers). W3C WAI states that no tool alone can determine whether a site meets accessibility guidelines. This report is not a conformance claim.\n"
+}

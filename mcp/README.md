@@ -2,7 +2,7 @@
 
 **Owner: Tiffany (T2)** (Data & MCP lead)
 
-Four Python FastMCP servers over **streamable HTTP**, so both our backend and Claude Desktop (stretch demo) can connect to the same servers. All agent data access goes through these — never direct DB access from agents.
+Python FastMCP servers over **streamable HTTP**, so both our backend and Claude Desktop (stretch demo) can connect to the same servers. All agent data access goes through these — never direct DB access from agents. The accessibility server is separate: it scores any page and does not read resident data.
 
 ## Status & running
 
@@ -12,12 +12,15 @@ Four Python FastMCP servers over **streamable HTTP**, so both our backend and Cl
 | emh (`emh_server.py`, :8104) | ✅ built, 3 tools | `cd mcp && python emh_server.py` |
 | memory (`memory_server.py`, :8102) | ✅ built, 5 tools + `get_pending` | `cd mcp && python memory_server.py` |
 | actions (`actions_server.py`, :8103) | ✅ built, 6 tools + approve/cancel/activity | `cd mcp && python actions_server.py` |
+| accessibility (`a11y_server.py`, :8105) | ✅ built, `audit_page` + `audit_pages` | `cd mcp && python a11y_server.py` |
 
 Actions notes: `plan_actions` only **proposes** (deterministic placeholder until William's Action agent, T4.7 — same shape). `approve_plan` runs the steps from the allowlist, logs each to `action_results`, and the executing tools **refuse any plan that isn't approved** — the gate lives in the server, not the UI. `cancel_plan` works until steps have run. Email is real when `EMAIL_SENDER_*` creds exist, otherwise logged as sent. The mock booking page (`python mock-booking/app.py`, :8200) shows bookings landing live.
 
+Memory server also carries the gaze/gesture input layer (G5): `log_input_event`, `log_input_events` (batch), `get_input_profile` — events land in the `input_events` hypertable with the `input_daily` continuous aggregate (created by `db/reset.py`); profile rules are plain arithmetic in `store.build_input_profile`.
+
 Memory notes: `recall` ranks by keyword + recency (vector similarity joins the ranking once embeddings are backfilled after T3.1 — same output shape). Confirming a memory flips it to `confirmed` with `source = resident` ("in Marcus's words"); dismissing marks it `dismissed`. `remember` merges near-duplicates by word overlap and bumps `times_seen`.
 
-`pip install -r requirements.txt` first. Smoke test (servers running): `python test_servers.py`.
+`pip install -r requirements.txt` first. The accessibility server also needs a browser: `python -m playwright install chromium`. Smoke test (servers running): `python test_servers.py`. Scorer tests (no browser): `python -m unittest test_a11y.py`.
 
 Data layer: `store.py` uses **Postgres when `DATABASE_URL` is set**, otherwise falls back to the **seed JSON in `db/seed/`** (writes are in-memory only in seed mode). The backend reaches these servers through `api/services/mcp_client.py` and falls back to mock JSON when a server is down — the frontend never breaks either way.
 
@@ -27,6 +30,9 @@ Data layer: `store.py` uses **Postgres when `DATABASE_URL` is set**, otherwise f
 | `memory_server/` | remember, recall(query, type), get_routines, propose_update, confirm_memory |
 | `actions_server/` | plan_actions, send_message (real email), add_to_calendar, book_activity (mock site), next_bus (optional), create_staff_task |
 | `emh_server/` | get_contact_notes, get_checklist, get_significant_events — **mock**; pitch point: swap for a real EMH connection with zero agent code changes |
+| `a11y_server/` | `audit_page(url)`, `audit_pages(urls)` — Playwright ratio from the [W3C accessibility intro](https://www.w3.org/WAI/fundamentals/accessibility-intro/): alt text, keyboard access, transcripts, and perceive / understand / navigate / interact (WCAG 2.2 AA contrast). Not a conformance claim. One-shot: `python a11y_server.py --audit URL --out reports/page.json` |
+
+Saved runs in `reports/`: the W3C intro page scored **92.8**. The In My Words demo routes scored **99.2** before the story and Coach fixes (two `h1`s on each, and an unlabelled Coach question) and **100** after. Sample chapters have no audio file, so that crawl does not exercise transcripts; spoken audio now carries the words on screen and a Stop control.
 
 Rules baked in:
 - Every returned fact includes **source and date**.

@@ -1,10 +1,11 @@
-import { AppShell } from "@/components/AppShell";
 import { LoadingNotice } from "@/components/LoadingNotice";
+import { StaffHead } from "@/components/ui";
 
 export default function Loading() {
   return (
-    <AppShell eyebrow="Staff" title="Getting things ready…" backHref="/" backLabel="Home">
+    <>
+      <StaffHead eyebrow="Staff" title="Getting things ready…" />
       <LoadingNotice message="Loading the staff page…" />
-    </AppShell>
+    </>
   );
 }

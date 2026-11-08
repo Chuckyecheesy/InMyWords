@@ -17,8 +17,9 @@ from services.gemini import SCHEMAS, GeminiError
 
 _WORD = re.compile(r"[A-Za-z0-9]+(?:[-'][A-Za-z0-9]+)*")
 _MAX_WORDS = 12
-_MAX_TILES = 6
+_MAX_TILES = 3
 _MAX_TILE_CHARS = 40
+_ANSWERS = {"yes", "no"}
 # Tiles have to become sentences in under 3 seconds. Leave the rest for the route.
 _MODEL_WAIT_SECONDS = 2.5
 # At most two Gemini calls at once. A third tap gets the written fallback
@@ -47,7 +48,7 @@ _SYSTEM = (
 
 
 def clean_tiles(tiles: list[str] | None) -> list[str]:
-    """Keep short tile labels. Punctuation that could change a search is removed."""
+    """Keep a short phrase. Yes and no cannot both be in it."""
     cleaned: list[str] = []
     for tile in tiles or []:
         if not isinstance(tile, str):
@@ -56,9 +57,10 @@ def clean_tiles(tiles: list[str] | None) -> list[str]:
         text = " ".join(text.split())[:_MAX_TILE_CHARS]
         if text:
             cleaned.append(text)
-        if len(cleaned) == _MAX_TILES:
-            break
-    return cleaned
+    answer = next((tile for tile in reversed(cleaned) if tile.lower() in _ANSWERS), None)
+    wants = [tile for tile in cleaned if tile.lower() not in _ANSWERS]
+    kept = ([answer] if answer else []) + wants
+    return kept[:_MAX_TILES]
 
 
 def word_count(sentence: str) -> int:
@@ -162,24 +164,49 @@ def _noun(tile: str, memories: list[dict]) -> str:
     return label
 
 
+def _phrase(tiles: list[str], memories: list[dict], personal: bool) -> str:
+    parts = [_noun(tile, memories) if personal else tile.strip() for tile in tiles]
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) == 2:
+        return f"{parts[0]} and {parts[1]}"
+    return f"{', '.join(parts[:-1])} and {parts[-1]}"
+
+
 def compose(tiles: list[str], memories: list[dict], time_of_day: str = "") -> list[str]:
     """Faithful lines with no model. Used when Gemini is absent or a line fails."""
     if not tiles:
         return ["I need help.", "I need help, please."]
-    phrases = [_noun(tile, memories) for tile in tiles]
-    joined = " and ".join(phrases)
-    plain = " and ".join(tile.strip() for tile in tiles)
-    candidates = [
-        f"I want {joined}.",
-        f"Can I have {joined}, please?",
-        f"I want {plain}.",
-        f"Can I have {plain}, please?",
-    ]
+    answer = next((tile for tile in tiles if tile.lower() in _ANSWERS), None)
+    wants = [tile for tile in tiles if tile.lower() not in _ANSWERS]
+    said = ""
+    if answer:
+        said = answer[:1].upper() + answer[1:].lower()
+    if answer and not wants:
+        candidates = [f"I want {answer.lower()}.", f"Can I have {answer.lower()}, please?"]
+    elif answer and wants:
+        personal = _phrase(wants, memories, True)
+        plain = _phrase(wants, memories, False)
+        candidates = [
+            f"{said}. I want {personal}.",
+            f"{said}. Can I have {plain}, please?",
+            f"I want {personal}.",
+            f"I want {plain}.",
+        ]
+    else:
+        personal = _phrase(wants, memories, True)
+        plain = _phrase(wants, memories, False)
+        candidates = [
+            f"I want {personal}.",
+            f"Can I have {personal}, please?",
+            f"I want {plain}.",
+            f"Can I have {plain}, please?",
+        ]
     options: list[str] = []
     seen: set[str] = set()
     for line in candidates:
         key = line.lower()
-        if key in seen:
+        if key in seen or word_count(line) > _MAX_WORDS:
             continue
         if not is_faithful(line, tiles, memories, time_of_day):
             continue
@@ -187,12 +214,6 @@ def compose(tiles: list[str], memories: list[dict], time_of_day: str = "") -> li
         options.append(line)
         if len(options) == 3:
             break
-    if len(options) < 2:
-        for line in (f"I want {plain}.", f"Can I have {plain}, please?"):
-            if line.lower() not in seen:
-                options.append(line)
-            if len(options) == 2:
-                break
     return options[:3]
 
 
@@ -289,9 +310,11 @@ def suggest(
     if generate is not None:
         caller = generate
         if generate == "auto":
-            from services.gemini import generate_json
+            from functools import partial
 
-            caller = generate_json
+            from services.gemini import generate_for
+
+            caller = partial(generate_for, "voice")
         raw = _ask_model(caller, _prompt(name, tiles, time_of_day, remembered))
         if raw is not None:
             options = _accept(raw, tiles, remembered, time_of_day)

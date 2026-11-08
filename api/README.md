@@ -13,7 +13,7 @@ agents/
   voice.py             tile tap → 2–3 written sentences (T3.2, wired to POST /suggest)
   coach.py             sourced answers, "I don't know, ask Marcus" (T4)
   story.py             chapter writing from interview answers (T3)
-  choice.py            consequences, never recommends (T3)
+  choice.py            consequences, never recommends (T3.6, wired to POST /choices)
   action.py            online steps vs. staff tasks, approval card (T4)
   handoff.py           since-last-shift summary (T2)
   memory/              observer.py, consolidator.py, routines.py, retriever.py,
@@ -54,7 +54,7 @@ python -m unittest tests.test_gemini
 
 ## ElevenLabs voice service (T1)
 
-`services/elevenlabs.py` is the only ElevenLabs client (plain REST via `httpx`). It needs `ELEVENLABS_API_KEY` in the repo-root `.env`. Without the key, `/speak` stays in mock mode and returns the placeholder URL, so the app still runs.
+`services/elevenlabs.py` is the only ElevenLabs client (plain REST via `httpx`). It needs `ELEVENLABS_ID` in the repo-root `.env`. Without the key, `/speak` stays in mock mode and returns the placeholder URL, so the app still runs.
 
 - `POST /speak {resident_id, text}` → `{audio_url, cached}`. Call it **only after the resident approves** the text. For "speak tiles only", send the tile words as `text` (`"coffee now"`).
   - Audio comes from the low-latency `eleven_flash_v2_5` model and is cached on disk by model + voice + text in `api/audio-cache/` (gitignored), then served at `/audio/<hash>.mp3`. A repeated line never calls ElevenLabs again.

@@ -28,6 +28,8 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 | `GET /handoff` | staff_id, resident_id | items with type and date | T2 |
 | `GET /activity/{resident_id}` | — | actions, choices, sentences log | T2 |
 | `POST /observations` | resident_id, staff_id, note | ok | T2 |
+| `POST /input-events` *(gaze/gesture, Nov 8)* | events: [{ts, resident_id, session_id, input_type, action, target, hold_ms, gesture, confidence, outcome}] | saved: N | T2 |
+| `GET /input-profile/{resident_id}` *(gaze/gesture, Nov 8)* | — | preferred_select, preferred_yes, dwell_ms, rates, notes, events_counted, confidence | T2 |
 
 ## Cross-team data shapes (PROJECT_PLAN §7)
 
@@ -41,6 +43,8 @@ Owners: **T1 = James** (Voice) · **T2 = Tiffany** (Data/MCP) · **T3 = Ahmed** 
 - **Confirm memory**: in resident + memory + yes/no → out updated status
 - **Plan actions**: in resident + goal → out online steps, staff tasks, cost
 - **Run actions**: in approved plan ID → out results per step
+- **Log input event** (memory MCP `log_input_event`): in one gaze/gesture/touch outcome event → out ok
+- **Input profile** (memory MCP `get_input_profile`): in resident → out preferred select/yes, dwell_ms, rates, notes
 
 ## Source labels (used everywhere)
 

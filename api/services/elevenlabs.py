@@ -9,13 +9,15 @@ Product rule: this module only turns text into audio. It is the caller's job
 to call it ONLY after the resident approved the text (the /speak route is
 hit from the approval card's ✅). Nothing here decides what gets said.
 
-Cache: one mp3 per (model, voice_id, normalized text) in CACHE_DIR, served by
-main.py at /audio/<file>. A repeated sentence never hits ElevenLabs again,
-which keeps "approve → audio" instant and saves credits.
+Cache: one mp3 per (model, voice settings, voice_id, normalized text) in
+CACHE_DIR, served by main.py at /audio/<file>. A repeated sentence never hits
+ElevenLabs again, which keeps "approve → audio" instant and saves credits.
+Changing the pace or the model starts a new file, so an older flat reading
+is not reused.
 
 Env (repo-root .env):
-    ELEVENLABS_API_KEY            required for live audio; without it /speak stays in mock mode
-    ELEVENLABS_TTS_MODEL          optional, default eleven_flash_v2_5 (low latency)
+    ELEVENLABS_ID            required for live audio (ELEVENLABS_API_KEY also works); without it /speak stays in mock mode
+    ELEVENLABS_TTS_MODEL          optional, default eleven_multilingual_v2 (warmer than flash)
     ELEVENLABS_FALLBACK_VOICE_ID  optional (alias ELEVENLABS_DEFAULT_VOICE_ID), used before
                                   voices.json / profile has a voice
     AUDIO_CACHE_DIR               optional, default api/audio-cache (gitignored)
@@ -31,6 +33,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 
 import httpx
@@ -40,7 +43,27 @@ _REPO = Path(__file__).resolve().parents[2]
 load_dotenv(_REPO / ".env")
 
 API = "https://api.elevenlabs.io/v1"
-TTS_MODEL = os.environ.get("ELEVENLABS_TTS_MODEL", "eleven_flash_v2_5")
+# Multilingual v2 is slower to generate than flash, and it sounds like a person.
+# Flash stays available by setting ELEVENLABS_TTS_MODEL=eleven_flash_v2_5.
+TTS_MODEL = os.environ.get("ELEVENLABS_TTS_MODEL", "eleven_multilingual_v2")
+# stability under 0.5 lets the pitch move. style stays low so it does not
+# turn theatrical. speed is 0.7 to 1.2; 0.8 is an unhurried speaking pace.
+VOICE_SETTINGS = {
+    "stability": 0.4,
+    "similarity_boost": 0.8,
+    "style": 0.15,
+    "use_speaker_boost": True,
+    "speed": 0.8,
+}
+# Story interviewer and onboarding coach. Turbo is warm enough for a live
+# conversation without the wait of multilingual v2. Same pace as narration.
+AGENT_TTS = {
+    "model_id": "eleven_turbo_v2_5",
+    "stability": VOICE_SETTINGS["stability"],
+    "similarity_boost": VOICE_SETTINGS["similarity_boost"],
+    "style": VOICE_SETTINGS["style"],
+    "speed": VOICE_SETTINGS["speed"],
+}
 VOICE_DESIGN_MODEL = "eleven_multilingual_ttv_v2"
 OUTPUT_FORMAT = "mp3_44100_128"
 CACHE_DIR = Path(os.environ.get("AUDIO_CACHE_DIR", _REPO / "api" / "audio-cache"))
@@ -62,24 +85,37 @@ class ElevenLabsError(Exception):
 
 
 def api_key() -> str | None:
-    return os.environ.get("ELEVENLABS_API_KEY") or None
+    # Both names are in use (local .env files say ELEVENLABS_API_KEY; c24639f renamed
+    # it to ELEVENLABS_ID). Accept either so a rename never silently mocks /speak.
+    return os.environ.get("ELEVENLABS_ID") or os.environ.get("ELEVENLABS_API_KEY") or None
 
 
 def configured() -> bool:
     return api_key() is not None
 
 
+_own: tuple[httpx.AsyncClient, asyncio.AbstractEventLoop] | None = None
+
+
 def _client() -> httpx.AsyncClient:
-    global _http
-    if _http is None:
+    # The pool is tied to the event loop it was opened on. uvicorn has one loop,
+    # but scripts and tests call asyncio.run() more than once, and reusing the
+    # old pool there fails with "Event loop is closed". So a pool we opened is
+    # replaced on a new loop. A client set on _http from outside (test mocks)
+    # is left alone.
+    global _http, _own
+    loop = asyncio.get_running_loop()
+    stale = _own is not None and _http is _own[0] and _own[1] is not loop
+    if _http is None or stale:
         _http = httpx.AsyncClient(base_url=API, timeout=httpx.Timeout(20.0, connect=5.0))
+        _own = (_http, loop)
     return _http
 
 
 def _headers() -> dict:
     key = api_key()
     if not key:
-        raise ElevenLabsError("ELEVENLABS_API_KEY is not set (add it to the repo-root .env)")
+        raise ElevenLabsError("ELEVENLABS_ID (or ELEVENLABS_API_KEY) is not set (add it to the repo-root .env)")
     return {"xi-api-key": key}
 
 
@@ -90,13 +126,28 @@ def _raise_for(resp: httpx.Response, what: str) -> None:
 
 # ---------- text to speech ----------
 
+# An em dash, an en dash, or a spaced double hyphen. A hyphen inside a word stays.
+_DASH = re.compile(r"\s*(?:—|–|--)\s*")
+_AFTER_STOP = re.compile(r"([.!?]\s+)([a-z])")
+
+
 def normalize(text: str) -> str:
-    """Collapse whitespace so "Can I  get coffee?" and "Can I get coffee?" share a file."""
-    return " ".join(text.split())
+    """Collapse whitespace, and turn a dash used as a pause into a new sentence.
+
+    "hard for me — quiet helps" and "hard for me. Quiet helps" share a file.
+    "double-double" is left alone.
+    """
+    text = _DASH.sub(". ", text)
+    text = re.sub(r"\s+([,.!?;:])", r"\1", text)
+    text = re.sub(r"([.!?])(?:\s*\1)+", r"\1", text)
+    text = " ".join(text.split())
+    text = _AFTER_STOP.sub(lambda match: match.group(1) + match.group(2).upper(), text)
+    return text.strip()
 
 
 def cache_key(voice_id: str, text: str) -> str:
-    raw = f"{TTS_MODEL}|{voice_id}|{normalize(text)}"
+    settings = "|".join(f"{name}={VOICE_SETTINGS[name]}" for name in ("stability", "similarity_boost", "style", "speed"))
+    raw = f"{TTS_MODEL}|{settings}|{voice_id}|{normalize(text)}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
 
 
@@ -121,7 +172,7 @@ async def synthesize(voice_id: str, text: str) -> tuple[str, bool]:
             f"/text-to-speech/{voice_id}",
             params={"output_format": OUTPUT_FORMAT},
             headers={**_headers(), "Accept": "audio/mpeg"},
-            json={"text": text, "model_id": TTS_MODEL},
+            json={"text": text, "model_id": TTS_MODEL, "voice_settings": VOICE_SETTINGS},
         )
         _raise_for(resp, "text-to-speech")
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -157,6 +208,28 @@ def resident_voice(resident_id: str, profile_voice_id: str | None = None) -> str
 
 def has_override(resident_id: str) -> bool:
     return resident_id in _voice_overrides
+
+
+# ---------- conversational agents (T1.4 Story Interviewer, T1.6 Coach voice mode) ----------
+
+AGENTS = {"story": "ELEVENLABS_STORY_AGENT_ID", "coach": "ELEVENLABS_COACH_AGENT_ID"}
+
+
+def agent_id(kind: str) -> str | None:
+    """The configured agent for `kind` ("story" or "coach"), or None."""
+    env = AGENTS.get(kind)
+    return (os.environ.get(env) or None) if env else None
+
+
+async def signed_url(agent: str) -> str:
+    """A short-lived URL the browser uses to start one conversation with `agent`.
+
+    The API key and agent ID stay on the server; the browser only sees this URL.
+    """
+    resp = await _client().get(
+        "/convai/conversation/get-signed-url", params={"agent_id": agent}, headers=_headers())
+    _raise_for(resp, "agent session")
+    return resp.json()["signed_url"]
 
 
 # ---------- Voice Design (T1.1, used by scripts/design_voices.py) ----------

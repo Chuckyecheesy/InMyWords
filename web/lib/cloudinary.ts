@@ -8,6 +8,7 @@ import { TILE_PAD } from "./tokens";
  * 2. e_background_removal — drop the room behind the person or object
  * 3. c_pad,w_720,h_720 — 40px of the same padding on every side
  * 4. r_48 — the same rounded corners
+ * 5. f_auto/q_auto — format and quality chosen at delivery
  *
  * High contrast adds e_contrast:50 and e_sharpen:80, and pads on white.
  * Pad colours come from lib/tokens.ts so they match --card.
@@ -32,7 +33,7 @@ export function unsignedUploadFields(input: {
   apiSecret?: string;
   apiKey?: string;
 }): { cloud_name: string; upload_preset: string } {
-  const cloud_name = input.cloudName.trim();
+  const cloud_name = input.cloudName.trim().toLowerCase();
   const upload_preset = input.uploadPreset.trim();
   if (!cloud_name || !upload_preset) {
     throw new Error("Unsigned upload needs a cloud name and an upload preset.");
@@ -40,14 +41,59 @@ export function unsignedUploadFields(input: {
   return { cloud_name, upload_preset };
 }
 
+/** A photo saved under web/public/demo, one file per public id. */
+export function demoPhotoUrl(publicId: string): string | null {
+  const id = publicId.replace(/^\/+/, "");
+  if (!id) return null;
+  return `/demo/${id}.jpg`;
+}
+
+/**
+ * URLs to try, saved file first.
+ *
+ * Opening Marcus used to ask Cloudinary for every tile (and a second hidden
+ * copy) before falling back to the file on this server. Those misses, plus
+ * the prefetched resident pages, were enough to make the app answer 502 and
+ * the click land on "This page couldn't load".
+ */
+export function photoSources(
+  publicId: string,
+  mode: "calm" | "contrast" | "story",
+): string[] {
+  const remote = mode === "story" ? storyImageUrl(publicId) : tileImageUrl(publicId, mode);
+  const local = demoPhotoUrl(publicId);
+  const sources: string[] = [];
+  for (const url of [local, remote]) {
+    if (url && !sources.includes(url)) sources.push(url);
+  }
+  return sources;
+}
+
+/** Wide chapter photo. Same cloud as tiles, from config. */
+export function storyImageUrl(publicId: string): string | null {
+  const cloud = cloudName();
+  const id = publicId.replace(/^\/+/, "");
+  if (!cloud || !id) return null;
+  return `https://res.cloudinary.com/${cloud}/image/upload/c_fill,g_auto,w_800,h_400/f_auto/q_auto/${id}`;
+}
+
 export function tileImageUrl(
   publicId: string,
   mode: "calm" | "contrast",
 ): string | null {
-  const cloud =
-    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
-    process.env.CLOUDINARY_CLOUD_NAME;
+  const cloud = cloudName();
   const id = publicId.replace(/^\/+/, "");
   if (!cloud || !id) return null;
-  return `https://res.cloudinary.com/${cloud}/image/upload/${TILE_RECIPE[mode]}/${id}`;
+  return `https://res.cloudinary.com/${cloud}/image/upload/${TILE_RECIPE[mode]}/f_auto/q_auto/${id}`;
+}
+
+/** Cloudinary cloud names are lowercase. The saved value may be the display name. */
+function cloudName(): string {
+  return (
+    process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+    process.env.CLOUDINARY_CLOUD_NAME ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
 }

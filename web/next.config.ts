@@ -24,8 +24,18 @@ if (fs.existsSync(rootEnv)) {
   }
 }
 
+// Client tiles read NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME. The shared .env
+// stores the same cloud name without that prefix.
+if (!process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME) {
+  process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+}
+
 const nextConfig: NextConfig = {
   devIndicators: false,
+  async rewrites() {
+    const api = (process.env.API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+    return [{ source: "/backend/:path*", destination: `${api}/:path*` }];
+  },
   images: {
     remotePatterns: [
       {

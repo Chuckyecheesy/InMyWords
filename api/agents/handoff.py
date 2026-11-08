@@ -58,18 +58,22 @@ async def build_handoff(staff_id: str, resident_id: str) -> dict:
 
 def _maybe_polish(items, name):
     """Optional Gemini pass for smoother wording. Facts and dates are the
-    input and must survive; any failure returns the plain bullets."""
+    input and must survive; any failure returns the plain bullets.
+    OFF by default: measured ~30s on live Gemini, and handoff must load
+    fast at shift start. Set HANDOFF_POLISH=1 to enable."""
     import os
+    if os.environ.get("HANDOFF_POLISH") != "1":
+        return items
     if not os.environ.get("GEMINI_API_KEY") or not items:
         return items
     try:
-        from services.gemini import SCHEMAS, generate_json
+        from services.gemini import SCHEMAS, generate_for
         prompt = (
             f"Rewrite these shift-handoff items about {name} as short plain bullets "
             f"for support staff. Facts only. Keep every date exactly. Never guess causes. "
             f"Keep the type of each item.\n\n"
             + "\n".join(f"- [{i['type']} | {i['date']}] {i['text']}" for i in items))
-        result = generate_json(prompt, SCHEMAS["handoff"]["items"])
+        result = generate_for("handoff", prompt, SCHEMAS["handoff"]["items"])
         polished = result.get("items") if isinstance(result, dict) else None
         if polished and len(polished) == len(items):
             return polished

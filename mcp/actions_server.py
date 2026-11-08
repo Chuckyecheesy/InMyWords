@@ -12,9 +12,9 @@ Guardrails baked in:
   sent (the plan's venue fallback). Never sends money, never shares
   personal info — the allowlist below is the whole action surface.
 
-plan_actions is a deterministic PLACEHOLDER until William's Action
-agent (T4.7) plugs in — same output shape. Cost math is plain code
-here either way; the agent only phrases results.
+plan_actions remains a deterministic placeholder for callers that
+only have a goal. save_plan stores the plan the Action agent already
+built. Cost is recomputed in code either way.
 """
 
 import os
@@ -67,8 +67,7 @@ def _approved_plan_or_error(plan_id):
 def plan_actions(resident: str, goal: str) -> dict:
     """Split a goal into online steps + staff tasks with total cost.
     PROPOSES only — returns a plan for the resident's approval card.
-    (Deterministic placeholder until William's Action agent, T4.7.)"""
-    store = get_store()
+    Placeholder for callers that do not pass the Action agent's steps."""
     goal_l = goal.lower()
     steps = []
     if "bowling" in goal_l:
@@ -91,17 +90,39 @@ def plan_actions(resident: str, goal: str) -> dict:
             {"step": "create_staff_task", "kind": "staff", "detail": f"Support with: {goal}",
              "task": f"Support {resident.capitalize()} with: {goal}", "time": "2026-11-14T13:30:00", "cost": 0},
         ]
+    return _save_plan(resident, goal, steps, agent="placeholder-until-T4.7")
+
+
+def _save_plan(resident: str, goal: str, steps: list, agent: str) -> dict:
     total = sum(s["cost"] for s in steps)  # plain code, never the LLM
-    plan = store.create_plan(resident, goal, steps, total)
+    plan = get_store().create_plan(resident, goal, steps, total)
     return {
         "plan_id": plan["id"],
         "goal": goal,
         "online_steps": [s for s in steps if s["kind"] == "online"],
-        "staff_tasks": [{"task": s.get("task", s["detail"]), "due": s.get("time")}
+        "staff_tasks": [{"task": s.get("task", s["detail"]), "due": s.get("due") or s.get("time")}
                         for s in steps if s["kind"] == "staff"],
         "total_cost": total,
         "status": "proposed",
-        "agent": "placeholder-until-T4.7",
+        "agent": agent,
+    }
+
+
+@mcp.tool
+def save_plan(resident: str, goal: str, steps: list[dict]) -> dict:
+    """Persist a plan built by the Action agent (T4.7). The server re-checks
+    the allowlist and recomputes the total, so the agent cannot sneak in a
+    tool or a cost. Status is always 'proposed'."""
+    store = get_store()
+    clean = [s for s in steps if s.get("step") in ALLOWED_STEPS]
+    total = sum(float(s.get("cost", 0)) for s in clean if s.get("kind") != "staff")
+    plan = store.create_plan(resident, goal, clean, total)
+    return {
+        "plan_id": plan["id"], "goal": goal,
+        "online_steps": [s for s in clean if s.get("kind") != "staff"],
+        "staff_tasks": [{"task": s.get("task", s.get("detail")), "due": s.get("time")}
+                        for s in clean if s.get("kind") == "staff"],
+        "total_cost": total, "status": "proposed", "agent": "action",
     }
 
 

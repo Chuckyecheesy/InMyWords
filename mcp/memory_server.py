@@ -4,9 +4,9 @@ Run:  python mcp/memory_server.py          (streamable HTTP on :8102)
 
 Confirmed memories ARE the profile. Everything inferred stays "pattern
 noticed" (pending) until the resident confirms it — then it becomes
-"in <name>'s words" (source flips to resident). recall ranks by keyword
-+ recency now; vector similarity joins the ranking once embeddings are
-backfilled (after Ahmed's T3.1) with no shape change.
+"in <name>'s words" (source flips to resident). recall is hybrid
+RAG — Gemini embedding similarity + keywords + recency (mcp/retrieval.py),
+falling back to keywords when embeddings are unavailable. Same output shape.
 """
 
 from fastmcp import FastMCP
@@ -36,6 +36,9 @@ def _fact(m, name):
         "status": m["status"],
         "label": source_label(_label_source(m), name, str(date)),
         "update_reason": m.get("update_reason"),
+        # Additive: raw query cosine from recall (None outside recall or when
+        # unembedded). The consolidator uses it to spot a fact seen again.
+        "similarity": m.get("similarity"),
     }
 
 
@@ -64,12 +67,15 @@ def remember(resident: str, event: str, source: str = "inferred",
 
 
 @mcp.tool
-def recall(resident: str, query: str, type: str = "") -> dict:
+def recall(resident: str, query: str, type: str = "", broad: bool = False) -> dict:
     """Matching memories with source and confirmation status, best first.
-    type filters to preference | event | routine; empty = all."""
+    Hybrid RAG: semantic similarity + keywords + recency (mcp/retrieval.py).
+    type filters to preference | event | routine; empty = all.
+    broad=True returns every on-topic memory, not just the closest ones
+    (used by the consolidator's contradiction check)."""
     store = get_store()
     name = _name(store, resident)
-    memories = store.recall(resident, query, type or None)
+    memories = store.recall(resident, query, type or None, broad=broad)
     return {"resident": resident, "query": query,
             "memories": [_fact(m, name) for m in memories],
             "store_mode": store.mode}
@@ -130,6 +136,57 @@ def confirm_memory(resident: str, memory: int, confirmed: bool) -> dict:
         return {"error": f"no memory {memory} for '{resident}'"}
     return {"memory": _fact(row, _name(store, resident)),
             "now": "confirmed — in the resident's words" if confirmed else "dismissed",
+            "store_mode": store.mode}
+
+
+@mcp.tool
+def log_input_event(event: dict) -> dict:
+    """Save one gaze/gesture/touch OUTCOME event (GAZE_GESTURE_PLAN §7).
+    Fields: ts, resident_id, session_id, input_type (touch|gaze|gesture),
+    action (select|approve|cancel|custom), target, hold_ms, gesture,
+    confidence, outcome (confirmed|cancelled|timeout). Never video, never
+    raw gaze samples."""
+    store = get_store()
+    saved = store.log_input_events([event])
+    return {"ok": True, "saved": saved, "store_mode": store.mode}
+
+
+@mcp.tool
+def log_input_events(events: list[dict]) -> dict:
+    """Batch version of log_input_event — what POST /input-events uses
+    (the frontend queue flushes every 2 s)."""
+    store = get_store()
+    saved = store.log_input_events(events)
+    return {"ok": True, "saved": saved, "store_mode": store.mode}
+
+
+@mcp.tool
+def get_input_profile(resident: str) -> dict:
+    """How this resident communicates best, learned from input history
+    (last 14 days): preferred select method, preferred yes, dwell_ms,
+    confirmed rates, time-of-day notes, confidence. Plain arithmetic.
+    Labelled 'from input history' — never the resident's own words."""
+    store = get_store()
+    return dict(store.get_input_profile(resident), store_mode=store.mode)
+
+
+@mcp.tool
+def save_custom_gesture(resident: str, tile: str, samples: list[list[float]]) -> dict:
+    """G8: store a taught personal gesture — 5 normalized landmark samples
+    (63 floats each) for one tile. Re-teaching the same tile replaces it.
+    Landmarks only, never video."""
+    if not samples or any(len(s) != 63 for s in samples):
+        return {"error": "samples must be non-empty 63-float landmark arrays"}
+    store = get_store()
+    store.save_custom_gesture(resident, tile, samples)
+    return {"ok": True, "tile": tile, "samples": len(samples), "store_mode": store.mode}
+
+
+@mcp.tool
+def get_custom_gestures(resident: str) -> dict:
+    """G8: the resident's taught gestures for the recognition loop."""
+    store = get_store()
+    return {"resident": resident, "gestures": store.get_custom_gestures(resident),
             "store_mode": store.mode}
 
 

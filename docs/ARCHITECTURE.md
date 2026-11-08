@@ -51,6 +51,7 @@ flowchart LR
 3. **Confirmed memories ARE the profile**: the profile server reads the memory store; `profile_items` is a view over `memories WHERE status = 'confirmed'`.
 4. **The approval gate lives in the actions server** — executing tools refuse any plan the resident hasn't approved, regardless of what the UI does.
 5. **Every fact carries source + date** (`resident | staff | emh | document | inferred`) from the moment it enters the store.
+6. **Gaze/gesture video never leaves the device** (added Nov 8): WebGazer + MediaPipe run in the browser on one shared camera stream, with consent, off by default. Only batched outcome events reach `POST /input-events` → memory server `log_input_event` → the `input_events` hypertable; `get_input_profile` reads the daily continuous aggregate for adaptive settings and the "How I Communicate" Coach card. Gaze/gesture selections go through the same confirmation as taps. Spec: [GAZE_GESTURE_PLAN.md](GAZE_GESTURE_PLAN.md).
 
 ## Swap story (the pitch slide)
 

@@ -44,6 +44,56 @@ MARCUS_BINDER_FACTS = [
         "content": "Hot drink with breakfast around 7:30",
         "evidence": "Hot drink with breakfast at about 7:30",
     },
+    {
+        "type": "preference",
+        "content": (
+            "Marcus communicates with single words, gestures, and picture cards; "
+            "speak normally, not slowly"
+        ),
+        "evidence": (
+            "He communicates with single words, gestures, and a small set of "
+            "picture cards kept in the kitchen drawer. He understands far more "
+            "than he says — speak to him normally, not slowly."
+        ),
+    },
+    {
+        "type": "preference",
+        "content": (
+            "When overwhelmed, Marcus covers his ears and looks for the door; "
+            "give him space and somewhere quiet"
+        ),
+        "evidence": (
+            "When that happens he covers his ears and looks for the door. "
+            "Do not crowd him; give him space and somewhere quiet."
+        ),
+    },
+    {
+        "type": "routine",
+        "content": "Day program Monday to Friday; pickup is at 8:45",
+        "evidence": "Day program Monday to Friday, picked up at 8:45.",
+    },
+    {
+        "type": "routine",
+        "content": (
+            "Listens to music in his room most evenings, using over-ear headphones"
+        ),
+        "evidence": "Listens to music in his room most evenings, over-ear headphones.",
+    },
+    {
+        "type": "preference",
+        "content": "Being rushed through breakfast is difficult for Marcus",
+        "evidence": "Being rushed through breakfast.",
+    },
+    {
+        "type": "preference",
+        "content": "Last-minute changes to Saturday plans upset Marcus",
+        "evidence": "Last-minute changes to Saturday plans.",
+    },
+    {
+        "type": "preference",
+        "content": "Prefers a left-side window seat on bus rides",
+        "evidence": "Bus rides, window seat, left side.",
+    },
 ]
 
 

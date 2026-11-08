@@ -4,6 +4,8 @@ CommuniHacks 2026 | KW Habilitation: Communication Profile App (Problem 11)
 
 Companion to the [Project Plan](PROJECT_PLAN.md). This doc is the step-by-step build: setup, structure, specs, and every task for each teammate.
 
+> **Added Nov 8:** the eye-gaze + gesture input layer has its own build plan with tasks **G1–G8**, contracts, data model and demo beat — see [GAZE_GESTURE_PLAN.md](GAZE_GESTURE_PLAN.md). Summary of what it touches per area: `web/lib/input/*` + calibration/consent/grid components (frontend), `POST /input-events` + `GET /input-profile` (backend), `log_input_event`/`get_input_profile` on the memory server, and an `input_events` hypertable + daily continuous aggregate + seed history in `db/` (T2). Cut order G8 → G6 → G7; G1–G5 are the core.
+
 *(Markdown version of* `In_My_Words_Build_Plan.docx` *— the docx is the original; keep both in sync if either changes.)*
 
 ## 1. Build principles
@@ -32,7 +34,7 @@ Companion to the [Project Plan](PROJECT_PLAN.md). This doc is the step-by-step b
 
 ### 2.1 Environment variables
 
-See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_API_KEY` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the Google Calendar stretch.
+See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVENLABS_ID` + agent IDs, Cloudinary keys + upload preset, `API_BASE_URL`, the four `MCP_*_URL`s, `EMAIL_SENDER` credentials for send_message, and `GOOGLE_SERVICE_ACCOUNT_JSON` + `GOOGLE_CALENDAR_STAFF_EMAILS` for the Google Calendar stretch.
 
 ## 3. Repo structure
 
@@ -74,6 +76,9 @@ See [`.env.example`](../.env.example): `DATABASE_URL`, `GEMINI_API_KEY`, `ELEVEN
 | Routine detection | SQL grouping by weekday and hour, then Gemini phrases it | Patterns from data, not guesses. |
 | Calendar action (stretch) | Per-resident **Google Calendar**, dual-write | `calendar_events` in Tiger Data stays the source of truth; Google is a synced view. It's *the resident's* calendar — agent writes only resident-approved events, staff subscribe as readers. Real integration with zero contract changes (`add_to_calendar` input/output unchanged), and it drops cleanly if time runs out. |
 | Base profile layer | Import existing binder/record documents once at seed time (Gemini document understanding) | The binder gets read once — by the system. Extracted facts enter the memory store with `source = document` ("From records, 2019"), never shown as the resident's words, first in line for "Is this still true?" confirmation. Directly answers the problem statement and replaces hand-written seed JSON with a real capability. Staff upload UI is stretch. |
+| Gaze input | WebGazer, client-side dynamic import only | Browser + webcam, no special hardware; touches `window` so SSR must be disabled. 2×3 big-tile grid — webcam gaze resolves regions, not points. |
+| Gesture input | MediaPipe Gesture Recognizer (tasks-vision), VIDEO mode, 1 hand, reading WebGazer's shared video element | Thumb_Up/Open_Palm out of the box; one camera stream avoids conflicts. OpenCV evaluated and rejected (server video breaks the privacy story). |
+| Input telemetry | Outcome events only, batched every 2s → `input_events` hypertable + daily continuous aggregate | Never video, never raw gaze samples. High-frequency timestamped events are the Tiger Data textbook case; profile maths is plain code over the aggregate. |
 
 ### Latency targets
 
@@ -422,7 +427,7 @@ You own every screen, the Cloudinary photo pipeline, accessibility, and the pitc
 - Onboarding path: Essentials (2 min), Story, Routines timeline, progress indicator.
 - Coach chat: text and voice; every answer shows source badges ("In Marcus's words", "Staff note, Mar 3", "Pattern noticed").
 - Handoff list and add-observation form.
-- ✅ Done when: a new staff member can complete Essentials and ask the Coach questions.
+- ✅ Done when: if a new staff member can complete Essentials and ask the Coach questions.
 
 **T4.6 — Choice, action and memory screens (hours 14–16)**
 

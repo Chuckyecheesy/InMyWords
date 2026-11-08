@@ -37,21 +37,23 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self._saved = (elevenlabs.CACHE_DIR, elevenlabs.VOICES_FILE, elevenlabs._http,
-                       os.environ.get("ELEVENLABS_API_KEY"))
+                       {k: os.environ.get(k) for k in ("ELEVENLABS_ID", "ELEVENLABS_API_KEY")})
         elevenlabs.CACHE_DIR = Path(self.tmp.name) / "cache"
         elevenlabs.VOICES_FILE = Path(self.tmp.name) / "voices.json"
         elevenlabs._voice_overrides.clear()
-        os.environ["ELEVENLABS_API_KEY"] = "test-key"
+        os.environ["ELEVENLABS_ID"] = "test-key"
+        os.environ.pop("ELEVENLABS_API_KEY", None)  # the repo .env may set the other name
         self.fake = _FakeElevenLabs()
         elevenlabs._http = httpx.AsyncClient(base_url=elevenlabs.API, transport=httpx.MockTransport(self.fake))
 
     async def asyncTearDown(self):
         await elevenlabs._http.aclose()
-        elevenlabs.CACHE_DIR, elevenlabs.VOICES_FILE, elevenlabs._http, key = self._saved
-        if key is None:
-            os.environ.pop("ELEVENLABS_API_KEY", None)
-        else:
-            os.environ["ELEVENLABS_API_KEY"] = key
+        elevenlabs.CACHE_DIR, elevenlabs.VOICES_FILE, elevenlabs._http, env = self._saved
+        for name, value in env.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
         elevenlabs._voice_overrides.clear()
         self.tmp.cleanup()
 
@@ -68,7 +70,26 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
         req = self.fake.calls[0]
         self.assertEqual(req.url.path, "/v1/text-to-speech/voice_abc")
         self.assertEqual(req.headers["xi-api-key"], "test-key")
-        self.assertEqual(json.loads(req.content), {"text": "coffee now", "model_id": elevenlabs.TTS_MODEL})
+        self.assertEqual(
+            json.loads(req.content),
+            {"text": "coffee now", "model_id": elevenlabs.TTS_MODEL, "voice_settings": elevenlabs.VOICE_SETTINGS},
+        )
+
+    async def test_em_dash_becomes_a_sentence_and_shares_the_cache(self):
+        dashed, cached1 = await elevenlabs.synthesize("v1", "Loud rooms are hard for me — quiet helps.")
+        plain, cached2 = await elevenlabs.synthesize("v1", "Loud rooms are hard for me. Quiet helps.")
+        body = json.loads(self.fake.calls[0].content)
+        self.assertEqual(body["text"], "Loud rooms are hard for me. Quiet helps.")
+        self.assertEqual(body["voice_settings"]["speed"], 0.8)
+        self.assertLess(body["voice_settings"]["stability"], 0.5)
+        self.assertEqual(dashed, plain)
+        self.assertEqual((cached1, cached2), (False, True))
+        self.assertEqual(len(self.fake.calls), 1)
+
+    async def test_hyphenated_words_stay(self):
+        await elevenlabs.synthesize("v1", "I want a double-double.")
+        body = json.loads(self.fake.calls[0].content)
+        self.assertEqual(body["text"], "I want a double-double.")
 
     async def test_whitespace_shares_cache_but_voice_does_not(self):
         a, _ = await elevenlabs.synthesize("v1", "coffee   now ")
@@ -103,8 +124,57 @@ class SpeakServiceTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(elevenlabs.resident_voice("marcus", "from_profile"), "picked")
 
     def test_not_configured_without_key(self):
-        os.environ.pop("ELEVENLABS_API_KEY")
+        os.environ.pop("ELEVENLABS_ID")
         self.assertFalse(elevenlabs.configured())
+
+    def test_either_key_name_works(self):
+        os.environ.pop("ELEVENLABS_ID")
+        os.environ["ELEVENLABS_API_KEY"] = "other-name"
+        self.assertEqual(elevenlabs.api_key(), "other-name")
+
+
+class AgentSessionTest(unittest.IsolatedAsyncioTestCase):
+    """GET /agents/{kind}/session hands the browser a signed URL, never the key."""
+
+    def setUp(self):
+        self._saved = (elevenlabs._http, {k: os.environ.get(k) for k in
+                       ("ELEVENLABS_ID", "ELEVENLABS_API_KEY", "ELEVENLABS_STORY_AGENT_ID",
+                        "ELEVENLABS_COACH_AGENT_ID")})
+        os.environ["ELEVENLABS_ID"] = "test-key"
+        os.environ.pop("ELEVENLABS_API_KEY", None)
+        os.environ["ELEVENLABS_STORY_AGENT_ID"] = "agent_story"
+        os.environ.pop("ELEVENLABS_COACH_AGENT_ID", None)
+        self.calls: list[httpx.Request] = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            self.calls.append(request)
+            return httpx.Response(200, json={"signed_url": "wss://example/convai?token=abc"})
+
+        elevenlabs._http = httpx.AsyncClient(base_url=elevenlabs.API, transport=httpx.MockTransport(handler))
+        from fastapi.testclient import TestClient
+        import main
+        self.client = TestClient(main.app)
+
+    async def asyncTearDown(self):
+        await elevenlabs._http.aclose()
+        elevenlabs._http, env = self._saved
+        for key, value in env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    async def test_story_session_returns_signed_url_only(self):
+        resp = self.client.get("/agents/story/session")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {"signed_url": "wss://example/convai?token=abc"})
+        self.assertNotIn("test-key", resp.text)
+        self.assertEqual(self.calls[0].url.params["agent_id"], "agent_story")
+
+    async def test_unconfigured_agent_is_503_and_unknown_is_404(self):
+        self.assertEqual(self.client.get("/agents/coach/session").status_code, 503)
+        self.assertEqual(self.client.get("/agents/other/session").status_code, 404)
+        self.assertEqual(self.calls, [])
 
 
 if __name__ == "__main__":

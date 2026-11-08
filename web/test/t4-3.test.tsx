@@ -4,11 +4,11 @@
  * T3 unblock — `components/shared.tsx` exports TileButton, BigButton,
  * and AudioPlayback.
  * Staff shell — pick a resident, open each staff route, come back.
- * Milestone 1 — Marcus's home: coffee + now → real POST /suggest →
- * approve → POST /speak audio and POST /sentences with approved true.
- * Nothing is spoken or saved before that approval. "now" is the time
- * field, not a tile. Speak-tiles-only speaks the tile words and skips
- * /suggest.
+ * Milestone 1 — Speak For Me: coffee + now → real POST /suggest →
+ * tap a suggestion to review it → Approve & Speak → POST /speak audio and
+ * POST /sentences with approved true. Nothing is spoken or saved before
+ * that approval; Preview speaks without saving. "Now" is the time field,
+ * not a tile. "Say my words" speaks the tile words and skips /suggest.
  */
 import "./register-dom.ts";
 
@@ -27,6 +27,8 @@ const QUIET = "I would like a quiet coffee.";
 const DOUBLE_DOUBLE = "Can I get a double-double from Tim's?";
 const PARK_LINE = "Coffee first, then the park?";
 const TEA_LINE = "Tea instead, please.";
+const SUGGEST_ERROR = "I couldn't think of sentences just now. Your pictures are still here.";
+const SPEAK_ERROR = "The voice isn't working right now. Nothing was said or saved.";
 
 type Hit = { url: string; method: string; json: Record<string, unknown> | null };
 
@@ -203,7 +205,13 @@ async function renderSpeak(options: string[]) {
 
 async function chooseCoffeeAndNow(pointer: ReturnType<typeof user>) {
   await pointer.click(screen.getByRole("button", { name: "coffee" }));
-  await pointer.click(screen.getByRole("button", { name: "now" }));
+  await pointer.click(screen.getByRole("button", { name: "Now" }));
+}
+
+/** Tap a suggestion: it opens the review dialog, it does not speak. */
+async function review(pointer: ReturnType<typeof user>, text: string) {
+  await pointer.click(screen.getByRole("button", { name: text }));
+  return screen.getByRole("dialog", { name: "Is this what you want to say?" });
 }
 
 function suggestionsRegion() {
@@ -354,9 +362,12 @@ describe("T4.3", { concurrency: false }, () => {
 
         const again = audioUrlFor("again");
         const before = playback.played.length;
-        rerender(createElement(AudioPlayback, { src: again, autoPlay: true, label: "Hear it" }));
+        rerender(createElement(AudioPlayback, { src: again, autoPlay: true, label: "Hear it", transcript: "I like Saturday bowling." }));
         assert.ok(playback.played.slice(before).includes(again), "autoPlay starts playback on mount");
         screen.getByRole("button", { name: "Hear it" });
+        screen.getByRole("button", { name: "Stop" });
+        const said = screen.getByText("I like Saturday bowling.");
+        assert.equal(document.querySelector("audio")?.getAttribute("aria-describedby"), said.id);
       } finally {
         playback.stop();
       }
@@ -367,28 +378,22 @@ describe("T4.3", { concurrency: false }, () => {
     test("home offers the staff entrance", async () => {
       const { default: Home } = await import("../app/page.tsx");
       render(await Home());
-      const staff = screen.getByRole("link", { name: "I'm staff" });
+      const staff = screen.getByRole("link", { name: /I'm staff/ });
       assert.equal(staff.getAttribute("href"), "/staff");
     });
 
     test("pick-a-resident opens each person's staff shell", async () => {
       const { default: Staff } = await import("../app/staff/page.tsx");
       render(await Staff());
+      assert.equal(screen.getByRole("link", { name: "Marcus" }).getAttribute("href"), "/staff/marcus");
+      assert.equal(screen.getByRole("link", { name: "Dana" }).getAttribute("href"), "/staff/dana");
       assert.equal(
-        screen.getByRole("link", { name: /Marcus/ }).getAttribute("href"),
-        "/staff/marcus/onboarding",
-      );
-      assert.equal(
-        screen.getByRole("link", { name: /Dana/ }).getAttribute("href"),
-        "/staff/dana/onboarding",
-      );
-      assert.equal(
-        screen.getByRole("link", { name: "Since last shift" }).getAttribute("href"),
+        screen.getByRole("link", { name: /Since last shift/ }).getAttribute("href"),
         "/staff/handoff",
       );
       assert.equal(
-        screen.getByRole("link", { name: "Activity log" }).getAttribute("href"),
-        "/staff/activity",
+        screen.getAllByRole("link", { name: /onboarding/i })[0].getAttribute("href"),
+        "/staff/marcus/onboarding",
       );
     });
 
@@ -458,12 +463,12 @@ describe("T4.3", { concurrency: false }, () => {
       cleanup();
       const { default: Onboarding } = await import("../app/staff/[id]/onboarding/page.tsx");
       render(await Onboarding({ params: Promise.resolve({ id: "marcus" }) }));
-      screen.getByRole("heading", { name: "Essentials" });
+      screen.getByRole("heading", { name: /Onboarding/ });
 
       cleanup();
       const { default: Coach } = await import("../app/staff/[id]/coach/page.tsx");
       render(await Coach({ params: Promise.resolve({ id: "marcus" }) }));
-      screen.getByRole("heading", { name: "Ask" });
+      screen.getByRole("heading", { name: /Ask the Coach/ });
 
       cleanup();
       const { default: Handoff } = await import("../app/staff/handoff/page.tsx");
@@ -486,14 +491,21 @@ describe("T4.3", { concurrency: false }, () => {
   });
 
   describe("milestone 1 uses real suggestions and audio", { concurrency: false }, () => {
-    test("Marcus's home shows the speak controls on the tile grid", async () => {
+    test("Marcus's home links to Speak For Me, which shows the controls on the tile grid", async () => {
       const { default: ResidentHome } = await import("../app/resident/[id]/page.tsx");
       render(await ResidentHome({ params: Promise.resolve({ id: "marcus" }) }));
-      screen.getByRole("heading", { name: "Drinks" });
+      assert.equal(
+        screen.getByRole("link", { name: /Speak For Me/ }).getAttribute("href"),
+        "/resident/marcus/speak",
+      );
+      cleanup();
+      const { default: Speak } = await import("../app/resident/[id]/speak/page.tsx");
+      render(await Speak({ params: Promise.resolve({ id: "marcus" }) }));
+      screen.getByRole("heading", { name: "All pictures" });
       screen.getByRole("button", { name: "coffee" });
-      screen.getByRole("button", { name: "now" });
+      screen.getByRole("button", { name: "Now" });
       screen.getByRole("button", { name: "Help me say it" });
-      screen.getByRole("button", { name: /speak tiles only/i });
+      screen.getByRole("button", { name: /say my words/i });
     });
 
     test("Help me say it posts coffee and time now, and does not speak yet", async () => {
@@ -503,7 +515,7 @@ describe("T4.3", { concurrency: false }, () => {
       assert.equal(calls("/suggest").length, 0, "Help me say it waits until a tile is chosen");
       await chooseCoffeeAndNow(pointer);
       assert.match(screen.getByRole("region", { name: "Sentence" }).textContent ?? "", /coffee/);
-      assert.equal(screen.getByRole("button", { name: "now" }).getAttribute("aria-pressed"), "true");
+      assert.equal(screen.getByRole("button", { name: "Now" }).getAttribute("aria-pressed"), "true");
       await pointer.click(screen.getByRole("button", { name: "Help me say it" }));
       const suggest = calls("/suggest");
       assert.equal(suggest.length, 1);
@@ -551,8 +563,8 @@ describe("T4.3", { concurrency: false }, () => {
         const status = await screen.findByRole("status");
         assert.match(status.textContent ?? "", /thinking/i);
         screen.getByRole("button", { name: "coffee" });
-        screen.getByRole("heading", { name: "Drinks" });
-        assert.equal(screen.queryByRole("button", { name: "Approve" }), null);
+        screen.getByRole("heading", { name: "All pictures" });
+        assert.equal(screen.queryByRole("button", { name: /Approve/ }), null);
       } finally {
         release(json({ options: [QUIET, "Coffee, please."] }));
       }
@@ -565,9 +577,11 @@ describe("T4.3", { concurrency: false }, () => {
         await chooseCoffeeAndNow(pointer);
         await pointer.click(screen.getByRole("button", { name: "Help me say it" }));
         assert.equal(calls("/speak").length, 0);
-        const card = screen.getByText(QUIET).closest("article");
-        assert.ok(card, "each suggestion is an article");
-        await pointer.click(within(card).getByRole("button", { name: "Approve" }));
+        assert.ok(screen.getByText(QUIET).closest("article"), "each suggestion is an article");
+        const dialog = await review(pointer, QUIET);
+        within(dialog).getByText(`“${QUIET}”`);
+        assert.equal(calls("/speak").length, 0, "opening the review does not speak");
+        await pointer.click(within(dialog).getByRole("button", { name: /Approve & Speak/ }));
         const speak = calls("/speak");
         assert.equal(speak.length, 1);
         assert.equal(speak[0].url, `${API}/speak`);
@@ -599,7 +613,7 @@ describe("T4.3", { concurrency: false }, () => {
       await pointer.click(screen.getByRole("button", { name: "Help me say it" }));
       const card = screen.getByText(QUIET).closest("article");
       assert.ok(card);
-      await pointer.click(within(card).getByRole("button", { name: "Reject" }));
+      await pointer.click(within(card).getByRole("button", { name: /Not this one/ }));
       assert.equal(screen.queryByText(QUIET), null);
       screen.getByText("Coffee, please.");
       assert.equal(calls("/speak").length, 0);
@@ -607,13 +621,27 @@ describe("T4.3", { concurrency: false }, () => {
       assert.equal(document.querySelector("audio"), null);
     });
 
-    test("tapping a suggestion previews it and does not log it", async () => {
+    test("an AI sentence is never spoken without the review step, and Cancel speaks nothing", async () => {
+      const pointer = await renderSpeak([QUIET, "Coffee, please."]);
+      await chooseCoffeeAndNow(pointer);
+      await pointer.click(screen.getByRole("button", { name: "Help me say it" }));
+      assert.equal(screen.queryByRole("button", { name: /Approve & Speak/ }), null);
+      const dialog = await review(pointer, QUIET);
+      await pointer.click(within(dialog).getByRole("button", { name: /Cancel/ }));
+      assert.equal(screen.queryByRole("dialog"), null);
+      assert.equal(calls("/speak").length, 0);
+      assert.equal(calls("/sentences").length, 0);
+      assert.equal(document.querySelector("audio"), null);
+    });
+
+    test("Preview in the review speaks the sentence and does not log it", async () => {
       const playback = watchPlayback();
       try {
         const pointer = await renderSpeak([QUIET, "Coffee, please."]);
         await chooseCoffeeAndNow(pointer);
         await pointer.click(screen.getByRole("button", { name: "Help me say it" }));
-        await pointer.click(screen.getByRole("button", { name: QUIET }));
+        const dialog = await review(pointer, QUIET);
+        await pointer.click(within(dialog).getByRole("button", { name: /Preview/ }));
         assert.deepEqual(calls("/speak")[0]?.json, { resident_id: "marcus", text: QUIET });
         assert.equal(calls("/sentences").length, 0);
         const src = audioUrlFor(QUIET);
@@ -624,14 +652,39 @@ describe("T4.3", { concurrency: false }, () => {
       }
     });
 
-    test("Speak tiles only speaks the tile words, skips suggest, and logs them", async () => {
+    test("every tile cannot become one sentence", async () => {
+      const pointer = await renderSpeak([QUIET]);
+      for (const label of [
+        "no",
+        "yes",
+        "tea",
+        "coffee",
+        "quiet",
+        "help",
+        "bus",
+        "park",
+        "Lisa",
+        "bowling",
+        "Raptors",
+        "music",
+      ]) {
+        await pointer.click(screen.getByRole("button", { name: label }));
+      }
+      const text = screen.getByRole("region", { name: "Sentence" }).textContent ?? "";
+      assert.match(text, /Yes\. I want tea and coffee\./);
+      assert.doesNotMatch(text, /bowling/);
+      assert.match(text, /three tiles/i);
+      assert.equal(screen.getByRole("button", { name: "bowling" }).getAttribute("aria-pressed"), "false");
+    });
+
+    test("Say my words speaks the tile words, skips suggest, and logs them", async () => {
       const playback = watchPlayback();
       try {
         const pointer = await renderSpeak([QUIET]);
         await pointer.click(screen.getByRole("button", { name: "coffee" }));
         await pointer.click(screen.getByRole("button", { name: "tea" }));
-        await pointer.click(screen.getByRole("button", { name: "now" }));
-        await pointer.click(screen.getByRole("button", { name: /speak tiles only/i }));
+        await pointer.click(screen.getByRole("button", { name: "Now" }));
+        await pointer.click(screen.getByRole("button", { name: /say my words/i }));
         assert.equal(calls("/suggest").length, 0);
         assert.deepEqual(calls("/speak")[0]?.json, {
           resident_id: "marcus",
@@ -679,9 +732,9 @@ describe("T4.3", { concurrency: false }, () => {
       const pointer = user();
       await chooseCoffeeAndNow(pointer);
       await pointer.click(screen.getByRole("button", { name: "Help me say it" }));
-      await screen.findByText("The API returned 500.");
+      await screen.findByText(SUGGEST_ERROR);
       screen.getByRole("button", { name: "coffee" });
-      assert.equal(screen.queryByRole("button", { name: "Approve" }), null);
+      assert.equal(screen.queryByRole("button", { name: /Approve/ }), null);
       assert.equal(calls("/speak").length, 0);
       assert.equal(calls("/sentences").length, 0);
 
@@ -696,10 +749,9 @@ describe("T4.3", { concurrency: false }, () => {
       const again = user();
       await chooseCoffeeAndNow(again);
       await again.click(screen.getByRole("button", { name: "Help me say it" }));
-      const card = screen.getByText(QUIET).closest("article");
-      assert.ok(card);
-      await again.click(within(card).getByRole("button", { name: "Approve" }));
-      await screen.findByText("The API returned 500.");
+      const dialog = await review(again, QUIET);
+      await again.click(within(dialog).getByRole("button", { name: /Approve & Speak/ }));
+      await screen.findByText(SPEAK_ERROR);
       assert.equal(calls("/sentences").length, 0, "a sentence is saved only after it is spoken");
       assert.equal(document.querySelector("audio"), null);
     });

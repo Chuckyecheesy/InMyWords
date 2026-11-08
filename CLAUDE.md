@@ -5,7 +5,7 @@ Built in 24 hours for CommuniHacks 2026 (KW Habilitation, Problem 11).
 
 > Pitch: *Your story, told once, in your own voice. Your choices, made by you.*
 
-Full specs live in `docs/`: [PROJECT_PLAN.md](docs/PROJECT_PLAN.md) (features, agents, data model, demo script) and [BUILD_PLAN.md](docs/BUILD_PLAN.md) (tasks, schedule, API contracts). Read the relevant section before building anything.
+Full specs live in `docs/`: [PROJECT_PLAN.md](docs/PROJECT_PLAN.md) (features, agents, data model, demo script), [BUILD_PLAN.md](docs/BUILD_PLAN.md) (tasks, schedule, API contracts), and [GAZE_GESTURE_PLAN.md](docs/GAZE_GESTURE_PLAN.md) (eye-gaze + gesture input addition, tasks G1–G8). Read the relevant section before building anything.
 
 ## Non-negotiable product rules
 
@@ -17,6 +17,7 @@ These are guardrails, not preferences. Never write code that violates them:
 4. **Agents never touch the database directly** — all data access goes through the four MCP servers.
 5. **Actions require an approval card first**, run only from an allowlist, show costs, respect spending limits, and log everything.
 6. **Budget/cost math is plain code, never the LLM.** The LLM only phrases results.
+7. **Camera (gaze/gesture input) only with consent** — off by default, one-tap off, visible on-indicator. Video is processed on-device only, never stored or sent; only outcome events (select/approve/cancel) reach the backend. Inferred intent never triggers an action directly — every gaze/gesture selection still goes through confirmation. The input profile is labelled "from input history", never as the resident's words.
 
 ## Repo structure & ownership
 
@@ -34,6 +35,7 @@ Team roles: **T1 = James, Voice lead** (ElevenLabs, everything heard), **T2 = Ti
 ## Tech stack
 
 - **Frontend**: Next.js, React, TypeScript
+- **Gaze/gesture input**: WebGazer (eye tracking) + MediaPipe Gesture Recognizer — **client-side dynamic imports only** (both touch `window`; SSR crashes), **one shared camera stream** (MediaPipe reads WebGazer's video element). Events land in a Tiger Data hypertable (`input_events`) with a daily continuous aggregate.
 - **Backend + MCP**: Python, FastAPI, FastMCP (streamable HTTP)
 - **LLM**: Gemini Flash with structured JSON output; Gemini embeddings (vector size fixed at setup — never change it)
 - **Voice**: ElevenLabs (Voice Design, low-latency TTS cached by `voice_id + text`, Agents for Story interview & Coach voice mode)

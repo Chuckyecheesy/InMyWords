@@ -33,8 +33,12 @@ def get_profile(resident: str) -> dict:
     if not r:
         return {"error": f"no resident '{resident}'"}
     name = r["first_name"]
-    confirmed = _facts(store.get_memories(resident, ("confirmed",)), name)
+    # Fetch once: this used to re-query confirmed memories once per fact per
+    # section (~26 round trips to Tiger Data, ~7-10 s per profile).
+    confirmed_rows = store.get_memories(resident, ("confirmed",))
+    confirmed = _facts(confirmed_rows, name)
     pending = _facts(store.get_memories(resident, ("pending",)), name)
+    typed = {(m["content"], m["type"]) for m in confirmed_rows}
     return {
         "resident": resident,
         "name": name,
@@ -42,15 +46,9 @@ def get_profile(resident: str) -> dict:
         "communication_style": r.get("communication_style"),
         "weekly_budget": float(r["weekly_budget"]) if r.get("weekly_budget") is not None else None,
         "tiles": r["tiles"],
-        "preferences": [f for f in confirmed if any(
-            m["content"] == f["content"] and m["type"] == "preference"
-            for m in store.get_memories(resident, ("confirmed",)))],
-        "routines": [f for f in confirmed if any(
-            m["content"] == f["content"] and m["type"] == "routine"
-            for m in store.get_memories(resident, ("confirmed",)))],
-        "recent_events": [f for f in confirmed if any(
-            m["content"] == f["content"] and m["type"] == "event"
-            for m in store.get_memories(resident, ("confirmed",)))],
+        "preferences": [f for f in confirmed if (f["content"], "preference") in typed],
+        "routines": [f for f in confirmed if (f["content"], "routine") in typed],
+        "recent_events": [f for f in confirmed if (f["content"], "event") in typed],
         "pending_patterns": pending,
         "store_mode": store.mode,
     }
@@ -61,6 +59,70 @@ def get_story(resident: str) -> dict:
     """Story chapters with text, photos, narration audio and approval status."""
     store = get_store()
     return {"resident": resident, "chapters": store.get_story(resident), "store_mode": store.mode}
+
+
+def _answer_row(row: dict) -> dict:
+    created = row.get("created_at")
+    return {
+        "id": row.get("id"),
+        "resident_id": row.get("resident_id"),
+        "chapter": row.get("chapter_key") or row.get("chapter"),
+        "question": row.get("question"),
+        "answer": row.get("answer"),
+        "created_at": str(created) if created else None,
+    }
+
+
+@mcp.tool
+def save_story_answer(resident: str, chapter: str, question: str, answer: str) -> dict:
+    """Save one picture-interview answer. Does not approve or narrate the chapter."""
+    store = get_store()
+    if not store.get_resident(resident):
+        return {"error": f"no resident '{resident}'"}
+    answer_id = store.save_story_answer(resident, chapter, question, answer)
+    return {"ok": True, "id": answer_id, "store_mode": store.mode}
+
+
+@mcp.tool
+def get_story_answers(resident: str, chapter: str = "") -> dict:
+    """Interview answers for a resident, oldest first. Optional chapter key."""
+    store = get_store()
+    if not store.get_resident(resident):
+        return {"error": f"no resident '{resident}'"}
+    rows = store.get_story_answers(resident, chapter or None)
+    return {"answers": [_answer_row(row) for row in rows], "store_mode": store.mode}
+
+
+def _chapter_row(row: dict) -> dict:
+    return {
+        "id": row.get("id"),
+        "resident_id": row.get("resident_id"),
+        "chapter": row.get("chapter_key") or row.get("chapter"),
+        "text": row.get("text"),
+        "status": row.get("status") or "draft",
+        "audio_url": row.get("audio_url"),
+        "photo_ids": row.get("photo_ids") or [],
+    }
+
+
+@mcp.tool
+def get_story_chapter(chapter_id: int) -> dict:
+    """One chapter, including draft text. audio_url is empty until the resident approves."""
+    store = get_store()
+    row = store.get_chapter(int(chapter_id))
+    if not row:
+        return {"error": f"no chapter '{chapter_id}'"}
+    return {"chapter": _chapter_row(row), "store_mode": store.mode}
+
+
+@mcp.tool
+def approve_story_chapter(chapter_id: int, audio_url: str) -> dict:
+    """Mark a draft approved and store the narration URL. Call only after a yes."""
+    store = get_store()
+    row = store.approve_story_chapter(int(chapter_id), audio_url)
+    if not row:
+        return {"error": f"no chapter '{chapter_id}'"}
+    return {"chapter": _chapter_row(row), "store_mode": store.mode}
 
 
 @mcp.tool
@@ -81,7 +143,10 @@ def ask_about(resident: str, question: str) -> dict:
     name = r["first_name"] if r else resident
     hits = store.search_facts(resident, question)
     for h in hits:
-        h["label"] = source_label(h["source"] if h["status"] != "pending" else "inferred", name, h["date"])
+        # Only inferred facts read as "pattern noticed" while pending. Binder
+        # facts keep "From records" even when flagged for a re-check.
+        pending_inferred = h["status"] == "pending" and h["source"] in ("inferred", "pattern")
+        h["label"] = source_label("inferred" if pending_inferred else h["source"], name, h["date"])
     return {"resident": resident, "question": question, "facts": hits,
             "unknown": len(hits) == 0, "store_mode": store.mode}
 
@@ -172,6 +237,22 @@ def add_observation(resident: str, staff: str, note: str) -> dict:
     store = get_store()
     obs_id = store.add_observation(resident, staff, note)
     return {"id": obs_id, "source": "staff", "store_mode": store.mode}
+
+
+@mcp.tool
+def save_tile(resident: str, label: str, cloudinary_id: str, category: str = "") -> dict:
+    """Staff photo -> picture tile (T4.2). A tile with the same label gets the
+    new photo instead of a duplicate. Additive tool; the photo agent calls it
+    only after its checks (and staff confirmation when the photo looked wrong)."""
+    label = (label or "").strip()
+    cloudinary_id = (cloudinary_id or "").strip().strip("/")
+    if not label or not cloudinary_id:
+        return {"error": "a tile needs a label and a cloudinary_id"}
+    store = get_store()
+    if not store.get_resident(resident):
+        return {"error": f"unknown resident '{resident}'"}
+    tile, replaced = store.save_tile(resident, label, category.strip() or None, cloudinary_id)
+    return {"resident": resident, "tile": tile, "replaced": replaced, "store_mode": store.mode}
 
 
 if __name__ == "__main__":

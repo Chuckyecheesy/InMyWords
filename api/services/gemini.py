@@ -38,6 +38,24 @@ from jsonschema import Draft202012Validator
 
 EMBEDDING_DIM = 768
 FLASH_MODEL = "gemini-3.8-flash"
+STEADY_MODEL = "gemini-3.5-flash"
+LITE_MODEL = "gemini-3.5-flash-lite"
+
+# (primary, fallback) per feature. Hard work (writing, extracting) uses the
+# steady model; easy work (yes/no, one short sentence) uses the lite model,
+# which also has its own request budget. Fallbacks use a different model so
+# one overloaded model does not stop a feature.
+# Override with GEMINI_MODEL_<FEATURE> and GEMINI_MODEL_<FEATURE>_FALLBACK.
+FEATURE_MODELS = {
+    "voice": (LITE_MODEL, STEADY_MODEL),   # fastest first; compose() is the last fallback
+    "coach": (STEADY_MODEL, FLASH_MODEL),
+    "handoff": (STEADY_MODEL, FLASH_MODEL),
+    "story": (STEADY_MODEL, FLASH_MODEL),
+    "memory": (STEADY_MODEL, FLASH_MODEL),
+    "memory_easy": (LITE_MODEL, STEADY_MODEL),
+    "photo": (STEADY_MODEL, FLASH_MODEL),  # T4.2 photo checker (vision)
+    "action": (LITE_MODEL, STEADY_MODEL),  # T4.7 Action agent: lite measured 1-5s, 5/5 goals
+}
 EMBED_MODEL = "gemini-embedding-001"
 
 # Stored memories use RETRIEVAL_DOCUMENT. Recall queries use RETRIEVAL_QUERY.
@@ -56,6 +74,8 @@ _COACH_SOURCES = ["resident", "staff", "emh", "document", "pattern"]
 _MEMORY_SOURCES = ["resident", "staff", "emh", "document", "inferred", "pattern"]
 _OBSERVER_SOURCES = ["inferred", "staff"]
 _ONLINE_STEPS = ["send_message", "add_to_calendar", "book_activity", "next_bus"]
+# Action agent proposer: the four allowlisted tools (agents/action.py ALLOWED_STEPS).
+_PLAN_STEPS = ["book_activity", "add_to_calendar", "send_message", "create_staff_task"]
 # Item kinds the staff handoff screen keeps (web/lib/api.ts normalizeHandoff).
 _HANDOFF_TYPES = ["emh", "checklist", "observation", "choice", "task", "memory"]
 _DATE = {"type": "string", "format": "date", "pattern": r"^\d{4}-\d{2}-\d{2}$"}
@@ -101,7 +121,8 @@ SCHEMAS: dict[str, dict] = {
     "story": {
         "draft": _object(
             "My Story chapter draft. 3 to 5 first-person sentences. "
-            "Use only the interview answers. Do not add facts.",
+            "Use only the interview answers. Do not add facts. "
+            "No em dashes or en dashes.",
             {"text": {"type": "string"}},
             ["text"],
         ),
@@ -132,6 +153,7 @@ SCHEMAS: dict[str, dict] = {
         "answer": _object(
             "Onboarding Coach. 1 to 3 plain sentences grounded in the supplied facts. "
             "If none of the facts answer the question, say so in answer and leave sources empty. "
+            "No em dashes or en dashes. "
             "Source type pattern means a noticed pattern, not the resident's words.",
             {
                 "answer": {"type": "string"},
@@ -211,6 +233,30 @@ SCHEMAS: dict[str, dict] = {
         ),
     },
     "action": {
+        "steps": _object(
+            "Action agent step proposer. Steps from the allowlist only. "
+            "No costs or totals: code prices every step. Empty strings for fields a step does not use.",
+            {
+                "steps": {
+                    "type": "array",
+                    "items": _object(
+                        "One proposed step.",
+                        {
+                            "step": {"type": "string", "enum": _PLAN_STEPS},
+                            "detail": {"type": "string"},
+                            "activity": {"type": "string"},
+                            "time": {"type": "string"},
+                            "title": {"type": "string"},
+                            "contact": {"type": "string"},
+                            "text": {"type": "string"},
+                            "task": {"type": "string"},
+                        },
+                        ["step", "detail", "activity", "time", "title", "contact", "text", "task"],
+                    ),
+                },
+            },
+            ["steps"],
+        ),
         "plan": _object(
             "Action agent. Steps from the allowlist only. "
             "create_staff_task is staff_tasks, not an online step. "
@@ -336,6 +382,20 @@ EXAMPLES: dict[str, dict] = {
         },
     },
     "action": {
+        "steps": {
+            "steps": [
+                {"step": "book_activity", "detail": "Bowling at KW Bowl, Saturday 2:00pm",
+                 "activity": "bowling", "time": "2026-11-14T14:00:00", "title": "",
+                 "contact": "", "text": "", "task": ""},
+                {"step": "send_message", "detail": "Email Lisa about Saturday bowling",
+                 "activity": "", "time": "", "title": "", "contact": "lisa",
+                 "text": "Marcus is going bowling on Saturday at 2pm. Would you like to join?",
+                 "task": ""},
+                {"step": "create_staff_task", "detail": "Drive Marcus to KW Bowl",
+                 "activity": "", "time": "2026-11-14T13:30:00", "title": "", "contact": "",
+                 "text": "", "task": "Drive Marcus to KW Bowl"},
+            ],
+        },
         "plan": {
             "online_steps": [
                 {
@@ -460,11 +520,15 @@ def generate_json(
     temperature: float = 0.2,
     client=None,
     attempts: int = 2,
+    timeout_ms: int = 20000,
+    images: list[tuple[bytes, str]] | None = None,
 ) -> dict:
     """Return JSON that validates against `schema`.
 
     One retry is included when the first answer fails validation.
     `client` is the google-genai client. Tests pass a fake; callers omit it.
+    `images` (additive, T4.2 photo checker): [(bytes, mime_type)] sent before
+    the prompt so the model can look at them. Text-only callers are unchanged.
     """
     if not prompt or not prompt.strip():
         raise ValueError("prompt is empty")
@@ -476,13 +540,17 @@ def generate_json(
         "response_json_schema": _gemini_schema(schema),
         # One attempt, at least 10s. Shorter deadlines are rejected, and
         # the default retry loop holds a tile tap open for a minute.
-        "http_options": {"timeout": 20000, "retry_options": {"attempts": 1}},
+        "http_options": {"timeout": timeout_ms, "retry_options": {"attempts": 1}},
     }
     if system:
         config["system_instruction"] = system
 
     last_error = "no response"
-    contents = prompt
+    parts = []
+    if images:
+        from google.genai import types
+        parts = [types.Part.from_bytes(data=data, mime_type=mime) for data, mime in images]
+    contents = parts + [prompt] if parts else prompt
     for _attempt in range(max(1, attempts)):
         response = gen.models.generate_content(
             model=model or os.environ.get("GEMINI_MODEL", FLASH_MODEL),
@@ -498,13 +566,42 @@ def generate_json(
             if not errors:
                 return data
             last_error = "; ".join(_error_text(err) for err in errors[:5])
-        contents = (
+        retry = (
             prompt
             + "\n\nYour previous answer failed validation: "
             + last_error
             + "\nReturn only JSON that matches the schema."
         )
+        contents = parts + [retry] if parts else retry
     raise GeminiSchemaError(last_error)
+
+
+def models_for(feature: str) -> list[str]:
+    primary, fallback = FEATURE_MODELS[feature]
+    key = f"GEMINI_MODEL_{feature.upper()}"
+    primary = os.environ.get(key) or primary
+    fallback = os.environ.get(key + "_FALLBACK") or fallback
+    return [primary] + ([fallback] if fallback and fallback != primary else [])
+
+
+def generate_for(feature: str, prompt: str, schema: dict, **kwargs) -> dict:
+    """generate_json with the feature's model, then its fallback on any
+    service error (503, 504, 429). With a fallback the first try gets the
+    shortest deadline Gemini accepts, so a hung model costs ~10s, not 20s."""
+    chain = models_for(feature)
+    last: Exception | None = None
+    for index, model in enumerate(chain):
+        extra = {"timeout_ms": 10000} if index < len(chain) - 1 else {}
+        try:
+            return generate_json(prompt, schema, model=model, **{**extra, **kwargs})
+        except ValueError:
+            raise
+        except Exception as exc:  # network, 5xx, quota, bad schema
+            last = exc
+            print(f"[gemini] {feature}: {model} failed ({type(exc).__name__}); "
+                  + ("trying fallback" if index < len(chain) - 1 else "no fallback left"))
+    assert last is not None
+    raise last
 
 
 def _as_vector(values) -> list[float]:

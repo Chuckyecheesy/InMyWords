@@ -1,124 +1,273 @@
 /*
-  Design tokens — T4.1 / PROJECT_PLAN §9
+  In My Words — design tokens.
 
-  Calm residential palette (not clinical white). High-contrast and
-  large-text modes flip via data-theme / data-text on <html>.
-  Body ≥22px, tap targets ≥64px. Source colours match CONTRACTS labels.
+  Warm, calm, adult. Off-white paper, deep navy ink, muted teal accent,
+  soft blue and coral as supporting colours. Every colour pair used for
+  text meets WCAG AA (4.5:1) on its surface.
+
+  Modes flip on <html>:
+    data-theme="contrast"  black on white, heavy borders (also follows
+                           prefers-contrast: more unless the user chose calm)
+    data-text="large"      bigger type and taps
+
+  Resident screens: body ≥ 22px, taps ≥ 64px (AAC tiles ≥ 148px).
+  Staff screens use the smaller --staff-* scale.
 */
 
 :root,
 [data-theme="calm"] {
-  /* Colour — surfaces */
-  --paper: #e4efea;
-  --ink: #1a2e28;
-  --card: #f7fbfa;
-  --line: #c5d6cf;
-  --on-ink: #f7fbfa;
+  /* Surfaces */
+  --bg: #f8f7f4;
+  --surface: #ffffff;
+  --surface-2: #f2f1ec;
+  --surface-3: #e9e7e0;
+  --scrim: rgba(25, 43, 56, 0.42);
+
+  /* Ink */
+  --ink: #192b38;
+  --ink-2: #44555f;
+  --ink-3: #5f6e77;
+  --on-accent: #ffffff;
+
+  /* Lines */
+  --line: #e7e8e6;
+  --line-strong: #d3d6d2;
+
+  /* Accent — muted teal */
+  --accent: #247d78;
+  --accent-strong: #1a5f5b;
+  --accent-soft: #e3f1ef;
+  --accent-softer: #f0f8f6;
+
+  /* Supporting */
+  --blue: #2a5d7c;
+  --blue-soft: #dceaf2;
+  --coral: #f1a58d;
+  --coral-ink: #96432a;
+  --coral-soft: #fcebe4;
+  --amber-ink: #7a5410;
+  --amber-soft: #fbf0d9;
+  --sage-ink: #3d6340;
+  --sage-soft: #e8f1e4;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --success: #1f7a4d;
+  --success-soft: #e4f4ea;
+
+  /* Provenance — CONTRACTS.md source labels. Never colour alone:
+     every badge also carries an icon and words. */
+  --src-resident: #1a5f5b;
+  --src-resident-bg: #e3f1ef;
+  --src-staff: #2a5d7c;
+  --src-staff-bg: #dceaf2;
+  --src-emh: #3f4f5a;
+  --src-emh-bg: #eceeee;
+  --src-document: #7a5410;
+  --src-document-bg: #fbf0d9;
+  --src-pattern: #96432a;
+  --src-pattern-bg: #fcebe4;
+  --src-task: #192b38;
+  --src-task-bg: #f2f1ec;
+
+  /* AAC category tints (soft, never the only cue — labels always shown) */
+  --cat-drinks: #fcebe4;
+  --cat-food: #fcebe4;
+  --cat-activities: #dceaf2;
+  --cat-people: #e8f1e4;
+  --cat-places: #e3f1ef;
+  --cat-feelings: #fbf0d9;
+  --cat-answers: #f2f1ec;
+  --cat-words: #f2f1ec;
+
+  /* Legacy names kept for older components and the a11y contrast tests */
+  --paper: #f8f7f4;
+  --card: #ffffff;
+  --voice: #1a5f5b;
+  --voice-bg: #e3f1ef;
+  --staff: #2a5d7c;
+  --staff-bg: #dceaf2;
+  --record: #7a5410;
+  --record-bg: #fbf0d9;
+  --emh: #3f4f5a;
+  --emh-bg: #eceeee;
+  --pattern: #96432a;
+  --pattern-bg: #fcebe4;
+
+  /* Focus */
   --focus: #0b5cab;
-
-  /* Colour — source labels (CONTRACTS.md) */
-  --voice: #084536;
-  --voice-bg: #d5ede4;
-  --staff: #1e4d92;
-  --staff-bg: #e3ebf8;
-  --record: #5c3a16;
-  --record-bg: #f3e6d4;
-  --emh: #243b53;
-  --emh-bg: #e4eef4;
-  --pattern: #6b3a00;
-  --pattern-bg: #f8e7cc;
-  --task: #1a2e28;
-  --task-bg: #f7fbfa;
-
-  /* Type scale — body never below 22px */
-  --text-body: 22px;
-  --text-h1: clamp(40px, 6vw, 60px);
-  --text-h2: 32px;
-  --text-h3: 26px;
-  --text-wordmark: 28px;
-  --text-tile-letter: 28px;
-  --leading-body: 1.45;
-  --leading-display: 1.12;
-  --tracking-display: -0.03em;
-
-  /* Touch — AAC tablet floor */
-  --tap-min: 64px;
-
-  /* Space */
-  --space-1: 8px;
-  --space-2: 12px;
-  --space-3: 16px;
-  --space-4: 28px;
-  --space-5: 32px;
-  --space-6: 80px;
-
-  /* Radius & stroke */
-  --radius-chip: 12px;
-  --radius-control: 16px;
-  --stroke: 2px;
   --focus-ring: 3px;
 
-  /* Layout */
-  --content-max: 1040px;
-  --measure: 40ch;
+  /* Type */
+  --font-ui: var(--font-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-story: var(--font-serif), ui-serif, Georgia, serif;
+
+  --text-body: 22px;
+  --text-small: 22px;
+  --text-lead: 26px;
+  --text-h1: clamp(36px, 4.6vw, 56px);
+  --text-h2: clamp(28px, 3vw, 36px);
+  --text-h3: 26px;
+  --text-tile: 22px;
+  --leading-body: 1.45;
+  --leading-tight: 1.12;
+  --tracking-tight: -0.022em;
+
+  /* Staff-only type scale. Resident screens never go below 22px. */
+  --staff-fs-12: 12px;
+  --staff-fs-13: 13px;
+  --staff-fs-14: 14px;
+  --staff-fs-15: 15px;
+  --staff-fs-16: 16px;
+  --staff-fs-17: 17px;
+  --staff-fs-18: 18px;
+  --staff-fs-20: 20px;
+  --staff-text-body: 17px;
+  --staff-text-small: 14px;
+  --staff-text-h1: clamp(28px, 3vw, 36px);
+  --staff-text-h2: 21px;
+  --staff-text-h3: 17px;
+
+  /* Touch */
+  --tap-min: 64px;
+  --tap-large: 76px;
   --tile-min: 148px;
+
+  /* Space (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --gutter: clamp(16px, 3vw, 40px);
+
+  /* Radius */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-pill: 999px;
+
+  /* Stroke */
+  --stroke: 1px;
+  --stroke-strong: 2px;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgba(25, 43, 56, 0.06), 0 1px 1px rgba(25, 43, 56, 0.03);
+  --shadow-2: 0 6px 18px -6px rgba(25, 43, 56, 0.12), 0 2px 4px rgba(25, 43, 56, 0.04);
+  --shadow-3: 0 28px 56px -20px rgba(25, 43, 56, 0.28), 0 4px 12px rgba(25, 43, 56, 0.06);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 360ms;
+
+  /* Layout */
+  --content-max: 1240px;
+  --measure: 38ch;
+  --sidebar: 272px;
 
   color-scheme: light;
 }
 
 [data-theme="contrast"] {
   --paper: #ffffff;
-  --ink: #000000;
   --card: #ffffff;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #ffffff;
+  --surface-3: #ffffff;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --ink: #000000;
+  --ink-2: #000000;
+  --ink-3: #1a1a1a;
   --line: #000000;
-  --on-ink: #ffffff;
+  --line-strong: #000000;
+  --accent: #00524e;
+  --accent-strong: #000000;
+  --accent-soft: #ffffff;
+  --accent-softer: #ffffff;
+  --blue: #000000;
+  --blue-soft: #ffffff;
+  --coral-ink: #000000;
+  --coral-soft: #ffffff;
+  --amber-ink: #000000;
+  --amber-soft: #ffffff;
+  --sage-ink: #000000;
+  --sage-soft: #ffffff;
+  --danger: #8a0000;
+  --danger-soft: #ffffff;
+  --success: #00401f;
+  --success-soft: #ffffff;
+  --src-resident: #000000;
+  --src-resident-bg: #ffffff;
+  --src-staff: #000000;
+  --src-staff-bg: #ffffff;
+  --src-emh: #000000;
+  --src-emh-bg: #ffffff;
+  --src-document: #000000;
+  --src-document-bg: #ffffff;
+  --src-pattern: #000000;
+  --src-pattern-bg: #ffffff;
+  --src-task: #000000;
+  --src-task-bg: #ffffff;
+  --cat-drinks: #ffffff;
+  --cat-food: #ffffff;
+  --cat-activities: #ffffff;
+  --cat-people: #ffffff;
+  --cat-places: #ffffff;
+  --cat-feelings: #ffffff;
+  --cat-answers: #ffffff;
+  --cat-words: #ffffff;
   --focus: #0000ee;
-  --voice: #000000;
-  --voice-bg: #ffffff;
-  --staff: #000000;
-  --staff-bg: #ffffff;
-  --record: #000000;
-  --record-bg: #ffffff;
-  --emh: #000000;
-  --emh-bg: #ffffff;
-  --pattern: #000000;
-  --pattern-bg: #ffffff;
-  --task: #000000;
-  --task-bg: #ffffff;
+  --stroke: 2px;
+  --stroke-strong: 3px;
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-3: none;
   color-scheme: light;
 }
 
-/* Large-text mode — PROJECT_PLAN §9 */
 [data-text="large"] {
   --text-body: 26px;
-  --text-h1: clamp(44px, 7vw, 68px);
-  --text-h2: 36px;
+  --text-small: 26px;
+  --text-lead: 30px;
+  --text-h1: clamp(40px, 5.4vw, 64px);
+  --text-h2: clamp(32px, 3.4vw, 40px);
   --text-h3: 30px;
-  --text-wordmark: 32px;
-  --text-tile-letter: 32px;
+  --text-tile: 26px;
   --leading-body: 1.5;
   --tap-min: 72px;
+  --tap-large: 84px;
+  --tile-min: 172px;
+  --staff-text-body: 20px;
+  --staff-text-small: 16px;
+  --staff-text-h2: 24px;
+  --staff-text-h3: 20px;
 }
 
 @media (prefers-contrast: more) {
   :root:not([data-theme="calm"]) {
-    --paper: #ffffff;
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #ffffff;
     --ink: #000000;
-    --card: #ffffff;
+    --ink-2: #000000;
+    --ink-3: #1a1a1a;
     --line: #000000;
-    --on-ink: #ffffff;
+    --line-strong: #000000;
+    --accent: #00524e;
+    --accent-soft: #ffffff;
+    --src-resident-bg: #ffffff;
+    --src-staff-bg: #ffffff;
+    --src-emh-bg: #ffffff;
+    --src-document-bg: #ffffff;
+    --src-pattern-bg: #ffffff;
     --focus: #0000ee;
-    --voice: #000000;
-    --voice-bg: #ffffff;
-    --staff: #000000;
-    --staff-bg: #ffffff;
-    --record: #000000;
-    --record-bg: #ffffff;
-    --emh: #000000;
-    --emh-bg: #ffffff;
-    --pattern: #000000;
-    --pattern-bg: #ffffff;
-    --task: #000000;
-    --task-bg: #ffffff;
+    --stroke: 2px;
   }
 }

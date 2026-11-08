@@ -15,14 +15,23 @@ import json
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mocks
+from agents.action import propose_plan
+from agents.choice import SEED_BUDGETS, build_choice
+from agents.coach_wording import coach_answer
+from agents.memory.wiring import observe_event, scan_routines
+from agents.photos.wiring import add_photo_tile
+from agents.story import LocalBooks, McpBooks, StoryError, local_books, narrate, record_answer, draft as draft_chapter
+from agents.story import gemini_phrase
 from agents.voice import clean_tiles, load_seed_memories, suggest as suggest_sentences
 from services import elevenlabs, mcp_client
+from services.narration import public_audio_url
+from speak_for_me import speak_approved
 from services.limits import allow
 from services.cloudinary import (
     CloudinaryConfigError,
@@ -122,27 +131,49 @@ class PhotoBody(BaseModel):
     resident_id: str
     public_id: str
     label: str | None = None
+    confirmed: bool = False  # staff chose "save anyway" after a needs_review
 
 
 # ---------- residents ----------
+
+def resident_from_profile(resident_id: str, profile):
+    """Turn a profile-tool result into the public resident body.
+
+    Returns ("missing", message) when the resident does not exist, (body, None)
+    when the payload is usable, and (None, None) when it is not — the route
+    then serves the demo resident instead of answering 500.
+    """
+    if not isinstance(profile, dict):
+        return None, None
+    error = profile.get("error")
+    if error:
+        return "missing", str(error)
+    name = profile.get("name")
+    tiles = profile.get("tiles")
+    if not isinstance(name, str) or not name.strip() or not isinstance(tiles, list):
+        return None, None
+    return {
+        "id": resident_id,
+        "name": name,
+        "voice_id": profile.get("voice_id"),
+        "communication_style": profile.get("communication_style") or "",
+        "tiles": tiles,
+        # extra context beyond the frozen contract — additive, safe
+        "preferences": profile.get("preferences") or [],
+        "routines": profile.get("routines") or [],
+        "pending_patterns": profile.get("pending_patterns") or [],
+    }, None
+
 
 @app.get("/residents/{resident_id}")
 async def get_resident(resident_id: str):
     profile, live = await _mcp(mcp_client.get_profile(resident_id), None)
     if live:
-        if profile.get("error"):
-            raise HTTPException(404, profile["error"])
-        return {
-            "id": resident_id,
-            "name": profile["name"],
-            "voice_id": profile["voice_id"],
-            "communication_style": profile["communication_style"],
-            "tiles": profile["tiles"],
-            # extra context beyond the frozen contract — additive, safe
-            "preferences": profile["preferences"],
-            "routines": profile["routines"],
-            "pending_patterns": profile["pending_patterns"],
-        }
+        body, missing = resident_from_profile(resident_id, profile)
+        if body == "missing":
+            raise HTTPException(404, missing or f"No resident '{resident_id}'")
+        if body:
+            return body
     resident = mocks.RESIDENTS.get(resident_id)
     if not resident:
         raise HTTPException(404, f"No resident '{resident_id}'")
@@ -166,7 +197,7 @@ def voice_options(resident_id: str, request: Request):
         "current": elevenlabs.resident_voice(resident_id),
         "options": [
             {"voice_id": o["voice_id"], "label": o["label"], "preview_text": o["preview_text"],
-             "preview_url": _audio_url(request, o["preview_file"])}
+             "preview_url": public_audio_url(request, o["preview_file"])}
             for o in entry["options"]
         ],
     }
@@ -184,8 +215,12 @@ async def suggest(body: SuggestBody, request: Request):
     resident_id = "".join(ch for ch in body.resident_id if ch.isalnum() or ch in "_-")[:40]
     recalled, live = await _mcp(
         mcp_client.recall(resident_id, " ".join(tiles)), None)
-    memories = recalled.get("memories", []) if live and isinstance(recalled, dict) else []
-    if not memories:
+    # Seed file only when the memory server FAILED. An empty result is a real
+    # answer (nothing relevant to these tiles) and must not swap in stale seed
+    # data for the live database.
+    if live and isinstance(recalled, dict):
+        memories = recalled.get("memories", [])
+    else:
         memories = load_seed_memories(resident_id)
     profile, profile_live = await _mcp(mcp_client.get_profile(resident_id), None)
     if profile_live and isinstance(profile, dict) and profile.get("name"):
@@ -217,15 +252,6 @@ async def suggest(body: SuggestBody, request: Request):
     return {"options": mocks.SUGGESTIONS.get(resident_id, mocks.SUGGESTIONS["marcus"])}
 
 
-def _audio_url(request: Request, filename: str) -> str:
-    # Behind the deployed proxy the web server calls us on 127.0.0.1, so the
-    # browser-facing base comes from PUBLIC_API_URL (set by ops/deploy.sh).
-    public = os.environ.get("PUBLIC_API_URL", "").rstrip("/")
-    if public:
-        return f"{public}/audio/{filename}"
-    return str(request.url_for("audio", path=filename))
-
-
 @app.post("/speak")
 async def speak(body: SpeakBody, request: Request):
     """Approved text → audio in the resident's voice (T1.2).
@@ -234,49 +260,95 @@ async def speak(body: SpeakBody, request: Request):
     "Speak tiles only" is the same call with text = the tile words joined,
     e.g. "coffee now"; no AI involved. Cached by voice_id + text.
     """
-    text = elevenlabs.normalize(body.text)
-    if not text:
-        raise HTTPException(422, "text is empty")
-    if not elevenlabs.configured():
-        return {"audio_url": f"https://example.com/audio/mock_{body.resident_id}.mp3", "cached": False}
+    return await speak_approved(request, body.resident_id, body.text)
 
-    profile_voice = None
-    if not elevenlabs.has_override(body.resident_id):
-        profile, live = await _mcp(mcp_client.get_profile(body.resident_id), None)
-        if live and profile and not profile.get("error"):
-            profile_voice = profile.get("voice_id")
-    voice_id = elevenlabs.resident_voice(body.resident_id, profile_voice)
 
+@app.get("/agents/{kind}/session")
+async def agent_session(kind: str):
+    """Additive: a signed URL to start a Story (T1.4) or Coach (T1.6) voice session."""
+    if kind not in elevenlabs.AGENTS:
+        raise HTTPException(404, f"No agent '{kind}'")
+    agent = elevenlabs.agent_id(kind)
+    if not agent or not elevenlabs.configured():
+        raise HTTPException(503, "The voice guide isn't set up yet.")
     try:
-        filename, cached = await elevenlabs.synthesize(voice_id, text)
+        return {"signed_url": await elevenlabs.signed_url(agent)}
     except elevenlabs.ElevenLabsError as exc:
-        print(f"[speak] {exc}")
-        raise HTTPException(502, "Couldn't make the audio right now. The tiles are still here.")
-    return {"audio_url": _audio_url(request, filename), "cached": cached}
+        print(f"[agent session] {exc}")
+        raise HTTPException(502, "Couldn't start the voice guide right now.") from exc
 
 
 @app.post("/sentences")
-async def log_sentence(body: SentenceBody):
+async def log_sentence(body: SentenceBody, background: BackgroundTasks):
     result, live = await _mcp(
         mcp_client.log_sentence(body.resident_id, body.chosen_text, body.approved, body.tiles), None)
+    if body.approved:  # nothing unapproved is ever learned from
+        background.add_task(observe_event, body.chosen_text, "sentence", body.resident_id)
     return {"id": result["id"]} if live else {"id": 9001}
 
 
 # ---------- My Story ----------
 
+async def _story_books():
+    """Profile server when it answers, otherwise the in-process books."""
+    try:
+        await mcp_client.get_story("marcus")
+    except Exception as exc:
+        print(f"[story books] {type(exc).__name__}: {exc}")
+        return local_books
+    return McpBooks()
+
+
 @app.post("/story/answer")
-def story_answer(body: StoryAnswerBody):
-    return {"ok": True}
+async def story_answer(body: StoryAnswerBody):
+    books = await _story_books()
+    try:
+        return await record_answer(books, body.resident_id, body.chapter, body.question, body.answer)
+    except StoryError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/story/{resident_id}/answers")
+async def get_story_answers(resident_id: str, chapter: str = ""):
+    books = await _story_books()
+    if isinstance(books, LocalBooks):
+        rows = [row for row in books.rows
+                if row["resident_id"] == resident_id and (not chapter or row["chapter"] == chapter)]
+        return {"answers": rows}
+    result, live = await _mcp(mcp_client.get_story_answers(resident_id, chapter), None)
+    if live:
+        if result.get("error"):
+            raise HTTPException(404, result["error"])
+        return {"answers": result.get("answers", [])}
+    return {"answers": []}
 
 
 @app.post("/story/draft")
-def story_draft(body: StoryDraftBody):
-    return mocks.STORY_DRAFT
+async def story_draft(body: StoryDraftBody):
+    """Text only. Narration waits for /story/approve."""
+    books = await _story_books()
+    try:
+        return await draft_chapter(books, body.resident_id, body.chapter, generate=gemini_phrase)
+    except StoryError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/story/approve")
-def story_approve(body: StoryApproveBody):
-    return {"audio_url": "https://example.com/audio/mock_chapter.mp3"}
+async def story_approve(body: StoryApproveBody, request: Request):
+    """The resident said yes. This is the step that calls ElevenLabs."""
+    books = await _story_books()
+    try:
+        spoken = await narrate(books, body.chapter_id)
+    except StoryError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except elevenlabs.ElevenLabsError as exc:
+        print(f"[story approve] {exc}")
+        raise HTTPException(502, "Couldn't make the audio right now. The draft is still here.") from exc
+    if spoken.get("filename"):
+        audio_url = public_audio_url(request, spoken["filename"])
+        await books.mark_approved(body.chapter_id, audio_url)
+        return {"audio_url": audio_url, "cached": spoken["cached"]}
+    return {"audio_url": spoken["audio_url"], "cached": spoken.get("cached", False)}
 
 
 @app.get("/story/{resident_id}")
@@ -301,10 +373,10 @@ async def coach_ask(body: CoachAskBody):
         facts = result["facts"]
         if result["unknown"] or not facts:
             name = body.resident_id.capitalize()
-            return {"answer": f"I don't know — it's best to ask {name}.", "sources": []}
-        top = facts[0]
+            return {"answer": elevenlabs.normalize(f"I don't know. It's best to ask {name}."), "sources": []}
+        name = body.resident_id.capitalize()
         return {
-            "answer": top["content"],
+            "answer": elevenlabs.normalize(coach_answer(facts, name)),
             "sources": [{"type": f["source"], "date": f["date"], "label": f["label"]} for f in facts[:3]],
         }
     if "favourite colour" in body.question.lower():
@@ -314,27 +386,139 @@ async def coach_ask(body: CoachAskBody):
 
 # ---------- Supported Choice ----------
 
+# Created choices, so decide can log the resident who actually tapped.
+# The id from log_choice is used when the profile server is up.
+_open_choices: dict[int, dict] = {}
+_local_choice_ids = 0
+
+
+def _next_choice_id() -> int:
+    global _local_choice_ids
+    _local_choice_ids += 1
+    return _local_choice_ids
+
+
+def _choice_budget(resident_id: str, profile: dict | None, live: bool) -> float | None:
+    if live and isinstance(profile, dict) and not profile.get("error"):
+        value = profile.get("weekly_budget")
+        if value is not None:
+            return float(value)
+    return SEED_BUDGETS.get(resident_id.strip().lower())
+
+
+def _chosen_label(raw: str, options: list[dict]) -> str | None:
+    """A label from this choice, or None for 'not decided yet'."""
+    text = " ".join((raw or "").replace("_", " ").split()).lower()
+    if text in {"not decided yet", "not yet decided"}:
+        return None
+    for option in options:
+        if option["label"].lower() == raw.strip().lower():
+            if option["label"].lower() == "not decided yet":
+                return None
+            return option["label"]
+    return raw.strip() or None
+
+
 @app.post("/choices")
-def create_choice(body: ChoicesBody):
-    return mocks.CHOICE_WITH_CONSEQUENCES
+async def create_choice(body: ChoicesBody):
+    resident_id = "".join(ch for ch in body.resident_id if ch.isalnum() or ch in "_-")[:40]
+    profile, live = await _mcp(mcp_client.get_profile(resident_id), None)
+    name = resident_id[:1].upper() + resident_id[1:] if resident_id else "Resident"
+    if live and isinstance(profile, dict) and profile.get("name"):
+        name = profile["name"]
+    budget = _choice_budget(resident_id, profile if isinstance(profile, dict) else None, live)
+    use_llm = bool(os.environ.get("GEMINI_API_KEY", "").strip())
+    built = build_choice(
+        resident_id=resident_id,
+        question=body.question,
+        options=[option.model_dump() for option in body.options],
+        weekly_budget=budget,
+        generate="auto" if use_llm else None,
+    )
+    logged, logged_live = await _mcp(
+        mcp_client.log_choice(
+            resident_id,
+            options=built["options"],
+            chosen=None,
+            question=built["question"],
+        ),
+        None,
+    )
+    if logged_live and isinstance(logged, dict) and logged.get("id") is not None:
+        choice_id = int(logged["id"])
+    else:
+        choice_id = _next_choice_id()
+    _open_choices[choice_id] = {
+        "resident_id": resident_id,
+        "name": name,
+        "question": built["question"],
+        "options": built["options"],
+    }
+    return {
+        "id": choice_id,
+        "question": built["question"],
+        "weekly_budget": built["weekly_budget"],
+        "status": "not_yet_decided",
+        "options": built["options"],
+    }
 
 
 @app.post("/choices/{choice_id}/decide")
-async def decide_choice(choice_id: int, body: DecideBody):
+async def decide_choice(choice_id: int, body: DecideBody, background: BackgroundTasks):
+    row = _open_choices.get(choice_id)
+    if row:
+        chosen = _chosen_label(body.chosen, row["options"])
+        result, live = await _mcp(
+            mcp_client.log_choice(
+                row["resident_id"],
+                options=row["options"],
+                chosen=chosen,
+                question=row["question"],
+            ),
+            None,
+        )
+        status = result["status"] if live else ("chosen" if chosen else "not_yet_decided")
+        if chosen:
+            background.add_task(
+                observe_event,
+                f"{row['name']} chose {chosen}.",
+                "choice",
+                row["resident_id"],
+            )
+        return {"ok": True, "status": status}
     chosen = None if body.chosen == "not_yet_decided" else body.chosen
-    result, live = await _mcp(
-        mcp_client.log_choice("marcus", options=[], chosen=chosen), None)
-    # TODO(T2.5): look up the choice's resident + options by choice_id once
-    # choices are persisted at creation time (they're created by Ahmed's agent).
-    return {"ok": True, "status": result["status"] if live else ("chosen" if chosen else "not_yet_decided")}
+    return {"ok": True, "status": "chosen" if chosen else "not_yet_decided"}
 
 
 # ---------- Actions ----------
 
 @app.post("/actions/plan")
 async def plan_actions(body: ActionPlanBody):
-    result, live = await _mcp(mcp_client.plan_actions(body.resident_id, body.goal), None)
-    return result if live else mocks.ACTION_PLAN
+    profile, profile_live = await _mcp(mcp_client.get_profile(body.resident_id), None)
+    name = body.resident_id[:1].upper() + body.resident_id[1:] if body.resident_id else "Resident"
+    if profile_live and isinstance(profile, dict) and profile.get("name"):
+        name = str(profile["name"]).split()[0]
+    proposal = await propose_plan(body.resident_id, body.goal, name=name)
+    result, live = await _mcp(
+        mcp_client.save_plan(body.resident_id, body.goal, proposal["steps"]),
+        None,
+    )
+    if not live or not isinstance(result, dict) or result.get("error"):
+        # Older actions server, or it is down: keep the placeholder plan.
+        result, live = await _mcp(mcp_client.plan_actions(body.resident_id, body.goal), None)
+    if not live or not isinstance(result, dict) or result.get("error"):
+        result = {
+            "plan_id": mocks.ACTION_PLAN["plan_id"],
+            "goal": body.goal,
+            "online_steps": proposal["online_steps"],
+            "staff_tasks": proposal["staff_tasks"],
+            "total_cost": proposal["total_cost"],
+            "status": "proposed",
+        }
+    planned = dict(result)
+    planned["agents"] = proposal["agents"]
+    planned["planner"] = proposal.get("planner", "rules")  # "gemini" or "rules" fallback
+    return planned
 
 
 @app.post("/actions/{plan_id}/approve")
@@ -360,6 +544,16 @@ async def pending_memories(resident_id: str):
     if live:
         return {"memories": result["memories"]}
     return {"memories": mocks.PENDING_MEMORIES.get(resident_id, [])}
+
+
+@app.post("/memories/routines/scan/{resident_id}")
+async def scan_routine_patterns(resident_id: str):
+    """Staff/demo trigger: group significant events by weekday, suggest 3+ as routines."""
+    try:
+        return {"routines": await scan_routines(resident_id)}
+    except Exception as exc:
+        print(f"[routines] scan failed: {exc}")
+        raise HTTPException(503, "Couldn't look for routines right now.")
 
 
 @app.post("/memories/{memory_id}/confirm")
@@ -389,10 +583,73 @@ async def activity(resident_id: str):
 
 
 @app.post("/observations")
-async def add_observation(body: ObservationBody):
+async def add_observation(body: ObservationBody, background: BackgroundTasks):
     result, live = await _mcp(
         mcp_client.add_observation(body.resident_id, body.staff_id, body.note), None)
+    background.add_task(observe_event, body.note, "observation", body.resident_id)
     return {"ok": True, "id": result["id"]} if live else {"ok": True}
+
+
+# ---------- Gaze/gesture input (G5, GAZE_GESTURE_PLAN §7) ----------
+
+class InputEvent(BaseModel):
+    ts: str
+    resident_id: str
+    session_id: str | None = None
+    input_type: str   # touch | gaze | gesture
+    action: str       # select | approve | cancel | custom
+    target: str | None = None
+    hold_ms: int | None = None
+    gesture: str | None = None
+    confidence: float | None = None
+    outcome: str      # confirmed | cancelled | timeout
+
+
+class InputEventsBody(BaseModel):
+    events: list[InputEvent]
+
+
+@app.post("/input-events")
+async def input_events(body: InputEventsBody):
+    """Batched OUTCOME events from the browser input controller — never
+    video, never raw gaze samples (frontend flushes every 2 s / 20 events)."""
+    events = [e.model_dump() for e in body.events]
+    result, live = await _mcp(mcp_client.log_input_events(events), None)
+    return {"saved": result["saved"]} if live else {"saved": len(events)}
+
+
+class CustomGestureBody(BaseModel):
+    resident_id: str
+    tile: str
+    samples: list[list[float]]  # 5 × 63 normalized landmark floats
+
+
+@app.post("/custom-gestures")
+async def save_custom_gesture(body: CustomGestureBody):
+    """G8: save a taught personal gesture (landmarks only, never video)."""
+    result, live = await _mcp(
+        mcp_client.save_custom_gesture(body.resident_id, body.tile, body.samples), None)
+    if live and result.get("error"):
+        raise HTTPException(422, result["error"])
+    return {"ok": True, "tile": body.tile}
+
+
+@app.get("/custom-gestures/{resident_id}")
+async def custom_gestures(resident_id: str):
+    result, live = await _mcp(mcp_client.get_custom_gestures(resident_id), None)
+    return {"gestures": result["gestures"]} if live else {"gestures": []}
+
+
+@app.get("/input-profile/{resident_id}")
+async def input_profile(resident_id: str):
+    """How this resident communicates best (adaptive settings + the
+    'How I Communicate' Coach card). Labelled 'from input history'."""
+    result, live = await _mcp(mcp_client.get_input_profile(resident_id), None)
+    if live:
+        result.pop("store_mode", None)
+        return result
+    return {"resident_id": resident_id, "preferred_select": "touch", "preferred_yes": "touch",
+            "dwell_ms": 1000, "rates": {}, "notes": [], "events_counted": 0, "confidence": "low"}
 
 
 # ---------- Photos (T4.2) ----------
@@ -411,7 +668,10 @@ def media_upload():
 
 
 @app.post("/media/photos")
-def save_photo(body: PhotoBody):
+async def save_photo(body: PhotoBody):
+    """Staff photo -> picture tile, via the photo subagents (agents/photos).
+    status: saved | needs_review (nothing saved until staff confirm) | error.
+    Old fields (resident_id, cloudinary_id, label) stay for existing callers."""
     try:
         record = photo_record(
             resident_id=body.resident_id,
@@ -420,7 +680,15 @@ def save_photo(body: PhotoBody):
         )
     except PublicIdError as exc:
         raise HTTPException(400, str(exc)) from exc
-    return save_photo_record(record, _photos)
+    result, live = await _mcp(
+        add_photo_tile(record["resident_id"], record["cloudinary_id"], record["label"] or "",
+                       confirmed=body.confirmed), None)
+    if not live:  # MCP down: keep the photo id so the upload isn't lost
+        return {**save_photo_record(record, _photos), "status": "saved_offline",
+                "reason": "Saved the photo, but it isn't a tile yet (profile server is down)."}
+    if result["status"] == "error":
+        raise HTTPException(400, result["reason"])
+    return {**record, **result}
 
 
 _VERSION_FILE = Path(__file__).resolve().parents[1] / "VERSION"  # written by ops/deploy.sh

@@ -78,6 +78,27 @@ class TileSuggestionTests(unittest.TestCase):
             blob = " ".join(options).lower()
             self.assertIn(must.lower(), blob, options)
 
+    def test_the_whole_board_stays_one_short_sentence(self):
+        tiles = [
+            "no", "yes", "tea", "coffee", "quiet", "help",
+            "bus", "park", "Lisa", "bowling", "Raptors", "music",
+        ]
+        result = suggest(
+            resident_id="marcus",
+            name="Marcus",
+            tiles=tiles,
+            time_of_day="afternoon",
+            memories=memories_for("marcus"),
+            generate=None,
+        )
+        self.assertGreaterEqual(len(result["options"]), 2)
+        for line in result["options"]:
+            self.assertLessEqual(word_count(line), 12, line)
+            self.assertNotIn("bowling", line.lower())
+            self.assertNotIn(" no", f" {line.lower()}")
+            self.assertIn("yes", line.lower())
+            self.assertTrue(is_faithful(line, ["yes", "tea", "coffee"], memories_for("marcus"), "afternoon"), line)
+
     def test_coffee_uses_the_tims_memory(self):
         result = suggest(
             resident_id="marcus",
@@ -129,7 +150,7 @@ class TileSuggestionTests(unittest.TestCase):
         cleaned = clean_tiles(["(a+)+b", "coffee", "x" * 80, "tea", "park", "bus", "help", "music"])
         self.assertNotIn("(a+)+b", cleaned)
         self.assertIn("coffee", cleaned)
-        self.assertEqual(len(cleaned), 6)
+        self.assertEqual(len(cleaned), 3)
         self.assertTrue(all(len(tile) <= 40 for tile in cleaned))
 
     def test_full_model_pool_does_not_start_another_call(self):

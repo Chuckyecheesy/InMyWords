@@ -1,84 +1,33 @@
 import { notFound } from "next/navigation";
+import { BookOpen } from "lucide-react";
+import Link from "next/link";
+import { StoryAlbum } from "@/components/StoryAlbum";
+import { EmptyState } from "@/components/ui";
 import { getResident, getStory } from "@/lib/api";
-import { AudioPlayback } from "@/components/shared";
 
-export const metadata = { title: "Story" };
-
-interface StoryChapter {
-  id: string | number;
-  chapter_key: string;
-  title?: string;
-  text: string;
-  status: "draft" | "approved";
-  audio_url?: string;
-  photo_ids?: string[];
-}
-
-interface StoryResponse {
-  data: StoryChapter[];
-}
+export const metadata = { title: "My Story" };
 
 export default async function StoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const resident = await getResident(id);
   if (!resident) notFound();
-  const storyResponse = (await getStory(id)) as StoryResponse;
-  const chapters: StoryChapter[] = storyResponse.data || [];
+  const story = await getStory(id);
 
-  return (
-    <div className="story-page">
-      {chapters.length === 0 ? (
-        <div className="story-empty">
-          <h2>Your Story</h2>
-          <p>No chapters yet. Complete an interview to build your story.</p>
-        </div>
-      ) : (
-        <>
-          <h1>Your Story</h1>
-          {chapters.map((chapter) => (
-            <article key={chapter.id} className="story-chapter">
-              {/* Chapter photo (if available) */}
-              {chapter.photo_ids && chapter.photo_ids.length > 0 && (
-                <picture>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className="story-chapter-photo"
-                    src={`https://res.cloudinary.com/inmywords/image/upload/c_fill,g_auto,w_800,h_400/${chapter.photo_ids[0]}.jpg`}
-                    alt="Chapter illustration"
-                  />
-                </picture>
-              )}
+  if (story.data.length === 0) {
+    return (
+      <EmptyState
+        icon={<BookOpen size={30} />}
+        title="Your story starts here"
+        action={
+          <Link prefetch={false} href={`/resident/${id}/story/interview`} className="btn" data-variant="primary" data-size="xl">
+            Start my first chapter
+          </Link>
+        }
+      >
+        Answer a few questions with pictures. You choose what goes in, and nothing is shared until you say yes.
+      </EmptyState>
+    );
+  }
 
-              <div className="story-chapter-content">
-                <h2 className="story-chapter-title">
-                  {chapter.title || chapter.chapter_key}
-                </h2>
-                <p className="story-chapter-status">
-                  {chapter.status === "approved" ? "✓ Approved" : "○ Draft"}
-                </p>
-
-                {/* Chapter text (first-person narrative) */}
-                <p className="story-chapter-text">{chapter.text}</p>
-
-                {/* Audio playback (narration in resident's voice) */}
-                {chapter.audio_url ? (
-                  <div className="story-audio">
-                    <AudioPlayback
-                      src={chapter.audio_url}
-                      label="▶ Play Narration"
-                      autoPlay={false}
-                    />
-                  </div>
-                ) : chapter.status === "approved" ? (
-                  <p className="note">Narration is being generated...</p>
-                ) : (
-                  <p className="note">Narration will be available after approval.</p>
-                )}
-              </div>
-            </article>
-          ))}
-        </>
-      )}
-    </div>
-  );
+  return <StoryAlbum residentId={id} name={resident.data.name} initialChapters={story.data} />;
 }

@@ -1,6 +1,8 @@
 import { cache } from "react";
 import { chapterTitle } from "./format";
 import {
+  homeFor,
+  sampleProfile,
   sampleActivity,
   sampleHandoff,
   samplePending,
@@ -8,21 +10,33 @@ import {
   sampleStory,
 } from "./mock";
 import type {
+  ActionPlan as ActionPlanShape,
+  AgentNote,
   ActivityItem,
-  ChoiceOption,
+  ChoiceResult,
   CoachAnswer,
   HandoffItem,
+  Highlight,
   MutationResult,
   PendingMemory,
   Resident,
+  ResidentProfile,
   Result,
   SourceType,
   StoryChapter,
   Tile,
 } from "./types";
+export type { AgentNote };
+export type ActionPlan = ActionPlanShape;
 
 function apiBaseUrl(): string {
-  return (process.env.API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
+  const configured = (process.env.API_BASE_URL ?? "").replace(/\/$/, "");
+  const serverLocal =
+    !configured || configured.includes("127.0.0.1") || configured.includes("localhost");
+  // The API listens on the server. A browser that calls that address is talking
+  // to the resident's own machine, so client calls go through the /backend proxy.
+  if (serverLocal && typeof window !== "undefined") return "/backend";
+  return configured || "http://127.0.0.1:8000";
 }
 
 async function fetchJson(path: string): Promise<unknown | null> {
@@ -37,14 +51,14 @@ async function fetchJson(path: string): Promise<unknown | null> {
 
 async function sendJson<T>(
   path: string,
-  body: unknown,
-  method: "POST" | "PUT" = "POST",
+  body?: unknown,
+  method: "POST" | "PUT" | "GET" = "POST",
 ): Promise<MutationResult<T>> {
   try {
     const response = await fetch(`${apiBaseUrl()}${path}`, {
       method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers: method === "GET" ? undefined : { "Content-Type": "application/json" },
+      body: method === "GET" ? undefined : JSON.stringify(body),
       cache: "no-store",
     });
     if (!response.ok) {
@@ -67,6 +81,12 @@ function record(value: unknown): Record<string, unknown> | null {
 
 function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+/** Ids arrive as numbers from Postgres and as strings from mocks. */
+function idText(value: unknown): string | null {
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return text(value);
 }
 
 function list(value: unknown, key: string): unknown[] | null {
@@ -97,7 +117,7 @@ function normalizeTile(value: unknown, index: number): Tile | null {
   const label = text(row.label);
   if (!label) return null;
   return {
-    id: text(row.id) ?? `${label}-${index}`,
+    id: idText(row.id) ?? `${label}-${index}`,
     label,
     category: text(row.category) ?? "words",
     cloudinary_id: text(row.cloudinary_id),
@@ -129,7 +149,7 @@ function normalizeChapter(value: unknown, index: number): StoryChapter | null {
   if (!chapterKey || !body) return null;
   const status = row.status === "approved" ? "approved" : "draft";
   return {
-    id: text(row.id) ?? `${chapterKey}-${index}`,
+    id: idText(row.id) ?? `${chapterKey}-${index}`,
     chapter_key: chapterKey,
     title: text(row.title) ?? chapterTitle(chapterKey),
     text: body,
@@ -150,11 +170,16 @@ function normalizeMemory(value: unknown, index: number): PendingMemory | null {
   if (!content || !source) return null;
   if (type !== "preference" && type !== "event" && type !== "routine") return null;
   return {
-    id: text(row.id) ?? `memory-${index}`,
+    id:
+      typeof row.id === "number" && Number.isFinite(row.id)
+        ? String(row.id)
+        : text(row.id) ?? `memory-${index}`,
     type,
     content,
     source,
     source_date: text(row.source_date) ?? text(row.date),
+    times_seen: typeof row.times_seen === "number" ? row.times_seen : null,
+    update_reason: text(row.update_reason),
   };
 }
 
@@ -163,7 +188,9 @@ function normalizeHandoff(value: unknown): HandoffItem | null {
   if (!row) return null;
   const itemText = text(row.text) ?? text(row.content);
   const date = text(row.date);
-  const type = row.type;
+  // The handoff agent labels EMH rows by table; fold them into the contract types.
+  const type =
+    row.type === "emh_checklist" ? "checklist" : row.type === "emh_note" ? "emh" : row.type;
   if (!itemText || !date) return null;
   if (
     type !== "emh" &&
@@ -175,11 +202,15 @@ function normalizeHandoff(value: unknown): HandoffItem | null {
   ) {
     return null;
   }
+  // Live rows carry no done/missed flag; read it from the wording.
+  const missed =
+    type === "checklist" && /didn't|did not|not happen|cancel|ended early|left early/i.test(itemText);
   return {
     type,
     date,
     text: itemText,
-    source: sourceType(row.source) ?? undefined,
+    source: sourceType(row.source) ?? (type === "memory" ? "resident" : undefined),
+    status: type === "checklist" ? (missed ? "missed" : "done") : undefined,
   };
 }
 
@@ -206,6 +237,52 @@ export const getResident = cache(async (id: string): Promise<Result<Resident> | 
   if (sample) return { data: sample, origin: "sample" };
   return null;
 });
+
+function normalizeHighlight(value: unknown): Highlight | null {
+  const row = record(value);
+  if (!row) return null;
+  const content = text(row.content) ?? text(row.text);
+  const source = sourceType(row.source);
+  if (!content || !source) return null;
+  return { text: content, source, date: text(row.date) ?? text(row.source_date) };
+}
+
+function highlights(value: unknown): Highlight[] | null {
+  if (!Array.isArray(value)) return null;
+  return value.map(normalizeHighlight).filter((item): item is Highlight => item !== null);
+}
+
+/**
+ * Staff profile view. Live: the confirmed memories the profile MCP server
+ * returns with /residents/{id}. Sample: the grouped demo profile.
+ */
+export const getProfile = cache(
+  async (id: string): Promise<Result<ResidentProfile> | null> => {
+    const raw = record(await fetchJson(`/residents/${encodeURIComponent(id)}`));
+    const preferences = highlights(raw?.preferences);
+    const routines = highlights(raw?.routines);
+    if (raw && preferences && routines) {
+      const style = text(raw.communication_style);
+      const resident = preferences.filter((item) => item.source === "resident");
+      return {
+        origin: "api",
+        data: {
+          home: homeFor(id),
+          summary: resident[0] ?? null,
+          communication: style ? [{ text: style, source: "document", date: null }] : [],
+          routines,
+          likes: preferences,
+          dislikes: [],
+          context: [],
+          observations: [],
+          pending: highlights(raw.pending_patterns) ?? [],
+        },
+      };
+    }
+    const sample = sampleProfile(id);
+    return sample ? { data: sample, origin: "sample" } : null;
+  },
+);
 
 export const getStory = cache(async (id: string): Promise<Result<StoryChapter[]>> => {
   const live = list(await fetchJson(`/story/${encodeURIComponent(id)}`), "chapters")
@@ -264,6 +341,12 @@ export function suggestSentences(input: {
   return sendJson<{ options: string[] }>("/suggest", input);
 }
 
+/** A signed URL to start one Story (T1.4) or Coach (T1.6) voice session. Null if unavailable. */
+export async function agentSession(kind: "story" | "coach"): Promise<string | null> {
+  const data = (await fetchJson(`/agents/${kind}/session`)) as { signed_url?: unknown } | null;
+  return typeof data?.signed_url === "string" ? data.signed_url : null;
+}
+
 export function speak(input: { resident_id: string; text: string }) {
   return sendJson<{ audio_url: string }>("/speak", input);
 }
@@ -283,15 +366,29 @@ export function saveStoryAnswer(input: {
   question: string;
   answer: string;
 }) {
-  return sendJson<{ ok: boolean }>("/story/answer", input);
+  return sendJson<{ ok: boolean; id?: number }>("/story/answer", input);
+}
+
+export function getStoryAnswers(residentId: string, chapter?: string) {
+  const params = new URLSearchParams();
+  if (chapter) params.set("chapter", chapter);
+  const query = params.size ? `?${params}` : "";
+  return sendJson<{ answers: { question: string; answer: string; chapter?: string }[] }>(
+    `/story/${encodeURIComponent(residentId)}/answers${query}`,
+    undefined,
+    "GET",
+  );
 }
 
 export function draftStory(input: { resident_id: string; chapter: string }) {
-  return sendJson<{ text: string }>("/story/draft", input);
+  return sendJson<{ text: string; chapter_id: number; status: string; audio_url: string | null }>(
+    "/story/draft",
+    input,
+  );
 }
 
-export function approveStory(input: { chapter_id: string }) {
-  return sendJson<{ audio_url: string }>("/story/approve", input);
+export function approveStory(input: { chapter_id: number }) {
+  return sendJson<{ audio_url: string; cached?: boolean }>("/story/approve", input);
 }
 
 export function askCoach(input: { resident_id: string; question: string }) {
@@ -301,40 +398,104 @@ export function askCoach(input: { resident_id: string; question: string }) {
 export function createChoice(input: {
   resident_id: string;
   question: string;
-  options: ChoiceOption[];
+  options: { label: string; photo: string | null; cost: number }[];
 }) {
-  return sendJson<{ id: string; options: ChoiceOption[] }>("/choices", input);
+  return sendJson<ChoiceResult>("/choices", input);
 }
 
-export function decideChoice(
-  choiceId: string,
-  input: { status: "chosen" | "not_yet_decided"; chosen?: string },
-) {
-  return sendJson<{ ok: boolean }>(
+export function decideChoice(choiceId: string, chosen: string) {
+  return sendJson<{ ok: boolean; status?: "chosen" | "not_yet_decided" }>(
     `/choices/${encodeURIComponent(choiceId)}/decide`,
-    input,
+    { chosen },
   );
 }
 
-export function planActions(input: { resident_id: string; goal: string }) {
-  return sendJson<{
-    steps: unknown[];
-    staff_tasks: unknown[];
-    total_cost: number;
-  }>("/actions/plan", input);
+function normalizePlan(value: unknown): ActionPlan | null {
+  const row = record(value);
+  if (!row) return null;
+  const planId = row.plan_id;
+  const goal = text(row.goal);
+  const steps = list(row.online_steps, "online_steps");
+  const tasks = list(row.staff_tasks, "staff_tasks");
+  const total = row.total_cost;
+  if (typeof planId !== "number" || !goal || !steps || !tasks || typeof total !== "number") {
+    return null;
+  }
+  const agents = Array.isArray(row.agents)
+    ? row.agents.flatMap((item) => {
+        const agent = record(item);
+        const id = agent ? text(agent.id) : null;
+        const agentName = agent ? text(agent.name) : null;
+        const note = agent ? text(agent.note) : null;
+        if (!agent || !id || !agentName || !note) return [];
+        return [{ id, name: agentName, note }];
+      })
+    : [];
+  return {
+    plan_id: planId,
+    goal,
+    total_cost: total,
+    status: "proposed",
+    agents,
+    online_steps: steps.flatMap((item) => {
+      const step = record(item);
+      const name = step ? text(step.step) : null;
+      const detail = step ? text(step.detail) : null;
+      if (!step || !name || !detail) return [];
+      return [{ step: name, detail, cost: typeof step.cost === "number" ? step.cost : 0 }];
+    }),
+    staff_tasks: tasks.flatMap((item) => {
+      const task = record(item);
+      const name = task ? text(task.task) : null;
+      if (!task || !name) return [];
+      return [{ task: name, due: text(task.due) }];
+    }),
+  };
 }
 
-export function approveAction(planId: string) {
-  return sendJson<{ results: unknown[] }>(
-    `/actions/${encodeURIComponent(planId)}/approve`,
+export async function planActions(input: { resident_id: string; goal: string }) {
+  const result = await sendJson<unknown>("/actions/plan", input);
+  if (!result.ok) return result;
+  const plan = normalizePlan(result.data);
+  if (!plan) return { ok: false as const, error: "The plan did not include its steps." };
+  return { ok: true as const, data: plan };
+}
+
+export function approveAction(planId: string, residentId: string) {
+  const params = new URLSearchParams({ resident_id: residentId });
+  return sendJson<{ results?: { step: string; result: string }[]; status?: string }>(
+    `/actions/${encodeURIComponent(planId)}/approve?${params}`,
     {},
   );
 }
 
-export function confirmMemory(memoryId: string, answer: "yes" | "no") {
+export function cancelAction(planId: string, residentId: string) {
+  const params = new URLSearchParams({ resident_id: residentId });
+  return sendJson<{ plan_id?: number; status?: string; error?: string }>(
+    `/actions/${encodeURIComponent(planId)}/cancel?${params}`,
+    {},
+  );
+}
+
+export function confirmMemory(memoryId: string, answer: "yes" | "no", residentId: string) {
   return sendJson<{ ok: boolean }>(
     `/memories/${encodeURIComponent(memoryId)}/confirm`,
-    { answer },
+    { confirmed: answer === "yes", resident_id: residentId },
+  );
+}
+
+export type VoiceOption = {
+  voice_id: string;
+  label: string;
+  preview_text: string;
+  preview_url: string;
+};
+
+export function getVoices(residentId: string) {
+  return sendJson<{ current: string | null; options: VoiceOption[] }>(
+    `/voices/${encodeURIComponent(residentId)}`,
+    undefined,
+    "GET",
   );
 }
 
@@ -380,12 +541,27 @@ export type SavedPhoto = {
   resident_id: string;
   cloudinary_id: string;
   label: string | null;
+  /** From the photo subagents (agents/photos). */
+  status?: "saved" | "needs_review" | "saved_offline";
+  /** saved: the tile as stored (a same-label tile gets the new photo). */
+  tile?: { id: number | string; label: string; category: string | null; cloudinary_id: string };
+  replaced?: boolean;
+  /** false when the photo check couldn't run; the staff label was used. */
+  checked?: boolean;
+  /** What the checker saw in the photo. */
+  shows?: string | null;
+  /** needs_review: why staff should look before saving. */
+  reasons?: string[];
+  category?: string;
+  reason?: string;
 };
 
 export async function savePhoto(input: {
   resident_id: string;
   public_id: string;
   label: string;
+  /** Staff chose "Save anyway" after a needs_review answer. */
+  confirmed?: boolean;
 }): Promise<MutationResult<SavedPhoto>> {
   try {
     const response = await fetch(`${apiBaseUrl()}/media/photos`, {
@@ -407,4 +583,59 @@ export async function savePhoto(input: {
   } catch {
     return { ok: false, error: "The API is not reachable." };
   }
+}
+
+// ---------- Gaze/gesture input (docs/GAZE_GESTURE_PLAN.md §7) ----------
+
+import type { InputEvent, InputProfile } from "./input/types";
+import { DEFAULT_PROFILE } from "./input/profile";
+
+/** Batched OUTCOME events from the input controller — never video. */
+export function postInputEvents(events: InputEvent[]) {
+  return sendJson<{ saved: number }>("/input-events", { events });
+}
+
+/** How this resident communicates best, from input history (G6/G7). */
+export async function getInputProfile(residentId: string): Promise<InputProfile> {
+  const raw = await fetchJson(`/input-profile/${residentId}`);
+  const row = record(raw);
+  if (!row) return { ...DEFAULT_PROFILE, resident_id: residentId };
+  return {
+    resident_id: residentId,
+    preferred_select:
+      row.preferred_select === "gaze" || row.preferred_select === "gesture"
+        ? row.preferred_select
+        : "touch",
+    preferred_yes: text(row.preferred_yes) ?? "touch",
+    dwell_ms: typeof row.dwell_ms === "number" ? row.dwell_ms : 1000,
+    rates: (record(row.rates) ?? {}) as InputProfile["rates"],
+    notes: Array.isArray(row.notes) ? row.notes.filter((n): n is string => typeof n === "string") : [],
+    events_counted: typeof row.events_counted === "number" ? row.events_counted : 0,
+    confidence:
+      row.confidence === "high" || row.confidence === "medium" ? row.confidence : "low",
+  };
+}
+
+// ---------- G8: personal gestures ----------
+
+import type { TaughtGesture } from "./input/custom-gestures";
+
+export function saveCustomGesture(input: {
+  resident_id: string;
+  tile: string;
+  samples: number[][];
+}) {
+  return sendJson<{ ok: boolean; tile: string }>("/custom-gestures", input);
+}
+
+export async function getCustomGestures(residentId: string): Promise<TaughtGesture[]> {
+  const raw = await fetchJson(`/custom-gestures/${residentId}`);
+  const rows = list(raw, "gestures");
+  if (!rows) return [];
+  return rows.flatMap((row) => {
+    const item = record(row);
+    const label = item ? text(item.tile_label) : null;
+    if (!item || !label || !Array.isArray(item.samples)) return [];
+    return [{ tile_label: label, samples: item.samples as number[][] }];
+  });
 }
