@@ -50,11 +50,20 @@ export async function startGestures(): Promise<void> {
   // instantiates its own wasm. Face mesh keeps the object it closed over.
   const host = window as unknown as { Module?: unknown };
   host.Module = undefined;
-  recognizer = await vision.GestureRecognizer.createFromOptions(fileset, {
-    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" },
-    runningMode: "VIDEO",
+  const options = {
+    baseOptions: { modelAssetPath: MODEL_PATH, delegate: "GPU" as const },
+    runningMode: "VIDEO" as const,
     numHands: 1,
-  });
+  };
+  try {
+    recognizer = await vision.GestureRecognizer.createFromOptions(fileset, options);
+  } catch {
+    // Some machines have no usable GPU delegate. CPU still reads the same camera.
+    recognizer = await vision.GestureRecognizer.createFromOptions(fileset, {
+      ...options,
+      baseOptions: { ...options.baseOptions, delegate: "CPU" },
+    });
+  }
   detector = new GestureDetector();
   loop();
 }
