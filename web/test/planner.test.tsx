@@ -273,7 +273,7 @@ describe("setting a routine", () => {
     tap("Approve");
     assert.ok(screen.getByText("Approved. You can still cancel."));
     assert.ok(!calls.some((c) => c.path === "/planner/routine"), "nothing saved during the window");
-    await screen.findByText("Booked. It is on Sam's calendar.");
+    await screen.findByText("Sent to Sam. It shows as waiting until Sam says yes.");
     const book = calls.find((c) => c.path === "/planner/book");
     assert.deepEqual(book?.body, { resident_id: "dana", routine_id: 4, approved: true });
     const order = calls.map((c) => c.path);
@@ -303,7 +303,7 @@ describe("setting a routine", () => {
     planner();
     await answerAll();
     tap("Approve");
-    await screen.findByText("Booked. Sam can see it here in My Planner.");
+    await screen.findByText("Sent to Sam. It shows as waiting until Sam says yes.");
   });
 
   test("a refusal from the server books nothing and says why", async () => {
@@ -395,7 +395,7 @@ describe("staff see the same week", () => {
     cleanup();
 
     const { container } = render(
-      <StaffPlanner residentId="dana" residentName="Dana" visits={[...WEEK, pending]} staff={STAFF} today="2026-11-08" />,
+      <StaffPlanner residentId="dana" residentName="Dana" visits={[...WEEK, pending]} staff={STAFF} today="2026-11-08" me="sam" />,
     );
     const staffBlocks = [...container.querySelectorAll(".visit-block")].map((b) => b.getAttribute("aria-label"));
     assert.equal(staffBlocks.length, 7);
@@ -403,6 +403,84 @@ describe("staff see the same week", () => {
     assert.equal(screen.queryByRole("button", { name: "Add a visit" }), null);
     assert.ok(screen.getByRole("heading", { name: "Dana's week" }));
     assert.ok(screen.getByText(/Only Dana can add or change them/));
+  });
+});
+
+describe("staff accept or reject (PROJECT_PLAN §2.5)", () => {
+  const PENDING = visit("2026-11-09", { id: 21, status: "pending", google_synced: false });
+  const OTHER = visit("2026-11-10", { id: 22, status: "pending", google_synced: false });
+
+  function staffPlanner(props: Partial<React.ComponentProps<typeof StaffPlanner>> = {}) {
+    return render(
+      <StaffPlanner residentId="dana" residentName="Dana" visits={[PENDING, OTHER]} staff={STAFF}
+        today="2026-11-08" me="sam" {...props} />,
+    );
+  }
+
+  test("the resident sees a pending visit as waiting for that staff member", () => {
+    const { container } = planner({ initialVisits: [PENDING] });
+    const block = container.querySelector(".visit-block") as HTMLElement;
+    assert.equal(block.dataset.status, "pending");
+    assert.match(block.getAttribute("aria-label") ?? "", /waiting for Sam/);
+    assert.ok(screen.getByText("Waiting for Sam"));
+  });
+
+  test("the resident is told plainly about a declined visit, and can hear it", () => {
+    stubApi(() => ({}));
+    const declined = visit("2026-11-09", { id: 30, status: "rejected" });
+    planner({ initialVisits: [], declined: [declined] });
+    assert.ok(screen.getByText("Sam can't come at 1:00p.m. on Monday. You can pick another time."));
+    assert.ok(screen.getByRole("button", { name: /Hear it/ }));
+  });
+
+  test("staff see the same pending visit, and only the named staff can answer", () => {
+    const { container } = staffPlanner({ me: "jordan" });
+    assert.equal(container.querySelectorAll('.visit-block[data-status="pending"]').length, 2);
+    assert.equal(screen.queryByRole("button", { name: /^Accept/ }), null);
+    assert.equal(screen.queryByRole("button", { name: /^Reject/ }), null);
+  });
+
+  test("accept: one call, and the visit shows as booked on the grid", async () => {
+    const calls = stubApi((path, body) =>
+      path === "/planner/respond"
+        ? { visits: (body!.visit_ids as number[]).map((id) => ({ ...PENDING, id, status: "accepted", google_synced: true })), google_synced: true }
+        : {});
+    const { container } = staffPlanner();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Accept / })[0]);
+    await waitFor(() => assert.equal(container.querySelectorAll('.visit-block[data-status="accepted"]').length, 1));
+    assert.deepEqual(calls.map((c) => c.body), [{ staff_id: "sam", visit_ids: [21], decision: "accept" }]);
+    assert.equal(container.querySelectorAll(".visit-block").length, 2);
+  });
+
+  test("reject: the visit disappears from the grid", async () => {
+    const calls = stubApi((path, body) =>
+      path === "/planner/respond"
+        ? { visits: (body!.visit_ids as number[]).map((id) => ({ ...PENDING, id, status: "rejected" })) }
+        : {});
+    const { container } = staffPlanner();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Reject / })[0]);
+    await waitFor(() => assert.equal(container.querySelectorAll(".visit-block").length, 1));
+    assert.deepEqual(calls[0].body, { staff_id: "sam", visit_ids: [21], decision: "reject" });
+  });
+
+  test("accept all answers every waiting visit in one call", async () => {
+    const calls = stubApi((path, body) =>
+      path === "/planner/respond"
+        ? { visits: (body!.visit_ids as number[]).map((id) => ({ ...PENDING, id, status: "accepted" })) }
+        : {});
+    staffPlanner();
+    fireEvent.click(screen.getByRole("button", { name: "Accept all" }));
+    await waitFor(() => assert.equal(calls.length, 1));
+    assert.deepEqual(calls[0].body, { staff_id: "sam", visit_ids: [21, 22], decision: "accept" });
+    await waitFor(() => assert.equal(screen.queryByRole("button", { name: "Accept all" }), null));
+  });
+
+  test("a refusal changes nothing and is shown", async () => {
+    stubApi(() => ({ refused: true, error: "visit 21 is for sam, not jordan" }));
+    const { container } = staffPlanner();
+    fireEvent.click(screen.getAllByRole("button", { name: /^Accept / })[0]);
+    await screen.findByText(/visit 21 is for sam/);
+    assert.equal(container.querySelectorAll('.visit-block[data-status="pending"]').length, 2);
   });
 });
 

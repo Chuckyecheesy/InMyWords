@@ -95,8 +95,17 @@ class AgentCase(unittest.TestCase):
                                                  length_min=120, start_date="2026-11-08")["routine_id"]
 
     def book(self, gemini, approved=True, routine_id=None):
+        """Dana approves (nothing on Google yet), then Sam accepts: the Planner
+        subagent writes the accepted visits (PROJECT_PLAN §2.5)."""
         rid = routine_id or self.routine()
-        return planner.book_visits("dana", rid, approved, call_tool=call_tool, run_tools=gemini)
+        booked = planner.book_visits("dana", rid, approved, call_tool=call_tool, run_tools=gemini)
+        if booked.get("refused") or booked.get("error"):
+            return booked
+        pending = [v["id"] for v in booked["visits"] if v["status"] == "pending"]
+        if not pending:  # already answered: re-syncing must never double-book
+            return call_tool("sync_accepted_visits", {"staff": "sam",
+                                                      "visit_ids": [v["id"] for v in booked["visits"]]})
+        return planner.respond_visits("sam", pending, "accept", call_tool=call_tool, run_tools=gemini)
 
     def starts(self):
         return sorted(ev["start"]["dateTime"] for _, ev in self.gcal.inserted)
@@ -169,6 +178,7 @@ class Guardrails(AgentCase):
         """Live Gemini wrote 'Dana approved this visit.'; don't append a second one."""
         rid = self.routine()
         visit = call_tool("approve_visits", {"resident": "dana", "routine_id": rid, "approved": True})["visits"][0]
+        call_tool("respond_to_visit", {"staff": "sam", "visit_ids": [visit["id"]], "decision": "accept"})
         call_tool("write_calendar_event", {"resident": "dana", "visit_id": visit["id"],
                                            "start": visit["starts_at"], "end": visit["ends_at"],
                                            "summary": "Visit with Dana", "description": "Dana approved this visit."})

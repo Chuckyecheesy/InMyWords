@@ -200,6 +200,9 @@ def visit_view(v: dict, name: str) -> dict:
         "starts_at": v["starts_at"], "ends_at": v["ends_at"], "source": v["source"],
         "label": source_label(v["source"], name, str(v.get("created_at") or "")[:10]),
         "approved": bool(v["approved"]), "google_synced": bool(v.get("google_event_id")),
+        # Staff accept or reject (§2.5). Rows from before the status existed were
+        # booked under the old rules, so they count as accepted.
+        "status": v.get("status") or "accepted",
     }
 
 
@@ -692,6 +695,7 @@ class SeedStore:
             made.append({"id": next_id + i, "resident_id": rid, "routine_id": routine["id"],
                          "staff_id": staff_id, "starts_at": b["starts_at"], "ends_at": b["ends_at"],
                          "source": source, "google_event_id": None, "approved": False,
+                         "status": "pending", "responded_by": None, "responded_at": None,
                          "created_at": _now()})
         visits.extend(made)
         self._save_runtime()
@@ -720,6 +724,15 @@ class SeedStore:
             if v["id"] == visit_id:
                 v["google_event_id"] = google_event_id
         self._save_runtime()
+
+    def set_visit_status(self, visit_ids, status, staff_id):
+        """Staff answered: accepted or rejected. Rows are never deleted."""
+        wanted, at = set(visit_ids), _now()
+        for v in self._rt("visit_events"):
+            if v["id"] in wanted:
+                v.update(status=status, responded_by=staff_id, responded_at=at)
+        self._save_runtime()
+        return [self.get_visit(i) for i in visit_ids]
 
     def save_calendar_import(self, import_id, staff_id, events):
         record = {"id": import_id, "staff_id": staff_id, "events": events,
@@ -1304,6 +1317,11 @@ class PostgresStore:
     def set_visit_google_id(self, visit_id, google_event_id):
         self._one("UPDATE visit_events SET google_event_id = %s WHERE id = %s RETURNING id",
                   (google_event_id, visit_id))
+
+    def set_visit_status(self, visit_ids, status, staff_id):
+        self._all("UPDATE visit_events SET status = %s, responded_by = %s, responded_at = now() "
+                  "WHERE id = ANY(%s) RETURNING id", (status, staff_id, list(visit_ids)))
+        return [self.get_visit(i) for i in visit_ids]
 
     def save_calendar_import(self, import_id, staff_id, events):
         return self._one(

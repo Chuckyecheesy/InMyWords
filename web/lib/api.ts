@@ -721,6 +721,8 @@ function normalizeVisit(value: unknown): PlannerVisit | null {
     label: text(row.label) ?? "",
     approved: row.approved === true,
     google_synced: row.google_synced === true,
+    // Rows from before staff could answer were booked under the old rules.
+    status: row.status === "pending" || row.status === "rejected" ? row.status : "accepted",
     read_only: row.read_only === true,
     title: text(row.title) ?? undefined,
     all_day: row.all_day === true,
@@ -733,7 +735,12 @@ function visitsOf(value: unknown): PlannerVisit[] | null {
     .filter((v): v is PlannerVisit => v !== null) ?? null;
 }
 
-export type PlannerWeek = { visits: PlannerVisit[]; staff: StaffOption[] };
+export type PlannerWeek = {
+  visits: PlannerVisit[];
+  staff: StaffOption[];
+  /** Upcoming visits staff said no to, so the resident is told (§2.5). */
+  declined: PlannerVisit[];
+};
 
 export async function getPlanner(id: string): Promise<Result<PlannerWeek>> {
   const raw = record(await fetchJson(`/planner/${encodeURIComponent(id)}`));
@@ -742,9 +749,10 @@ export async function getPlanner(id: string): Promise<Result<PlannerWeek>> {
     const staff = (Array.isArray(raw.staff) ? raw.staff : [])
       .map((s) => record(s))
       .flatMap((s) => (s && text(s.id) && text(s.name) ? [{ id: text(s.id)!, name: text(s.name)! }] : []));
-    return { data: { visits, staff: staff.length ? staff : SAMPLE_STAFF }, origin: "api" };
+    const declined = visitsOf({ visits: raw.declined }) ?? [];
+    return { data: { visits, staff: staff.length ? staff : SAMPLE_STAFF, declined }, origin: "api" };
   }
-  return { data: { visits: [], staff: SAMPLE_STAFF }, origin: "sample" };
+  return { data: { visits: [], staff: SAMPLE_STAFF, declined: [] }, origin: "sample" };
 }
 
 export type RoutineInput = {
@@ -805,6 +813,18 @@ export async function bookVisits(input: {
       planner: text(result.data.planner) ?? "rules",
     },
   };
+}
+
+/** Staff accept or reject visits the resident booked. Only the staff member
+ *  named on a visit can answer; the server refuses anyone else. */
+export async function respondToVisits(input: {
+  staff_id: string;
+  visit_ids: number[];
+  decision: "accept" | "reject";
+}): Promise<MutationResult<PlannerVisit[]>> {
+  const result = await plannerCall("/planner/respond", input);
+  if (!result.ok) return result;
+  return { ok: true, data: visitsOf(result.data) ?? [] };
 }
 
 /** Fallback: a staff .zip calendar export, shown read-only on the grid. */

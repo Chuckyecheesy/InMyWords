@@ -5665,6 +5665,60 @@ button.entry-preview-play:disabled { opacity: 0.6; }
   vertical-align: -3px;
 }
 
+/* Booked by the resident, waiting for staff to accept (§2.5). */
+.visit-block[data-status="pending"],
+.cal-swatch[data-status="pending"] {
+  border-left-style: dotted;
+  background: repeating-linear-gradient(135deg, var(--src-resident-bg) 0 10px, var(--surface) 10px 14px);
+}
+
+.visit-status {
+  font-size: var(--text-small);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.planner-declined {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planner-declined-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  border: 2px solid var(--line);
+  font-size: var(--text-body);
+}
+
+.planner-declined-item p {
+  margin: 0;
+}
+
+.planner-answer-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.planner-answer-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
 .cal-swatch[data-kind="imported"] {
   background: var(--src-staff-bg);
   border-left: 5px dashed var(--src-staff);

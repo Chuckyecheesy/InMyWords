@@ -21,6 +21,7 @@ export default async function PlannerPage({ params }: { params: Promise<{ id: st
         residentId={id}
         residentName={resident.data.name}
         initialVisits={planner.data.visits}
+        declined={planner.data.declined}
         staff={planner.data.staff}
         today={todayLocal()}
       />

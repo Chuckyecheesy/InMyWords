@@ -555,6 +555,12 @@ class PlannerBookBody(BaseModel):
     approved: bool
 
 
+class PlannerRespondBody(BaseModel):
+    staff_id: str
+    visit_ids: list[int]
+    decision: str  # "accept" | "reject"
+
+
 class CalendarZipBody(BaseModel):
     resident_id: str = ""
     staff_id: str = ""
@@ -618,6 +624,21 @@ async def planner_book(body: PlannerBookBody):
     except Exception as exc:
         print(f"[planner] booking failed ({type(exc).__name__}): {exc}")
         return _PLANNER_DOWN
+
+
+@app.post("/planner/respond")
+async def planner_respond(body: PlannerRespondBody):
+    """Staff accept or reject visits the resident booked (PROJECT_PLAN §2.5).
+    Accept: the Planner subagent puts them on staff's Google Calendar, plain
+    code finishes the rest. Reject: hidden on both calendars, never on Google."""
+    from agents import planner
+    try:
+        return await asyncio.to_thread(
+            planner.respond_visits, body.staff_id, body.visit_ids, body.decision,
+            call_tool=_sync_call_tool(), run_tools=planner.default_run_tools())
+    except Exception as exc:
+        print(f"[planner] respond failed ({type(exc).__name__}): {exc}")
+        return {"error": "The planner is not reachable right now. Nothing was changed."}
 
 
 @app.post("/planner/import")

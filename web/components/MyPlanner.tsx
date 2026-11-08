@@ -52,6 +52,7 @@ export function MyPlanner({
   residentId,
   residentName,
   initialVisits,
+  declined = [],
   staff,
   today,
   cancelWindowMs = PLANNER_CANCEL_WINDOW_MS,
@@ -59,6 +60,8 @@ export function MyPlanner({
   residentId: string;
   residentName: string;
   initialVisits: PlannerVisit[];
+  /** Upcoming visits staff said no to; the resident is told plainly. */
+  declined?: PlannerVisit[];
   staff: StaffOption[];
   /** Toronto date "YYYY-MM-DD", from the server so both renders agree. */
   today: string;
@@ -182,11 +185,8 @@ export function MyPlanner({
     const fresh = await getPlanner(residentId);
     setVisits(fresh.origin === "api" ? fresh.data.visits : [...visits, ...booked.data.visits]);
     setPhase("done");
-    setNote(
-      booked.data.google_synced
-        ? `Booked. It is on ${who}'s calendar.`
-        : `Booked. ${who} can see it here in My Planner.`,
-    );
+    // A booked visit is a request until staff accept it (§2.5).
+    setNote(`Sent to ${who}. It shows as waiting until ${who} says yes.`);
   }
 
   function approve() {
@@ -214,6 +214,8 @@ export function MyPlanner({
         weekOffset={weekOffset}
         setWeekOffset={setWeekOffset}
         visits={[...visits.filter((v) => v.approved), ...imported]}
+        declined={declined}
+        onHear={hear}
         staff={staff}
         onAdd={begin}
         importNote={importNote}
@@ -393,6 +395,12 @@ export function MyPlanner({
 }
 
 /** "Sunday, November 8" for a visit, in Toronto. */
+/** "Sam can't come at 1:00p.m. on Monday. You can pick another time." */
+export function declinedSentence(staff: StaffOption[], visit: PlannerVisit): string {
+  const day = weekFrom(localDate(visit.starts_at))[0].weekday;
+  return `${staffName(staff, visit.staff)} can't come at ${clock(visit.starts_at)} on ${day}. You can pick another time.`;
+}
+
 function dayHeading(visit: PlannerVisit): string {
   return weekFrom(localDate(visit.starts_at))[0].heading;
 }
@@ -407,7 +415,9 @@ export function WeekView({
   today,
   weekOffset,
   setWeekOffset,
-  visits,
+  visits: allVisits,
+  declined = [],
+  onHear,
   staff,
   onAdd,
   importNote,
@@ -419,12 +429,17 @@ export function WeekView({
   weekOffset: number;
   setWeekOffset: (n: number) => void;
   visits: PlannerVisit[];
+  /** Resident only: visits staff said no to, told plainly with a way to hear it. */
+  declined?: PlannerVisit[];
+  onHear?: (text: string) => void;
   staff: StaffOption[];
   /** Resident only. Staff never add or change a resident's visits. */
   onAdd?: () => void;
   importNote: string | null;
   onCalendarFile: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
+  // Rejected visits are gone from both calendars (§2.5).
+  const visits = allVisits.filter((v) => v.status !== "rejected");
   const week = weekFrom(weekStartOf(today), weekOffset);
   const byDay = groupByDay(visits, week);
   const bounds = hourBounds(visits, week);
@@ -450,6 +465,7 @@ export function WeekView({
     if (cal && hour) cal.scrollTop = (scrollHour - bounds.first) * hour.offsetHeight;
   }, [weekOffset, scrollHour, bounds.first]);
   const isStaff = viewer === "staff";
+  const hasPending = visits.some((v) => !v.read_only && v.status === "pending");
   const title = isStaff ? `${residentName}'s week` : "My week";
   const what = (v: PlannerVisit) =>
     v.read_only ? v.title || "Staff time" : `Meeting with ${staffName(staff, v.staff)}`;
@@ -473,6 +489,24 @@ export function WeekView({
           Visits {residentName} chose. Only {residentName} can add or change them, from their tablet.
         </p>
       ) : null}
+      {!isStaff && declined.length > 0 ? (
+        <ul className="planner-declined" aria-label="Visits staff can't make">
+          {declined.map((v) => {
+            const message = declinedSentence(staff, v);
+            return (
+              <li key={`${v.id}-${v.starts_at}`} className="planner-declined-item">
+                <p>{message}</p>
+                {onHear ? (
+                  <button type="button" className="btn" data-variant="secondary" data-size="lg" onClick={() => onHear(message)}>
+                    <Volume2 size={24} aria-hidden="true" />
+                    <span className="btn-label">Hear it</span>
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
 
       <div className="row planner-weeknav">
         <button type="button" className="btn" data-variant="secondary" data-size="lg" onClick={() => setWeekOffset(weekOffset - 1)}>
@@ -490,12 +524,17 @@ export function WeekView({
         </button>
       </div>
 
-      {bookedLabel || importedLabel ? (
+      {bookedLabel || importedLabel || hasPending ? (
         <p className="cal-legend">
           {bookedLabel ? (
             <span className="cal-key">
               <span className="cal-swatch" data-kind="booked" aria-hidden="true" />{" "}
               {isStaff ? `Visits ${residentName} chose` : "Your visits"}: {bookedLabel}
+            </span>
+          ) : null}
+          {hasPending ? (
+            <span className="cal-key">
+              <span className="cal-swatch" data-status="pending" aria-hidden="true" /> Waiting for staff to say yes
             </span>
           ) : null}
           {importedLabel ? (
@@ -569,6 +608,7 @@ export function WeekView({
                         key={`${v.starts_at}-${v.id ?? v.title}`}
                         className="visit-block cal-event"
                         data-kind={v.read_only ? "imported" : "booked"}
+                        data-status={v.read_only ? undefined : v.status ?? "accepted"}
                         data-short={short || undefined}
                         style={{
                           top: `${top}%`,
@@ -577,8 +617,8 @@ export function WeekView({
                           width: `${100 / lanes}%`,
                         }}
                         aria-label={`${timeRange(v.starts_at, v.ends_at)}, ${what(v)}, ${v.label}${
-                          v.google_synced ? `, on ${staffName(staff, v.staff)}'s calendar` : ""
-                        }`}
+                          v.status === "pending" ? `, waiting for ${staffName(staff, v.staff)}` : ""
+                        }${v.google_synced ? `, on ${staffName(staff, v.staff)}'s calendar` : ""}`}
                       >
                         {short ? (
                           // Under an hour there is room for one line: the title. The time is
@@ -596,6 +636,9 @@ export function WeekView({
                                 <CalendarCheck className="visit-synced-icon" size={20} aria-hidden="true" />
                               ) : null}
                             </span>
+                            {v.status === "pending" && !v.read_only ? (
+                              <span className="visit-status">Waiting for {staffName(staff, v.staff)}</span>
+                            ) : null}
                             {/* The source label is always in the legend and aria-label; inline
                                 only when the block is tall enough to show it whole. */}
                             {roomy && !v.read_only ? <span className="visit-label">{v.label}</span> : null}
