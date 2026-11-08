@@ -197,12 +197,14 @@ a {
 }
 
 .suggestion-line {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
+  min-height: var(--tap-min);
   text-align: left;
   background: transparent;
   border: none;
-  padding: 0;
+  padding: var(--space-2) 0;
   font: inherit;
   color: inherit;
   cursor: pointer;

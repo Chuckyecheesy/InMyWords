@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getVoices, setVoice, speak, type VoiceOption } from "@/lib/api";
 import { AudioPlayback, BigButton } from "./shared";
 
@@ -16,6 +16,7 @@ export function VoicePicker({
   const [playing, setPlaying] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const previous = useRef<string | null>(null);
 
   useEffect(() => {
     let cancel = false;
@@ -40,6 +41,10 @@ export function VoicePicker({
     if (!spoken.ok) setError(spoken.error);
   }
 
+  function hear(label: string) {
+    void speak({ resident_id: residentId, text: label });
+  }
+
   async function choose(option: VoiceOption) {
     setError(null);
     const result = await setVoice(residentId, option.voice_id);
@@ -47,8 +52,24 @@ export function VoicePicker({
       setError(result.error);
       return;
     }
+    previous.current = current;
     setCurrent(option.voice_id);
     setChosen(option.label);
+  }
+
+  async function undo() {
+    const prior = previous.current;
+    if (!prior) {
+      setChosen(null);
+      return;
+    }
+    const result = await setVoice(residentId, prior);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setCurrent(prior);
+    setChosen(null);
   }
 
   return (
@@ -69,10 +90,10 @@ export function VoicePicker({
                 <h3>{option.label}</h3>
                 <p>{option.preview_text}</p>
                 <div className="speak-actions">
-                  <BigButton onClick={() => void play(option)} aria-pressed={playing === option.preview_url}>
+                  <BigButton onLongPress={hear} onClick={() => void play(option)} aria-pressed={playing === option.preview_url}>
                     {`Play ${option.label}`}
                   </BigButton>
-                  <BigButton tone="approve" onClick={() => void choose(option)} aria-pressed={selected}>
+                  <BigButton tone="approve" onLongPress={hear} onClick={() => void choose(option)} aria-pressed={selected}>
                     {`Choose ${option.label}`}
                   </BigButton>
                 </div>
@@ -80,6 +101,11 @@ export function VoicePicker({
             );
           })}
         </div>
+        {chosen ? (
+          <BigButton onLongPress={hear} onClick={() => void undo()}>
+            Undo
+          </BigButton>
+        ) : null}
         {playing ? <AudioPlayback src={playing} autoPlay label="Play preview" /> : null}
       </section>
     </div>

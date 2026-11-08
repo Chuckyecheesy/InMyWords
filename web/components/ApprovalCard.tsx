@@ -1,7 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
-import { approveAction, cancelAction } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { approveAction, cancelAction, speak } from "@/lib/api";
 import { stepPhoto } from "@/lib/action-photos";
 import { tileImageUrl } from "@/lib/cloudinary";
 import { money } from "@/lib/format";
@@ -22,6 +22,14 @@ export function ApprovalCard({
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (timer.current !== null) window.clearTimeout(timer.current);
+  }, []);
+
+  function hear(label: string) {
+    void speak({ resident_id: residentId, text: label });
+  }
 
   function clearTimer() {
     if (timer.current !== null) {
@@ -93,11 +101,11 @@ export function ApprovalCard({
       {phase === "proposed" || phase === "window" ? (
         <div className="speak-actions">
           {phase === "proposed" ? (
-            <BigButton tone="approve" onClick={approve}>
+            <BigButton tone="approve" onLongPress={hear} onClick={approve}>
               Approve
             </BigButton>
           ) : null}
-          <BigButton tone="reject" onClick={() => void cancel()}>
+          <BigButton tone="reject" onLongPress={hear} onClick={() => void cancel()}>
             Cancel
           </BigButton>
         </div>

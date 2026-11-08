@@ -7,6 +7,7 @@ import { tileImageUrl } from "@/lib/cloudinary";
 import { choiceStanding, consequence, money } from "@/lib/format";
 import type { ChoiceOption, ChoiceResult } from "@/lib/types";
 import { ApprovalCard } from "./ApprovalCard";
+import { BigButton } from "./shared";
 
 const LONG_PRESS_MS = 600;
 
@@ -161,9 +162,21 @@ export function ChoiceScreen({
           })}
         </div>
         {status ? (
-          <p className="eyebrow" data-testid="choice-standing">
-            {choiceStanding(status, residentName, chosen)}
-          </p>
+          <>
+            <p className="eyebrow" data-testid="choice-standing">
+              {choiceStanding(status, residentName, chosen)}
+            </p>
+            <BigButton
+              onLongPress={hear}
+              onClick={() => {
+                setStatus(null);
+                setChosen(null);
+                setPlan(null);
+              }}
+            >
+              Undo
+            </BigButton>
+          </>
         ) : null}
       </section>
       {plan ? <ApprovalCard residentId={residentId} plan={plan} /> : null}

@@ -19,6 +19,18 @@ One Vultr Cloud Compute VM: `vc2-1c-2gb`, Toronto (`yto`), Ubuntu 24.04, with a 
 
 To add a service, add it to `SERVICES`, the unit list and the `names` list in `deploy.sh`. In seed mode, `db/seed/.runtime.json` (action plans and bookings) is a symlink to `/var/lib/inmywords/runtime.json`, because the code directory is read-only. To use a real domain (for example Ahmed's GoDaddy one), point `@`, `api` and `booking` A records at the VM and deploy with `DEPLOY_DOMAIN=yourdomain.xyz`.
 
+### GoDaddy domain
+
+In the GoDaddy DNS panel for the project domain, set three A records to the VM address in `ops/host`:
+
+| Host | Type | Value |
+|---|---|---|
+| `@` | A | the VM address |
+| `api` | A | the VM address |
+| `booking` | A | the VM address |
+
+Then deploy with `DEPLOY_DOMAIN=yourdomain.xyz`. Caddy requests the certificates for the apex, `api.`, and `booking.` names. The domain login is not in this repo, so this step is done in the GoDaddy account.
+
 **Secrets**: `/etc/inmywords.env` (root:app 0640) is written from the allowlisted keys (`ENV_KEYS` in `deploy.sh`) of your local `.env`. The values are streamed over SSH stdin and never land in argv, logs or the synced tree. With no keys set, everything runs in mock/seed mode. `DATABASE_URL` switches the MCP servers from seed JSON to Tiger Data.
 
 ## First-time setup

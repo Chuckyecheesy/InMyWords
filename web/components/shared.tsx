@@ -4,7 +4,6 @@ import {
   useEffect,
   useId,
   useRef,
-  useState,
   type PointerEvent,
   type ReactNode,
 } from "react";
@@ -13,7 +12,7 @@ import type { Tile } from "@/lib/types";
 
 const LONG_PRESS_MS = 600;
 
-function useLongPress(onLongPress?: (label: string) => void, label = "") {
+export function useLongPress(onLongPress?: (label: string) => void, label = "") {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fired = useRef(false);
 
@@ -24,7 +23,7 @@ function useLongPress(onLongPress?: (label: string) => void, label = "") {
     }
   }
 
-  function onPointerDown(event: PointerEvent<HTMLButtonElement>) {
+  function onPointerDown(event: PointerEvent<HTMLElement>) {
     if (event.button !== 0 && event.pointerType === "mouse") return;
     fired.current = false;
     clear();
@@ -166,20 +165,15 @@ export function AudioPlayback({
   const generatedId = useId();
   const describedBy = transcriptId ?? (transcript ? generatedId : undefined);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [current, setCurrent] = useState(src);
-
-  useEffect(() => {
-    setCurrent(src);
-  }, [src]);
 
   useEffect(() => {
     const node = audioRef.current;
     if (!node) return;
-    node.src = current;
+    node.src = src;
     if (autoPlay) {
       void node.play().catch(() => {});
     }
-  }, [current, autoPlay]);
+  }, [src, autoPlay]);
 
   function stop() {
     const node = audioRef.current;
@@ -192,7 +186,7 @@ export function AudioPlayback({
     <div className="audio-playback">
       <audio
         ref={audioRef}
-        src={current}
+        src={src}
         preload="auto"
         autoPlay={autoPlay}
         aria-describedby={describedBy}

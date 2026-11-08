@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
-import { AudioPlayback, BigButton } from "@/components/shared";
+import { AudioPlayback, BigButton, useLongPress } from "@/components/shared";
 import { PhotoChoiceGrid } from "@/components/PhotoChoiceGrid";
 import { approveStory, draftStory, getStoryAnswers, saveStoryAnswer, speak } from "@/lib/api";
 import {
@@ -162,17 +162,13 @@ export default function StoryInterviewPage({
           <p>One question at a time. Tap a picture to answer.</p>
           <div className="chapter-picker">
             {STORY_CHAPTERS.map((item) => (
-              <button
+              <ChapterButton
                 key={item.chapter_key}
-                type="button"
-                className="big-button"
-                data-chapter={item.chapter_key}
-                onClick={() => {
-                  void runChapter(item);
-                }}
-              >
-                {item.title}
-              </button>
+                title={item.title}
+                chapterKey={item.chapter_key}
+                onSpeak={() => void hear(item.title)}
+                onOpen={() => void runChapter(item)}
+              />
             ))}
           </div>
         </section>
@@ -226,6 +222,7 @@ export default function StoryInterviewPage({
                 <BigButton
                   tone="approve"
                   disabled={busy || !draftId}
+                  onLongPress={hear}
                   onClick={() => {
                     if (!draftId) return;
                     setBusy(true);
@@ -243,6 +240,7 @@ export default function StoryInterviewPage({
                 </BigButton>
                 <BigButton
                   disabled={busy}
+                  onLongPress={hear}
                   onClick={() => {
                     setDraftText(null);
                     setDraftId(null);
@@ -257,6 +255,7 @@ export default function StoryInterviewPage({
           <div className="story-nav">
             <BigButton
               disabled={busy}
+              onLongPress={hear}
               onClick={() => {
                 if (!chapter) return;
                 setBusy(true);
@@ -276,6 +275,7 @@ export default function StoryInterviewPage({
               Make my chapter
             </BigButton>
             <BigButton
+              onLongPress={hear}
               onClick={() => {
                 setMode("pick");
                 setChapter(null);
@@ -297,4 +297,35 @@ export default function StoryInterviewPage({
 
 function toRequest(question: StoryQuestion): ShowChoicesInput {
   return { question: question.question, options: question.options };
+}
+
+function ChapterButton({
+  title,
+  chapterKey,
+  onOpen,
+  onSpeak,
+}: {
+  title: string;
+  chapterKey: string;
+  onOpen: () => void;
+  onSpeak: () => void;
+}) {
+  const press = useLongPress(() => onSpeak(), title);
+  return (
+    <button
+      type="button"
+      className="big-button"
+      data-chapter={chapterKey}
+      onPointerDown={press.onPointerDown}
+      onPointerUp={press.onPointerUp}
+      onPointerLeave={press.onPointerLeave}
+      onPointerCancel={press.onPointerCancel}
+      onClick={() => {
+        if (press.consumeClick()) return;
+        onOpen();
+      }}
+    >
+      {title}
+    </button>
+  );
 }

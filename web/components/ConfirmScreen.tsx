@@ -6,6 +6,7 @@ import { tileImageUrl } from "@/lib/cloudinary";
 import { sourceChip } from "@/lib/format";
 import type { PendingMemory } from "@/lib/types";
 import { SourceChip } from "./SourceChip";
+import { BigButton } from "./shared";
 
 export function ConfirmScreen({
   residentId,
@@ -49,11 +50,25 @@ export function ConfirmScreen({
                 <p>{memory.content}</p>
                 <SourceChip tone={chip.tone} label={chip.label} />
                 {picked ? (
-                  <p data-testid={`confirm-${memory.id}`}>
-                    {picked === "yes"
-                      ? `In ${residentName}'s words.`
-                      : `${residentName} said no.`}
-                  </p>
+                  <>
+                    <p data-testid={`confirm-${memory.id}`}>
+                      {picked === "yes"
+                        ? `In ${residentName}'s words.`
+                        : `${residentName} said no.`}
+                    </p>
+                    <BigButton
+                      onLongPress={hear}
+                      onClick={() =>
+                        setAnswers((current) => {
+                          const next = { ...current };
+                          delete next[memory.id];
+                          return next;
+                        })
+                      }
+                    >
+                      Undo
+                    </BigButton>
+                  </>
                 ) : (
                   <div className="choice-options" role="group" aria-label="Yes or no">
                     <AnswerTile

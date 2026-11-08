@@ -41,6 +41,9 @@ export default async function HomePage() {
       <Link href="/staff" className="big-link">
         I&apos;m staff
       </Link>
+      <Link href="/pitch" className="big-link">
+        Pitch
+      </Link>
     </AppShell>
   );
 }
