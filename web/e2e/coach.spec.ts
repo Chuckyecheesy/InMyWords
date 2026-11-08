@@ -9,7 +9,8 @@ test("Coach returns a sourced overview for an onboarding question", async ({ pag
       response.url().includes("/coach/ask") &&
       response.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "Ask" }).click();
+  // "Ask by voice" also matches a substring name of "Ask".
+  await page.getByRole("button", { name: "Ask", exact: true }).click();
   const response = await responsePromise;
   expect(response.ok()).toBeTruthy();
 
@@ -17,13 +18,12 @@ test("Coach returns a sourced overview for an onboarding question", async ({ pag
     answer: string;
     sources: { type: string; date: string; label: string }[];
   };
+  // Spoken wording (coach_wording): sources sit in the sentence, not as
+  // "From records, 2021:" labels. Onboarding pulls communication facts.
   expect(body.answer).not.toContain("I don't know");
-  expect(body.answer).toContain("From records, 2021:");
-  expect(body.answer).toContain("In Marcus's words:");
-  expect(body.answer).toContain("Bowling on Saturday");
+  expect(body.answer).toContain("In Marcus's words");
+  expect(body.answer).toContain("From the 2021 records");
   expect(body.sources.some((source) => source.type === "document")).toBeTruthy();
 
-  await expect(page.locator(".coach-answer").last()).toContainText(
-    "From records, 2021",
-  );
+  await expect(page.getByText("From the 2021 records")).toBeVisible();
 });

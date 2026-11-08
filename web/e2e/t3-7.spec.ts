@@ -91,19 +91,22 @@ test.describe("T3.7 approval, confirm, voice", () => {
     // can slot fresher observations ahead of the tea pattern, so confirm
     // through (bounded) until the tea card is up.
     await page.goto("/resident/marcus/confirm");
+    const statement = page.locator(".confirm-statement");
+    const empty = page.getByRole("heading", { name: "All done" });
     for (let i = 0; i < 8; i++) {
-      const teaVisible = await page
-        .getByText("Likes tea now", { exact: false })
-        .isVisible()
-        .catch(() => false);
-      if (teaVisible) break;
-      await page.getByRole("button", { name: "Yes" }).click();
-      await page.getByRole("button", { name: "Next" }).click();
-      await page.waitForTimeout(400);
+      await expect(statement.or(empty)).toBeVisible();
+      if ((await statement.count()) === 0) break;
+      const text = await statement.innerText();
+      // Match the card, not a page-wide getByText: that string also sits in
+      // the RSC payload, so a strict-mode miss used to confirm the card away.
+      if (text.includes("Likes tea now")) break;
+      await page.getByRole("button", { name: "Yes", exact: true }).click();
+      await page.getByRole("button", { name: "Next", exact: true }).click();
+      await expect(statement.filter({ hasText: text })).toHaveCount(0);
     }
-    await expect(page.getByText("Likes tea now", { exact: false })).toBeVisible();
+    await expect(statement).toContainText("Likes tea now");
 
-    const yes = page.getByRole("button", { name: "Yes" });
+    const yes = page.getByRole("button", { name: "Yes", exact: true });
     const box = await yes.boundingBox();
     expect(box?.width).toBeGreaterThanOrEqual(64);
     expect(box?.height).toBeGreaterThanOrEqual(64);
@@ -113,7 +116,7 @@ test.describe("T3.7 approval, confirm, voice", () => {
     const saved = page.waitForResponse((response) =>
       /\/memories\/\d+\/confirm/.test(response.url()),
     );
-    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
     const response = await saved;
     expect(response.request().postDataJSON()).toMatchObject({
       confirmed: true,
