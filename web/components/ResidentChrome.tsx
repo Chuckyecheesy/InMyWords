@@ -9,6 +9,8 @@ import { speak } from "@/lib/api";
 import { deviceSpeechAvailable, speakWithDevice } from "@/lib/speech";
 import { DisplayMenu } from "./DisplayMenu";
 import { HelpButton } from "./HelpButton";
+import { GardenEdge } from "./nature";
+import { QUIET_SECTIONS, SectionArt } from "./SectionArt";
 import { Avatar, WordmarkMark } from "./ui";
 
 const LONG_PRESS_MS = 600;
@@ -186,8 +188,10 @@ export function ResidentChrome({
         </div>
       </header>
       <main id="main" className="r-main">
+        <SectionArt section={section} />
         {children}
       </main>
+      {QUIET_SECTIONS.has(section) ? null : <GardenEdge />}
       <HelpButton residentId={id} />
     </div>
   );

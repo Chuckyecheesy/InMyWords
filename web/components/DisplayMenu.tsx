@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import { Contrast, Pointer, SlidersHorizontal, Type } from "lucide-react";
+import { Contrast, Moon, Pointer, SlidersHorizontal, Type } from "lucide-react";
 
 type Setting = { attr: "theme" | "text" | "touch"; on: string; off: string; storage: string; event: string };
 
 const CONTRAST: Setting = {
   attr: "theme",
   on: "contrast",
+  off: "calm",
+  storage: "imw-theme",
+  event: "imw-theme",
+};
+// Dark shares the theme attribute with contrast, so turning one on turns
+// the other off.
+const DARK: Setting = {
+  attr: "theme",
+  on: "dark",
   off: "calm",
   storage: "imw-theme",
   event: "imw-theme",
@@ -58,10 +67,11 @@ function useSetting(setting: Setting): [boolean, () => void] {
   return [value, toggle];
 }
 
-/** Larger text and high contrast, in one predictable place on every screen. */
+/** Larger text, dark mode and high contrast, in one predictable place on every screen. */
 export function DisplayMenu({ size = "md" }: { size?: "md" | "lg" }) {
   const [open, setOpen] = useState(false);
   const [contrast, toggleContrast] = useSetting(CONTRAST);
+  const [dark, toggleDark] = useSetting(DARK);
   const [large, toggleLarge] = useSetting(LARGE);
   const [oneFinger, toggleOneFinger] = useSetting(ONE_FINGER);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -108,6 +118,11 @@ export function DisplayMenu({ size = "md" }: { size?: "md" | "lg" }) {
           <button type="button" className="btn contrast-toggle" data-size="lg" aria-pressed={large} onClick={toggleLarge}>
             <Type size={22} aria-hidden="true" />
             Larger text
+            <span className="toggle-dot" aria-hidden="true" />
+          </button>
+          <button type="button" className="btn contrast-toggle" data-size="lg" aria-pressed={dark} onClick={toggleDark}>
+            <Moon size={22} aria-hidden="true" />
+            Dark mode
             <span className="toggle-dot" aria-hidden="true" />
           </button>
           <button

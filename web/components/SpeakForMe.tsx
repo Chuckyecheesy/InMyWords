@@ -27,6 +27,7 @@ import { categoryLabel } from "@/lib/format";
 import { onCustomGesture } from "@/lib/input/gestures";
 import { useInputLayer } from "@/lib/input/use-input";
 import { nextSelection, spokenSentence } from "@/lib/sentence";
+import { Butterfly } from "./nature";
 import { BowlingIcon, categoryTint, type Icon } from "@/lib/pictograms";
 import type { Resident, Tile } from "@/lib/types";
 import { CameraConsent } from "./CameraConsent";
@@ -481,6 +482,7 @@ export function SpeakForMe({ resident }: { resident: Resident }) {
 
       {playback ? (
         <div className="now-speaking" data-state={playback.state === "playing" ? (playback.kind === "preview" ? "preview" : undefined) : "done"} role="status">
+          {playback.kind === "approved" ? <Butterfly className="spoken-butterfly" /> : null}
           {playback.state === "playing" ? <SoundBars /> : <Check size={26} aria-hidden="true" />}
           <div className="now-speaking-text">
             <strong>&ldquo;{playback.text}&rdquo;</strong>

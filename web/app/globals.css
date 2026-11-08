@@ -20,10 +20,11 @@ body {
 html {
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
+  /* The page colour lives on <html> so the atmosphere layer can sit behind content. */
+  background: var(--bg);
 }
 
 body {
-  background: var(--bg);
   color: var(--ink);
   font-family: var(--font-ui);
   font-size: var(--text-body);
@@ -6231,4 +6232,325 @@ html[data-touch="onefinger"] .pin-key {
   .simple-speak-actions { grid-template-columns: 1fr; gap: 20px; }
   .simple-speak-actions .service-bar { min-height: 72px; }
   .simple-speak-actions [data-service-target="say"] { grid-row: 1; }
+}
+
+/* ==========================================================================
+   Soothing garden look — atmosphere, display type, nature illustrations.
+   Layered on top of the existing layout; nothing above is restructured.
+   ========================================================================== */
+
+/* Atmosphere: a faint paper grain behind everything (no colour washes) */
+.atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--grain-opacity);
+  mix-blend-mode: var(--grain-blend);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.3  0 0 0 0 0.22  0 0 0 0 0.18  0 0 0 0.9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+[data-theme="contrast"] .atmosphere {
+  display: none;
+}
+
+/* Frosted bars so the atmosphere shows through softly */
+.r-topbar {
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+}
+
+.s-sidebar {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+[data-theme="contrast"] :is(.r-topbar, .s-sidebar) {
+  background: #fff;
+  backdrop-filter: none;
+}
+
+/* Display type: a soft, warm serif for headings; Atkinson stays for reading */
+h1,
+h2,
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variation-settings: "SOFT" 100, "opsz" 72;
+  letter-spacing: -0.015em;
+}
+
+.s-app h2 {
+  font-variation-settings: "SOFT" 100, "opsz" 24;
+  font-weight: 600;
+}
+
+.serif,
+em {
+  font-variation-settings: "SOFT" 100, "opsz" 36;
+}
+
+/* ---------- Nature illustrations (decorative, aria-hidden) ---------- */
+
+.nature {
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+[data-theme="contrast"] .nature {
+  display: none;
+}
+
+.n-leaf { fill: var(--leaf); }
+.n-leaf-2 { fill: var(--leaf-2); }
+.n-leaf-3 { fill: var(--leaf-3); }
+.n-stem { fill: none; stroke: var(--stem); stroke-width: 3; stroke-linecap: round; }
+.n-vein { fill: none; stroke: var(--vein); stroke-width: 2; stroke-linecap: round; }
+.n-petal { fill: var(--petal); }
+.n-petal-2 { fill: var(--petal-2); }
+.n-petal-3 { fill: var(--petal-3); }
+.n-honey { fill: var(--honey); }
+.n-fur { fill: var(--fur); }
+.n-fur-2 { fill: var(--fur-2); }
+.n-fur-3 { fill: var(--fur-3); }
+.n-fur-line { fill: none; stroke: var(--fur-2); stroke-width: 3; stroke-linecap: round; }
+.n-bird { fill: var(--bird); }
+.n-bird-2 { fill: var(--bird-2); }
+.n-breast { fill: var(--breast); }
+.n-ink { fill: var(--nature-ink); }
+.n-ink-line { fill: none; stroke: var(--nature-ink); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.n-hill-1 { fill: var(--hill-1); }
+.n-hill-2 { fill: var(--hill-2); }
+.n-hill-3 { fill: var(--hill-3); }
+.n-sun { fill: var(--sun); }
+.n-moon { fill: var(--moon); }
+.n-cloud { fill: var(--cloud); }
+.n-pebble { fill: var(--pebble); }
+.n-pebble-2 { fill: var(--pebble-2); }
+.n-pot { fill: var(--pot); }
+.n-pot-2 { fill: var(--pot-2); }
+.n-shell { fill: var(--shell); }
+.n-shell-line { fill: none; stroke: var(--shell-2); stroke-width: 3; stroke-linecap: round; }
+.n-snail { fill: var(--snail); }
+.n-wing { fill: var(--cloud); opacity: 0.85; }
+.n-branch { fill: none; stroke: var(--bird-2); stroke-width: 5; stroke-linecap: round; }
+.n-sky { fill: var(--bg); }
+.n-cut { fill: none; stroke: var(--bg); stroke-width: 4.5; stroke-linecap: round; }
+.n-tail-stroke { fill: none; stroke: var(--fur); stroke-width: 12; stroke-linecap: round; }
+.n-stripe { fill: none; stroke: var(--nature-ink); stroke-width: 4.5; stroke-linecap: round; }
+
+/* Sun by day, moon by night */
+.n-night { display: none; }
+[data-theme="dark"] .n-night { display: inline; }
+[data-theme="dark"] .n-day { display: none; }
+
+.n-sway,
+.n-hop,
+.n-breathe,
+.n-tail,
+.n-flap-l,
+.n-flap-r,
+.n-drift {
+  transform-box: fill-box;
+}
+
+.n-sway { transform-origin: 50% 100%; animation: n-sway 7s ease-in-out infinite; }
+.n-hop { transform-origin: 50% 100%; animation: n-hop 9s ease-in-out infinite; }
+.n-breathe { transform-origin: 50% 100%; animation: n-breathe 4.8s ease-in-out infinite; }
+.n-tail { transform-origin: 0% 100%; animation: n-tail 6s ease-in-out infinite; }
+.n-flap-l { transform-origin: 100% 50%; animation: n-flap 0.9s ease-in-out infinite; }
+.n-flap-r { transform-origin: 0% 50%; animation: n-flap 0.9s ease-in-out infinite; }
+.n-drift { animation: n-drift 28s ease-in-out infinite alternate; }
+.n-zz { animation: n-zz 4.8s ease-in-out infinite; }
+
+@keyframes n-sway { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
+@keyframes n-hop {
+  0%, 84%, 100% { transform: translateY(0); }
+  88% { transform: translateY(-9px); }
+  92% { transform: translateY(0); }
+  95% { transform: translateY(-4px); }
+  98% { transform: translateY(0); }
+}
+@keyframes n-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.025, 1.05); } }
+@keyframes n-tail { 0%, 76%, 100% { transform: rotate(0deg); } 84% { transform: rotate(-12deg); } 92% { transform: rotate(5deg); } }
+@keyframes n-flap { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.45); } }
+@keyframes n-drift { from { transform: translateX(-20px); } to { transform: translateX(30px); } }
+@keyframes n-zz { 0%, 100% { opacity: 0.25; transform: translateY(2px); } 50% { opacity: 0.9; transform: translateY(-3px); } }
+
+/* Corner plant for each resident section (never over tiles: it sits behind
+   the page head and hides on narrow screens) */
+.r-main {
+  position: relative;
+}
+
+/* z-index -1 paints it just above the page colour and behind every card */
+.section-art {
+  position: absolute;
+  top: var(--space-7);
+  right: var(--gutter);
+  width: 120px;
+  height: 140px;
+  z-index: -1;
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+.section-art .nature {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 900px) {
+  .section-art {
+    display: none;
+  }
+}
+
+/* Garden edge that closes each page */
+.garden-edge {
+  width: 100%;
+  height: 96px;
+  margin-top: auto;
+  flex: none;
+}
+
+.s-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.s-content > .garden-edge {
+  margin-top: auto;
+  margin-left: calc(var(--gutter) * -1);
+  width: calc(100% + var(--gutter) * 2);
+}
+
+.s-sidebar .sidebar-plant {
+  width: 110px;
+  height: 140px;
+  margin: auto auto 0;
+}
+
+/* Landing: same stage layout, re-tinted to a warm night garden */
+.entry-stage {
+  --stage-bg: #2b2327;
+  --stage-ink: #f7efe7;
+  --stage-muted: #d2c4ba;
+  --stage-accent: #f0bba7;
+  --stage-soft: #bcd6b8;
+  --stage-kicker: #e3ece1;
+  background:
+    radial-gradient(1100px 480px at 88% -12%, rgba(138, 165, 138, 0.32), transparent 62%),
+    radial-gradient(700px 420px at -8% 110%, rgba(232, 180, 166, 0.2), transparent 55%),
+    var(--stage-bg);
+}
+
+[data-theme="contrast"] .entry-stage {
+  --stage-bg: #ffffff;
+  --stage-ink: #000000;
+  --stage-kicker: #000000;
+  background: #ffffff;
+}
+
+html {
+  overflow-x: clip;
+}
+
+/* Landing scene: a full-bleed band of hills under the stage */
+.entry-scene {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  height: clamp(180px, 23.5vw, 360px);
+  position: relative;
+}
+
+.entry-scene::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 48px;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+}
+
+.entry-scene .hero-scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+h1 .badge,
+h2 .badge {
+  font-family: var(--font-ui);
+  font-variation-settings: normal;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+/* Loading: a sleeping cat while things get ready */
+.loading-notice {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  text-align: center;
+}
+
+.loading-notice .nature {
+  width: 170px;
+  height: 110px;
+}
+
+/* After an approved sentence is spoken, a butterfly lifts away */
+.now-speaking {
+  position: relative;
+}
+
+.spoken-butterfly {
+  position: absolute;
+  right: var(--space-5);
+  top: -18px;
+  width: 54px;
+  height: 46px;
+  animation: n-lift 3.6s ease-out forwards;
+}
+
+@keyframes n-lift {
+  0% { opacity: 0; transform: translate(0, 14px) rotate(-6deg); }
+  15% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(36px, -70px) rotate(10deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nature,
+  .nature * {
+    animation: none !important;
+  }
+
+  .spoken-butterfly {
+    animation: none !important;
+  }
+}
+
+/* Dark: inverted "ink" surfaces would turn bright; keep them deep and warm */
+[data-theme="dark"] :is(.now-speaking, .play-btn, .shift-card, .coach-avatar, .msg-q) {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .shift-card .btn {
+  --btn-bg: var(--accent);
+  --btn-ink: var(--on-accent);
+  --btn-line: var(--accent);
 }

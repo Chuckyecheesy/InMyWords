@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { DisplayMenu } from "./DisplayMenu";
+import { GardenEdge } from "./nature";
 import { WordmarkMark } from "./ui";
 
 /** Plain shell for utility pages (not found, task board). */
@@ -47,6 +48,7 @@ export function AppShell({
         </div>
         {children}
       </main>
+      <GardenEdge />
     </div>
   );
 }
