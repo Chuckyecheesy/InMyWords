@@ -5,6 +5,12 @@
 *.pem
 inmyways-*.json
 
+# Root package.json exists only for the local Railway IaC SDK (.railway/railway.ts).
+# Never commit it: a package.json at the repo root would make Railway's builder
+# detect Node instead of Python for the api and booking services.
+/package.json
+/package-lock.json
+
 # Node / Next.js
 node_modules/
 .next/
